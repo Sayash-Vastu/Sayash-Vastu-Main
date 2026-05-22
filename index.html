@@ -657,6 +657,7 @@ tbody tr:hover{background:#fafbff}
           <span class="ni">✅</span><span>Leave Approvals</span>
           <span class="nav-badge" id="nb-leave-approve" style="display:none">0</span>
         </button>
+        <button class="nav-btn" id="nav-performance" onclick="showView('performance')" style="display:none;padding-left:32px"><span class="ni">📈</span><span>Performance</span></button>
       </div>
 
       <div class="sidebar-logout">
@@ -1640,6 +1641,50 @@ tbody tr:hover{background:#fafbff}
         </div>
       </div>
 
+
+      <!-- PERFORMANCE VIEW -->
+      <div class="view" id="view-performance">
+        <div class="page-header">
+          <h2>Employee Performance</h2>
+          <p>Track and monitor employee performance</p>
+        </div>
+        <!-- My Performance Card (Employee) -->
+        <div id="myPerfCard" style="display:none;margin-bottom:20px">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">📈 My Performance</div></div>
+            <div id="myPerfContent" class="panel-body"></div>
+          </div>
+        </div>
+        <!-- All Employees Performance (CEO) -->
+        <div id="allPerfSection" style="display:none">
+          <div class="panel">
+            <div class="panel-head">
+              <div class="panel-title">📊 Team Performance</div>
+              <button class="btn-export" onclick="exportPerformancePDF()">📄 Export PDF</button>
+            </div>
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Department</th>
+                    <th>Total Tasks</th>
+                    <th>Completed</th>
+                    <th>Pending</th>
+                    <th>Delayed</th>
+                    <th>Completion %</th>
+                    <th>Attendance %</th>
+                    <th>Avg Hours/Day</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="perfTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
       <!-- LEAVE APPROVALS CEO -->
       <div class="view" id="view-leaveApprove">
         <div class="page-header">
@@ -2145,7 +2190,7 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
+    ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve','nav-performance'].forEach(id => {
       document.getElementById(id).style.display = 'flex';
     });
     document.getElementById('ceo-section').style.display = 'block';
@@ -2158,6 +2203,9 @@ function showApp() {
     ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
+    // Show performance for employees
+    const perfBtn = document.getElementById('nav-performance');
+    if(perfBtn) perfBtn.style.display = 'flex';
     document.getElementById('ceo-section').style.display = 'none';
     document.getElementById('ceo-notice-form').style.display = 'none';
     document.getElementById('nav-tasks').style.display = 'flex';
@@ -2213,6 +2261,7 @@ const viewTitles = {
   hrPolicy: ['HR Policies','Company policies — read and acknowledge'],
   projects: ['Projects','Company project overview'],
   helpRequest: ['Help Requests','Request help from colleagues'],
+  performance: ['Employee Performance','Track and monitor performance'],
 };
 
 function showView(name) {
@@ -2255,6 +2304,7 @@ function showView(name) {
     loadAttReport();
   }
   if (name === 'leaveApprove') loadLeaveApprovals();
+  if (name === 'performance') loadPerformance();
   if (name === 'seniorReview') loadSeniorReview();
   if (name === 'myProfile') loadMyProfile();
   if (name === 'tickets') loadTickets();
