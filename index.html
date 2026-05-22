@@ -2130,8 +2130,6 @@ function doLogout() {
   document.getElementById('loginPass').value = '';
 }
 
-function loadCeoActivityFeed() { return; }
-
 // ═══════════════════════════════════════════
 //  SHOW APP
 // ═══════════════════════════════════════════
@@ -2814,7 +2812,7 @@ async function loadHelpBadge() {
   } catch(e) {}
 }
 
-async function ``() {
+async function loadCeoActivityFeed() {
   const _el = document.getElementById('ceoActivitySection'); if(_el) _el.style.display = 'none';
   const { data: tasks } = await sb.from('tasks').select('*').order('updated_at',{ascending:false});
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', new Date().toISOString().split('T')[0]);
