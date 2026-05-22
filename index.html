@@ -836,7 +836,15 @@ tbody tr:hover{background:#fafbff}
             <p id="homeSubtitle">Here's your company overview</p>
           </div>
           <div class="stat-grid" id="homeStats"></div>
-          
+          <div id="ceoActivitySection" style="display:none;margin-bottom:20px">
+            <div class="panel">
+              <div class="panel-head">
+                <div class="panel-title">👁️ Live Company Activity</div>
+                <button class="btn btn-outline btn-sm" onclick="showView('allTasks')">All Tasks →</button>
+              </div>
+              <div id="ceoActivityFeed" style="padding:0"></div>
+            </div>
+          </div>
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
             <!-- On Leave Today -->
             <div class="panel" style="margin-bottom:0">
@@ -2114,13 +2122,15 @@ function showLoginError(msg) {
   el.textContent = msg; el.style.display = 'block';
 }
 
-function loadCeoActivityFeed() { return; }
+function doLogout() {
   sessionStorage.removeItem('sv_user'); currentUser = null;
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('appPage').style.display = 'none';
   document.getElementById('loginEmail').value = '';
   document.getElementById('loginPass').value = '';
 }
+
+function loadCeoActivityFeed() { return; }
 
 // ═══════════════════════════════════════════
 //  SHOW APP
