@@ -545,10 +545,19 @@ tbody tr:hover{background:#fafbff}
   .ceo-stats-row{grid-template-columns:1fr 1fr}
 }
 
+
+
 /* Hide Vercel badge */
-#__vercel_toolbar_container, vercel-toolbar, [data-vercel-toolbar] {
+vercel-live-feedback,
+#__vercel_toolbar_container,
+.__vercel-toolbar,
+[data-vercel-toolbar],
+vercel-toolbar,
+div[style*="z-index: 2147483647"] {
   display: none !important;
+  opacity: 0 !important;
   visibility: hidden !important;
+  pointer-events: none !important;
 }
 </style>
 </head>
@@ -641,12 +650,18 @@ tbody tr:hover{background:#fafbff}
       </div>
 
       <div class="sidebar-section">Company</div>
-      <button class="nav-btn" id="nav-performance" onclick="showView('performance')"><span class="ni">📈</span><span>Performance</span></button>
-      <button class="nav-btn" onclick="showView('tickets')">
-        <span class="ni">🎫</span><span>Tickets</span>
-        <span class="nav-badge" id="nb-tickets" style="display:none">0</span>
+      <button class="nav-btn" onclick="toggleSideMenu('companyMenu')" id="nav-company-parent">
+        <span class="ni">🏢</span><span>Company</span>
+        <span id="company-arrow" style="margin-left:auto;font-size:10px;transition:transform 0.2s">▶</span>
       </button>
-      <button class="nav-btn" onclick="showView('notices')"><span class="ni">📢</span><span>Notice Board</span></button>
+      <div id="companyMenu" style="display:none">
+        <button class="nav-btn" id="nav-performance" onclick="showView('performance')" style="padding-left:32px"><span class="ni">📈</span><span>Performance</span></button>
+        <button class="nav-btn" onclick="showView('tickets')" style="padding-left:32px">
+          <span class="ni">🎫</span><span>Tickets</span>
+          <span class="nav-badge" id="nb-tickets" style="display:none">0</span>
+        </button>
+        <button class="nav-btn" onclick="showView('notices')" style="padding-left:32px"><span class="ni">📢</span><span>Notice Board</span></button>
+      </div>
 
       <div class="sidebar-section">Account</div>
       <button class="nav-btn" id="nav-profile" onclick="showView('myProfile')"><span class="ni">⚙️</span><span>My Profile</span></button>
@@ -664,6 +679,7 @@ tbody tr:hover{background:#fafbff}
           <span class="ni">✅</span><span>Leave Approvals</span>
           <span class="nav-badge" id="nb-leave-approve" style="display:none">0</span>
         </button>
+        <button class="nav-btn" id="nav-perf-ceo" onclick="showView('performance')" style="display:none;padding-left:32px"><span class="ni">📈</span><span>Performance</span></button>
 
       </div>
 
@@ -2196,7 +2212,7 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
+    ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve','nav-perf-ceo'].forEach(id => {
       document.getElementById(id).style.display = 'flex';
     });
     document.getElementById('ceo-section').style.display = 'block';
@@ -2275,6 +2291,11 @@ function showView(name) {
   if (['tasks','assign','seniorReview','projects','helpRequest'].includes(name)) {
     document.getElementById('workMenu').style.display = 'block';
     const arr = document.getElementById('work-arrow');
+    if (arr) arr.style.transform = 'rotate(90deg)';
+  }
+  if (['performance','tickets','notices'].includes(name)) {
+    document.getElementById('companyMenu').style.display = 'block';
+    const arr = document.getElementById('company-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
   }
   if (['attendance','leaves','holidays','hrPolicy'].includes(name)) {
@@ -5074,7 +5095,7 @@ function toggleSideMenu(menuId) {
   const isOpen = menu.style.display !== 'none';
   menu.style.display = isOpen ? 'none' : 'block';
   // Update arrow
-  const arrowMap = {'workMenu':'work-arrow','hrMenu':'hr-arrow','ceoMenu':'ceo-arrow'};
+  const arrowMap = {'workMenu':'work-arrow','hrMenu':'hr-arrow','ceoMenu':'ceo-arrow','companyMenu':'company-arrow'};
   const arrowEl = document.getElementById(arrowMap[menuId]);
   if (arrowEl) arrowEl.style.transform = isOpen ? '' : 'rotate(90deg)';
 }
@@ -5223,6 +5244,25 @@ async function exportPerformancePDF() {
   showToast('✅ Performance PDF exported!','ok');
 }
 
+
+
+// Hide Vercel toolbar
+function hideVercelBadge() {
+  const selectors = ['vercel-live-feedback','#__vercel_toolbar_container','.__vercel-toolbar'];
+  selectors.forEach(s => {
+    const el = document.querySelector(s);
+    if(el) el.style.display = 'none';
+  });
+  // Also hide by z-index
+  document.querySelectorAll('*').forEach(el => {
+    const z = window.getComputedStyle(el).zIndex;
+    if(parseInt(z) > 2000000 && el.tagName !== 'BODY' && el.tagName !== 'HTML') {
+      el.style.display = 'none';
+    }
+  });
+}
+setTimeout(hideVercelBadge, 1000);
+setTimeout(hideVercelBadge, 3000);
 
 </script>
 </body>
