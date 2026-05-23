@@ -2213,7 +2213,15 @@ function showApp() {
   document.getElementById('appPage').style.display = 'block';
 
   const av = currentUser.name.substring(0,2).toUpperCase();
-  document.getElementById('sidebarAv').textContent = av;
+  const sidebarAvEl = document.getElementById('sidebarAv');
+  if (currentUser.photo_url) {
+    sidebarAvEl.innerHTML = `<img src="${currentUser.photo_url}" style="width:36px;height:36px;object-fit:cover;border-radius:50%"/>`;
+    sidebarAvEl.style.background = 'transparent';
+    sidebarAvEl.style.padding = '0';
+  } else {
+    sidebarAvEl.textContent = av;
+    sidebarAvEl.style.background = '';
+  }
   document.getElementById('sidebarName').textContent = currentUser.name;
   document.getElementById('sidebarRole').textContent = currentUser.role.toUpperCase();
 
@@ -4760,34 +4768,76 @@ async function loadHRPolicies() {
   const { data: acks } = await sb.from('policy_acknowledgements').select('policy_id').eq('employee_email', currentUser.email);
   const ackedIds = (acks || []).map(a => a.policy_id);
 
+  // Get acknowledgement counts for each policy
+  const { data: allAcks } = await sb.from('policy_acknowledgements').select('policy_id, employee_email, employee_name, acknowledged_at');
+  const { data: totalEmps } = await sb.from('employees').select('id').eq('is_active',true);
+  const totalEmpCount = (totalEmps||[]).length;
+
   el.innerHTML = policies.map(p => {
     const isAcked = ackedIds.includes(p.id);
-    return `<div class="panel" style="margin-bottom:14px">
-      <div class="panel-head">
-        <div>
-          <div class="panel-title">📜 ${esc(p.title)}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(p.description||'')} · Uploaded: ${new Date(p.created_at).toLocaleDateString('en-IN')}</div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${isAcked ? '<span class="badge b-green">✅ Acknowledged</span>' : 
-            p.mandatory_acknowledge ? '<span class="badge b-red">⚠️ Action Required</span>' : '<span class="badge b-gray">Optional</span>'}
-          ${(currentUser.role==='ceo'||currentUser.role==='manager') ? `<button class="btn btn-sm btn-red" onclick="deletePolicy('${p.id}')">🗑️</button>` : ''}
-        </div>
-      </div>
-      <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:24px">📄</span>
+    const policyAcks = (allAcks||[]).filter(a=>a.policy_id===p.id);
+    const ackCount = policyAcks.length;
+    const ackPct = totalEmpCount > 0 ? Math.round((ackCount/totalEmpCount)*100) : 0;
+
+    if (isCEO) {
+      // CEO view - tracker only
+      return `<div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
           <div>
-            <div style="font-size:13px;font-weight:600;color:var(--navy)">${esc(p.file_name||'Policy Document')}</div>
-            ${p.mandatory_acknowledge && !isAcked ? '<div style="font-size:11px;color:var(--red);font-weight:600;margin-top:2px">⚠️ Please read and acknowledge this policy</div>' : ''}
+            <div class="panel-title">📜 ${esc(p.title)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(p.description||'')} · Uploaded: ${new Date(p.created_at).toLocaleDateString('en-IN')}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="badge ${ackPct===100?'b-green':ackPct>50?'b-amber':'b-red'}">${ackPct}% Acknowledged</span>
+            ${p.file_url?`<a href="${p.file_url}" target="_blank" class="btn btn-outline btn-sm">👁️ View</a>`:''}
+            <button class="btn btn-sm" onclick="deletePolicy('${p.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
           </div>
         </div>
-        <div style="display:flex;gap:8px">
-          ${p.file_url ? `<a href="${p.file_url}" target="_blank" class="btn btn-outline btn-sm">👁️ View PDF</a>` : ''}
-          ${!isAcked ? `<button class="btn btn-gold btn-sm" onclick="acknowledgePolicy('${p.id}')">✅ I have read this policy</button>` : ''}
+        <div class="panel-body">
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+            <div style="flex:1">
+              <div class="progress-bar" style="height:8px">
+                <div class="progress-fill" style="width:${ackPct}%;background:${ackPct===100?'var(--green)':ackPct>50?'var(--amber)':'var(--red)'}"></div>
+              </div>
+            </div>
+            <span style="font-size:12px;font-weight:700;color:var(--navy)">${ackCount}/${totalEmpCount} employees</span>
+          </div>
+          ${ackCount > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${policyAcks.map(a=>`<div style="display:flex;align-items:center;gap:5px;background:var(--green-bg);padding:4px 8px;border-radius:20px">
+              <span style="font-size:10px">✅</span>
+              <span style="font-size:11px;font-weight:600;color:var(--green)">${esc(a.employee_name)}</span>
+            </div>`).join('')}
+          </div>` : '<div style="font-size:12px;color:var(--muted)">No acknowledgements yet</div>'}
         </div>
-      </div>
-    </div>`;
+      </div>`;
+    } else {
+      // Employee view - full with acknowledge
+      return `<div class="panel" style="margin-bottom:14px">
+        <div class="panel-head">
+          <div>
+            <div class="panel-title">📜 ${esc(p.title)}</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(p.description||'')} · Uploaded: ${new Date(p.created_at).toLocaleDateString('en-IN')}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            ${isAcked ? '<span class="badge b-green">✅ Acknowledged</span>' : 
+              p.mandatory_acknowledge ? '<span class="badge b-red">⚠️ Action Required</span>' : '<span class="badge b-gray">Optional</span>'}
+          </div>
+        </div>
+        <div class="panel-body" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:24px">📄</span>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--navy)">${esc(p.file_name||'Policy Document')}</div>
+              ${p.mandatory_acknowledge && !isAcked ? '<div style="font-size:11px;color:var(--red);font-weight:600;margin-top:2px">⚠️ Please read and acknowledge this policy</div>' : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px">
+            ${p.file_url ? `<a href="${p.file_url}" target="_blank" class="btn btn-outline btn-sm">👁️ View PDF</a>` : ''}
+            ${!isAcked ? `<button class="btn btn-gold btn-sm" onclick="acknowledgePolicy('${p.id}')">✅ I have read this policy</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }
   }).join('');
 }
 
@@ -5067,20 +5117,51 @@ async function changeOwnPassword() {
 async function uploadProfilePhoto(input) {
   const file = input.files[0];
   if (!file) return;
-  if (file.size > 2 * 1024 * 1024) { showToast('❌ File too large (max 2MB)', 'err'); return; }
+  if (file.size > 5 * 1024 * 1024) { showToast('❌ File too large (max 5MB)', 'err'); return; }
+
+  // Show preview immediately
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const photoEl = document.getElementById('profilePhotoWrap');
+    if (photoEl) photoEl.innerHTML = `<img src="${e.target.result}" style="width:90px;height:90px;object-fit:cover;border-radius:50%"/>`;
+  };
+  reader.readAsDataURL(file);
+
   showToast('⏳ Uploading photo...', '');
-  const ext = file.name.split('.').pop();
-  const path = `${currentUser.id}/profile.${ext}`;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const path = `${currentUser.id}/profile_${Date.now()}.${ext}`;
+
+  // Try employee-photos bucket
   const { error: uploadErr } = await sb.storage.from('employee-photos').upload(path, file, {upsert: true});
-  if (uploadErr) { showToast('❌ Upload failed: '+uploadErr.message, 'err'); return; }
-  const { data: urlData } = sb.storage.from('employee-photos').getPublicUrl(path);
+  if (uploadErr) {
+    // Try task-files bucket as fallback
+    const { error: uploadErr2 } = await sb.storage.from('task-files').upload(path, file, {upsert: true});
+    if (uploadErr2) { showToast('❌ Upload failed: '+uploadErr2.message, 'err'); return; }
+    var urlData = sb.storage.from('task-files').getPublicUrl(path).data;
+  } else {
+    var urlData = sb.storage.from('employee-photos').getPublicUrl(path).data;
+  }
+
+  // Add cache buster to URL
+  const photoUrl = urlData.publicUrl + '?t=' + Date.now();
   const { error: updateErr } = await sb.from('employees').update({photo_url: urlData.publicUrl}).eq('email', currentUser.email);
   if (updateErr) { showToast('❌ '+updateErr.message, 'err'); return; }
   currentUser.photo_url = urlData.publicUrl;
   sessionStorage.setItem('sv_user', JSON.stringify(currentUser));
   showToast('✅ Photo updated!', 'ok');
-  loadMyProfile();
-  loadEmpDashboard();
+
+  // Update sidebar photo
+  const sidebarAvEl = document.getElementById('sidebarAv');
+  if (sidebarAvEl) {
+    sidebarAvEl.innerHTML = `<img src="${photoUrl}" style="width:36px;height:36px;object-fit:cover;border-radius:50%"/>`;
+    sidebarAvEl.style.background = 'transparent';
+  }
+  // Update profile photo wrap
+  const photoWrap = document.getElementById('profilePhotoWrap');
+  if (photoWrap) photoWrap.innerHTML = `<img src="${photoUrl}" style="width:90px;height:90px;object-fit:cover;border-radius:50%"/>`;
+  // Update emp dashboard avatar
+  const empAv = document.getElementById('empPhotoAv');
+  if (empAv) { empAv.innerHTML = `<img src="${photoUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:50%"/>`; empAv.style.background='transparent'; }
 }
 
 // Birthday check
