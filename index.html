@@ -643,6 +643,7 @@ vercel-toolbar {
       </div>
 
       <div class="sidebar-section">Company</div>
+      <button class="nav-btn" onclick="showView('performance')"><span class="ni">📈</span><span>Performance</span></button>
       <button class="nav-btn" onclick="showView('notices')"><span class="ni">📢</span><span>Notice Board</span></button>
       <button class="nav-btn" onclick="showView('tickets')">
         <span class="ni">🎫</span><span>Tickets</span>
@@ -658,13 +659,13 @@ vercel-toolbar {
         <span id="ceo-arrow" style="margin-left:auto;font-size:10px;transition:transform 0.2s">▶</span>
       </button>
       <div id="ceoMenu" style="display:none">
-        <button class="nav-btn" id="nav-all-tasks" onclick="showView('allTasks')" style="display:none;padding-left:32px"><span class="ni">📊</span><span>All Tasks</span></button>
         <button class="nav-btn" id="nav-employees" onclick="showView('employees')" style="display:none;padding-left:32px"><span class="ni">👥</span><span>Employees</span></button>
         <button class="nav-btn" id="nav-att-report" onclick="showView('attReport')" style="display:none;padding-left:32px"><span class="ni">📅</span><span>Att. Report</span></button>
         <button class="nav-btn" id="nav-leave-approve" onclick="showView('leaveApprove')" style="display:none;padding-left:32px">
           <span class="ni">✅</span><span>Leave Approvals</span>
           <span class="nav-badge" id="nb-leave-approve" style="display:none">0</span>
         </button>
+        <button class="nav-btn" id="nav-perf-ceo" onclick="showView('performance')" style="display:none;padding-left:32px"><span class="ni">📈</span><span>Performance</span></button>
       </div>
 
       <div class="sidebar-logout">
@@ -2251,8 +2252,9 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
-      document.getElementById(id).style.display = 'flex';
+    ['nav-employees','nav-att-report','nav-leave-approve','nav-perf-ceo','nav-all-tasks-work'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'flex';
     });
     document.getElementById('ceo-section').style.display = 'block';
     document.getElementById('nav-ceo-parent').style.display = 'flex';
