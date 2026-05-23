@@ -544,6 +544,20 @@ tbody tr:hover{background:#fafbff}
   .form-grid.cols-2,.form-grid.cols-3{grid-template-columns:1fr}
   .ceo-stats-row{grid-template-columns:1fr 1fr}
 }
+/* Hide Vercel toolbar */
+vercel-live-feedback,
+nextjs-portal,
+#__vercel_toolbar_container,
+.__vercel-toolbar,
+[data-vercel-toolbar],
+vercel-toolbar {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+}
 </style>
 </head>
 <body>
@@ -4817,9 +4831,16 @@ async function uploadPolicy() {
   if (!file) { msgEl.textContent='⚠️ Select a PDF file'; msgEl.style.color='var(--red)'; return; }
   msgEl.textContent='⏳ Uploading...'; msgEl.style.color='var(--muted)';
   const path = `policies/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
-  const { error: uploadErr } = await sb.storage.from('task-files').upload(path, file, {upsert: false});
-  if (uploadErr) { msgEl.textContent='❌ '+uploadErr.message; msgEl.style.color='var(--red)'; return; }
-  const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+  // Try task-files first, fallback to employee-photos bucket
+  let uploadErr, urlData;
+  const uploadResult = await sb.storage.from('task-files').upload(path, file, {upsert: true});
+  if (uploadResult.error) {
+    const uploadResult2 = await sb.storage.from('employee-photos').upload(path, file, {upsert: true});
+    if (uploadResult2.error) { msgEl.textContent='❌ Upload failed: '+uploadResult2.error.message; msgEl.style.color='var(--red)'; return; }
+    urlData = sb.storage.from('employee-photos').getPublicUrl(path).data;
+  } else {
+    urlData = sb.storage.from('task-files').getPublicUrl(path).data;
+  }
   const { error } = await sb.from('hr_policies').insert({
     title, description: desc,
     file_url: urlData.publicUrl,
@@ -5338,6 +5359,18 @@ function showToast(msg, type) {
 document.querySelectorAll('.modal-overlay').forEach(el=>{
   el.addEventListener('click',function(e){ if(e.target===this) this.classList.remove('open'); });
 });
+// Hide Vercel badge
+function hideVercelBadge() {
+  ['vercel-live-feedback','nextjs-portal','[data-vercel-toolbar]'].forEach(s => {
+    try { document.querySelectorAll(s).forEach(el => el.style.cssText = 'display:none!important;opacity:0!important;width:0!important;height:0!important'); } catch(e){}
+  });
+  document.querySelectorAll('*').forEach(el => {
+    try { if(parseInt(window.getComputedStyle(el).zIndex) > 9999999 && !['BODY','HTML'].includes(el.tagName) && el.id !== 'toast') el.style.display='none'; } catch(e){}
+  });
+}
+setTimeout(hideVercelBadge, 500);
+setTimeout(hideVercelBadge, 2000);
+new MutationObserver(hideVercelBadge).observe(document.body, {childList:true, subtree:true});
 </script>
 </body>
 </html>
