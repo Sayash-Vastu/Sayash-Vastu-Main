@@ -544,21 +544,6 @@ tbody tr:hover{background:#fafbff}
   .form-grid.cols-2,.form-grid.cols-3{grid-template-columns:1fr}
   .ceo-stats-row{grid-template-columns:1fr 1fr}
 }
-
-
-
-/* Hide Vercel badge */
-vercel-live-feedback,
-#__vercel_toolbar_container,
-.__vercel-toolbar,
-[data-vercel-toolbar],
-vercel-toolbar,
-div[style*="z-index: 2147483647"] {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
 </style>
 </head>
 <body>
@@ -650,18 +635,11 @@ div[style*="z-index: 2147483647"] {
       </div>
 
       <div class="sidebar-section">Company</div>
-      <button class="nav-btn" onclick="toggleSideMenu('companyMenu')" id="nav-company-parent">
-        <span class="ni">🏢</span><span>Company</span>
-        <span id="company-arrow" style="margin-left:auto;font-size:10px;transition:transform 0.2s">▶</span>
+      <button class="nav-btn" onclick="showView('notices')"><span class="ni">📢</span><span>Notice Board</span></button>
+      <button class="nav-btn" onclick="showView('tickets')">
+        <span class="ni">🎫</span><span>Tickets</span>
+        <span class="nav-badge" id="nb-tickets" style="display:none">0</span>
       </button>
-      <div id="companyMenu" style="display:none">
-        <button class="nav-btn" id="nav-performance" onclick="showView('performance')" style="padding-left:32px"><span class="ni">📈</span><span>Performance</span></button>
-        <button class="nav-btn" onclick="showView('tickets')" style="padding-left:32px">
-          <span class="ni">🎫</span><span>Tickets</span>
-          <span class="nav-badge" id="nb-tickets" style="display:none">0</span>
-        </button>
-        <button class="nav-btn" onclick="showView('notices')" style="padding-left:32px"><span class="ni">📢</span><span>Notice Board</span></button>
-      </div>
 
       <div class="sidebar-section">Account</div>
       <button class="nav-btn" id="nav-profile" onclick="showView('myProfile')"><span class="ni">⚙️</span><span>My Profile</span></button>
@@ -679,8 +657,6 @@ div[style*="z-index: 2147483647"] {
           <span class="ni">✅</span><span>Leave Approvals</span>
           <span class="nav-badge" id="nb-leave-approve" style="display:none">0</span>
         </button>
-        <button class="nav-btn" id="nav-perf-ceo" onclick="showView('performance')" style="display:none;padding-left:32px"><span class="ni">📈</span><span>Performance</span></button>
-
       </div>
 
       <div class="sidebar-logout">
@@ -1304,6 +1280,37 @@ div[style*="z-index: 2147483647"] {
         <div id="projectsList"></div>
       </div>
 
+      <!-- PROJECT UPDATE MODAL -->
+      <div class="modal-overlay" id="projectUpdateModal">
+        <div class="modal" style="width:480px">
+          <div class="modal-title">🗂️ Update Project</div>
+          <div style="margin-bottom:16px;padding:12px;background:#f8f9fc;border-radius:8px">
+            <div style="font-size:14px;font-weight:700;color:var(--navy)" id="puProjectName">—</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px" id="puProjectDesc">—</div>
+          </div>
+          <div class="form-grid">
+            <div class="field">
+              <label>Update Status</label>
+              <select id="pu-status">
+                <option>Not Started</option>
+                <option>In Progress</option>
+                <option>On Hold</option>
+                <option>Completed</option>
+              </select>
+            </div>
+            <div class="field">
+              <label>Comment / Update</label>
+              <textarea id="pu-comment" placeholder="What progress have you made? Any blockers?" style="min-height:100px"></textarea>
+            </div>
+          </div>
+          <div id="puMsg" style="font-size:12px;font-weight:600;margin-top:8px"></div>
+          <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal('projectUpdateModal')">Cancel</button>
+            <button class="btn btn-gold" onclick="saveProjectUpdate()">💾 Save Update</button>
+          </div>
+        </div>
+      </div>
+
       <!-- HELP REQUEST VIEW -->
       <div class="view" id="view-helpRequest">
         <div class="page-header">
@@ -1474,26 +1481,21 @@ div[style*="z-index: 2147483647"] {
         </div>
 
         <!-- Stats -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px">
           <div class="stat-card sc-blue" style="cursor:pointer" onclick="filterTickets('all')">
-            <div class="stat-icon">🎫</div>
-            <div class="stat-num" id="tk-total">0</div>
-            <div class="stat-lbl">Total Tickets</div>
+            <div class="stat-icon">🎫</div><div class="stat-num" id="tk-total">0</div><div class="stat-lbl">Total</div>
           </div>
           <div class="stat-card sc-gold" style="cursor:pointer" onclick="filterTickets('Open')">
-            <div class="stat-icon">📬</div>
-            <div class="stat-num" id="tk-open">0</div>
-            <div class="stat-lbl">Open</div>
+            <div class="stat-icon">📬</div><div class="stat-num" id="tk-open">0</div><div class="stat-lbl">Open</div>
           </div>
           <div class="stat-card sc-navy" style="cursor:pointer" onclick="filterTickets('In Progress')">
-            <div class="stat-icon">⚡</div>
-            <div class="stat-num" id="tk-progress">0</div>
-            <div class="stat-lbl">In Progress</div>
+            <div class="stat-icon">⚡</div><div class="stat-num" id="tk-progress">0</div><div class="stat-lbl">In Progress</div>
           </div>
           <div class="stat-card sc-green" style="cursor:pointer" onclick="filterTickets('Resolved')">
-            <div class="stat-icon">✅</div>
-            <div class="stat-num" id="tk-resolved">0</div>
-            <div class="stat-lbl">Resolved</div>
+            <div class="stat-icon">✅</div><div class="stat-num" id="tk-resolved">0</div><div class="stat-lbl">Resolved</div>
+          </div>
+          <div class="stat-card sc-red" style="cursor:pointer" onclick="filterTickets('overdue')">
+            <div class="stat-icon">⚠️</div><div class="stat-num" id="tk-overdue">0</div><div class="stat-lbl">Overdue SLA</div>
           </div>
         </div>
 
@@ -1502,7 +1504,7 @@ div[style*="z-index: 2147483647"] {
           <div>
             <div class="panel">
               <div class="panel-head">
-                <div class="panel-title">🎫 All Tickets</div>
+                <div class="panel-title">🎫 Tickets</div>
                 <div style="display:flex;gap:8px">
                   <select id="tk-filter" class="btn btn-outline btn-sm" onchange="filterTickets(this.value)" style="cursor:pointer">
                     <option value="all">All Status</option>
@@ -1510,6 +1512,7 @@ div[style*="z-index: 2147483647"] {
                     <option value="In Progress">In Progress</option>
                     <option value="Resolved">Resolved</option>
                     <option value="Closed">Closed</option>
+                    <option value="overdue">⚠️ Overdue SLA</option>
                   </select>
                   <button class="btn-export" onclick="exportTicketsPDF()">📄 Export</button>
                 </div>
@@ -1518,9 +1521,9 @@ div[style*="z-index: 2147483647"] {
             </div>
           </div>
 
-          <!-- Right: Create Ticket -->
+          <!-- Right: Create Ticket + SLA Info -->
           <div>
-            <div class="panel">
+            <div class="panel" style="margin-bottom:14px">
               <div class="panel-head"><div class="panel-title">➕ Create Ticket</div></div>
               <div class="panel-body">
                 <div class="form-grid">
@@ -1541,27 +1544,61 @@ div[style*="z-index: 2147483647"] {
                   </div>
                   <div class="field">
                     <label>Priority</label>
-                    <select id="tk-priority">
-                      <option>Low</option>
-                      <option selected>Medium</option>
-                      <option>High</option>
-                      <option>Urgent</option>
+                    <select id="tk-priority" onchange="updateSLAInfo(this.value)">
+                      <option value="Low">Low</option>
+                      <option value="Medium" selected>Medium</option>
+                      <option value="High">High</option>
+                      <option value="Urgent">Urgent</option>
                     </select>
                   </div>
-                  <div class="field">
+                  <div id="sla-info-box" style="padding:8px 12px;background:#eef2fb;border-radius:8px;font-size:11px;color:var(--blue)">
+                    ⏱️ SLA: Response in <strong>8hrs</strong>, Resolution in <strong>48hrs</strong>
+                  </div>
+                  <div class="field" id="tk-assign-field">
                     <label>Assign To</label>
                     <input type="text" id="tk-assign-name" list="tkAssignList" placeholder="Select person..."/>
                     <datalist id="tkAssignList"></datalist>
                   </div>
                   <div class="field">
                     <label>Description</label>
-                    <textarea id="tk-desc" placeholder="Describe your issue in detail..." style="min-height:100px"></textarea>
+                    <textarea id="tk-desc" placeholder="Describe your issue in detail..." style="min-height:80px"></textarea>
                   </div>
                 </div>
                 <button class="btn btn-gold" style="width:100%;margin-top:12px" onclick="createTicket()">🎫 Submit Ticket</button>
                 <span id="tkMsg" style="display:block;text-align:center;margin-top:8px;font-size:12px;font-weight:600"></span>
               </div>
             </div>
+
+            <!-- SLA Reference -->
+            <div class="panel">
+              <div class="panel-head"><div class="panel-title">⏱️ SLA Policy</div></div>
+              <div style="padding:12px 16px">
+                <table style="width:100%;font-size:11px">
+                  <thead><tr style="background:#f8f9fc">
+                    <th style="padding:6px 8px;text-align:left;color:var(--muted)">Priority</th>
+                    <th style="padding:6px 8px;text-align:left;color:var(--muted)">Response</th>
+                    <th style="padding:6px 8px;text-align:left;color:var(--muted)">Resolution</th>
+                  </tr></thead>
+                  <tbody>
+                    <tr><td style="padding:6px 8px"><span class="badge b-red">Urgent</span></td><td style="padding:6px 8px;font-weight:600">1 hr</td><td style="padding:6px 8px;font-weight:600">4 hrs</td></tr>
+                    <tr><td style="padding:6px 8px"><span class="badge b-amber">High</span></td><td style="padding:6px 8px;font-weight:600">4 hrs</td><td style="padding:6px 8px;font-weight:600">24 hrs</td></tr>
+                    <tr><td style="padding:6px 8px"><span class="badge b-blue">Medium</span></td><td style="padding:6px 8px;font-weight:600">8 hrs</td><td style="padding:6px 8px;font-weight:600">48 hrs</td></tr>
+                    <tr><td style="padding:6px 8px"><span class="badge b-gray">Low</span></td><td style="padding:6px 8px;font-weight:600">24 hrs</td><td style="padding:6px 8px;font-weight:600">72 hrs</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TICKET DETAIL MODAL -->
+      <div class="modal-overlay" id="ticketDetailModal">
+        <div class="modal" style="width:600px;max-height:85vh;overflow-y:auto">
+          <div class="modal-title">🎫 Ticket Details</div>
+          <div id="ticketDetailContent"></div>
+          <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal('ticketDetailModal')">Close</button>
           </div>
         </div>
       </div>
@@ -1664,49 +1701,6 @@ div[style*="z-index: 2147483647"] {
         </div>
       </div>
 
-
-      <!-- PERFORMANCE VIEW -->
-      <div class="view" id="view-performance">
-        <div class="page-header">
-          <h2>Employee Performance</h2>
-          <p>Track and monitor employee performance</p>
-        </div>
-        <!-- My Performance Card (Employee) -->
-        <div id="myPerfCard" style="display:none;margin-bottom:20px">
-          <div class="panel">
-            <div class="panel-head"><div class="panel-title">📈 My Performance</div></div>
-            <div id="myPerfContent" class="panel-body"></div>
-          </div>
-        </div>
-        <!-- All Employees Performance (CEO) -->
-        <div id="allPerfSection" style="display:none">
-          <div class="panel">
-            <div class="panel-head">
-              <div class="panel-title">📊 Team Performance</div>
-              <button class="btn-export" onclick="exportPerformancePDF()">📄 Export PDF</button>
-            </div>
-            <div class="tbl-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Name</th>
-                    <th>Department</th>
-                    <th>Total Tasks</th>
-                    <th>Completed</th>
-                    <th>Pending</th>
-                    <th>Delayed</th>
-                    <th>Completion %</th>
-                    <th>Attendance %</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="perfTableBody"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
       <!-- LEAVE APPROVALS CEO -->
       <div class="view" id="view-leaveApprove">
         <div class="page-header">
@@ -2212,25 +2206,33 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve','nav-perf-ceo'].forEach(id => {
+    ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
       document.getElementById(id).style.display = 'flex';
     });
     document.getElementById('ceo-section').style.display = 'block';
     document.getElementById('nav-ceo-parent').style.display = 'flex';
     document.getElementById('ceo-notice-form').style.display = 'block';
-    // CEO ko My Tasks nahi chahiye sidebar mein
+    // CEO ko My Tasks, Attendance, Leave nahi chahiye
     document.getElementById('nav-tasks').style.display = 'none';
     document.getElementById('nav-assign').style.display = 'none';
+    const navAttCeo = document.getElementById('nav-attendance');
+    const navLeavesCeo = document.getElementById('nav-leaves');
+    if (navAttCeo) navAttCeo.style.display = 'none';
+    if (navLeavesCeo) navLeavesCeo.style.display = 'none';
   } else {
     ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
-
     document.getElementById('ceo-section').style.display = 'none';
     document.getElementById('ceo-notice-form').style.display = 'none';
     document.getElementById('nav-tasks').style.display = 'flex';
     const ceoParentBtn = document.getElementById('nav-ceo-parent');
     if (ceoParentBtn) ceoParentBtn.style.display = 'none';
+    // Show attendance/leave for employees only
+    const navAtt = document.getElementById('nav-attendance');
+    const navLeaves = document.getElementById('nav-leaves');
+    if (navAtt) navAtt.style.display = 'flex';
+    if (navLeaves) navLeaves.style.display = 'flex';
     // Senior Review - Alisha ya koi bhi senior designation wala
     const seniorDesignations = ['Senior Vastu Research Analyst','Senior Designer','Project Head','Manager'];
     if (seniorDesignations.includes(currentUser.designation)) {
@@ -2281,7 +2283,6 @@ const viewTitles = {
   hrPolicy: ['HR Policies','Company policies — read and acknowledge'],
   projects: ['Projects','Company project overview'],
   helpRequest: ['Help Requests','Request help from colleagues'],
-  performance: ['Employee Performance','Track and monitor performance'],
 };
 
 function showView(name) {
@@ -2291,11 +2292,6 @@ function showView(name) {
   if (['tasks','assign','seniorReview','projects','helpRequest'].includes(name)) {
     document.getElementById('workMenu').style.display = 'block';
     const arr = document.getElementById('work-arrow');
-    if (arr) arr.style.transform = 'rotate(90deg)';
-  }
-  if (['performance','tickets','notices'].includes(name)) {
-    document.getElementById('companyMenu').style.display = 'block';
-    const arr = document.getElementById('company-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
   }
   if (['attendance','leaves','holidays','hrPolicy'].includes(name)) {
@@ -2329,7 +2325,6 @@ function showView(name) {
     loadAttReport();
   }
   if (name === 'leaveApprove') loadLeaveApprovals();
-  if (name === 'performance') loadPerformance();
   if (name === 'seniorReview') loadSeniorReview();
   if (name === 'myProfile') loadMyProfile();
   if (name === 'tickets') loadTickets();
@@ -2664,7 +2659,10 @@ async function loadCeoDashboard() {
     </div>
   `;
   document.getElementById('homeStats').innerHTML = '';
-      // CEO notices
+  document.getElementById('ceoActivitySection').style.display = 'block';
+  loadCeoActivityFeed();
+
+  // CEO notices
   const { data: notices } = await sb.from('notices').select('*').eq('is_active',true).order('created_at',{ascending:false}).limit(3);
   const noticesEl = document.getElementById('homeNotices');
   if (noticesEl) {
@@ -2888,7 +2886,7 @@ async function loadHelpBadge() {
 }
 
 async function loadCeoActivityFeed() {
-  const _el = document.getElementById('ceoActivitySection'); if(_el) _el.style.display = 'none';
+  document.getElementById('ceoActivitySection').style.display = 'block';
   const { data: tasks } = await sb.from('tasks').select('*').order('updated_at',{ascending:false});
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', new Date().toISOString().split('T')[0]);
   const { data: emps } = await sb.from('employees').select('name,email,designation').eq('is_active',true);
@@ -3888,39 +3886,59 @@ async function savePassword() {
 let allTickets = [];
 let ticketsFilter = 'all';
 
+const SLA_HOURS = { 'Urgent': 4, 'High': 24, 'Medium': 48, 'Low': 72 };
+
+function updateSLAInfo(priority) {
+  const slaMap = {
+    'Urgent': 'Response in <strong>1hr</strong>, Resolution in <strong>4hrs</strong>',
+    'High': 'Response in <strong>4hrs</strong>, Resolution in <strong>24hrs</strong>',
+    'Medium': 'Response in <strong>8hrs</strong>, Resolution in <strong>48hrs</strong>',
+    'Low': 'Response in <strong>24hrs</strong>, Resolution in <strong>72hrs</strong>'
+  };
+  const el = document.getElementById('sla-info-box');
+  if (el) el.innerHTML = '⏱️ SLA: ' + (slaMap[priority] || slaMap['Medium']);
+}
+
 async function loadTickets() {
-  // Load employees for assign dropdown
   const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true);
   const assignList = document.getElementById('tkAssignList');
   if (assignList && emps) {
     assignList.innerHTML = emps.map(e=>`<option value="${esc(e.name)}">`).join('');
   }
 
-  // Load tickets
   const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
   let query = sb.from('tickets').select('*').order('created_at',{ascending:false});
-  
-  // Employee sirf apne tickets dekhe
   if (!isCEO) query = query.eq('created_by_email', currentUser.email);
-
   const { data: tickets } = await query;
   allTickets = tickets || [];
 
-  // Stats
+  // Calculate SLA overdue
+  const now = new Date();
+  allTickets.forEach(t => {
+    if (t.status === 'Resolved' || t.status === 'Closed') { t._overdue = false; return; }
+    const created = new Date(t.created_at);
+    const hrs = (now - created) / 3600000;
+    const slaHrs = SLA_HOURS[t.priority] || 48;
+    t._overdue = hrs > slaHrs;
+    t._hrsOpen = Math.round(hrs);
+    t._slaHrs = slaHrs;
+  });
+
   const total = allTickets.length;
   const open = allTickets.filter(t=>t.status==='Open').length;
   const inProg = allTickets.filter(t=>t.status==='In Progress').length;
   const resolved = allTickets.filter(t=>t.status==='Resolved'||t.status==='Closed').length;
+  const overdue = allTickets.filter(t=>t._overdue).length;
 
   document.getElementById('tk-total').textContent = total;
   document.getElementById('tk-open').textContent = open;
   document.getElementById('tk-progress').textContent = inProg;
   document.getElementById('tk-resolved').textContent = resolved;
+  document.getElementById('tk-overdue').textContent = overdue;
 
-  // Badge
   const badge = document.getElementById('nb-tickets');
   if (badge) {
-    const pending = isCEO ? open : allTickets.filter(t=>t.status==='Open'||t.status==='In Progress').length;
+    const pending = isCEO ? (open + overdue) : allTickets.filter(t=>t.status==='Open'||t.status==='In Progress').length;
     badge.textContent = pending;
     badge.style.display = pending > 0 ? 'inline-block' : 'none';
   }
@@ -3931,51 +3949,199 @@ async function loadTickets() {
 function filterTickets(status) {
   ticketsFilter = status;
   const sel = document.getElementById('tk-filter');
-  if (sel) sel.value = status;
+  if (sel && status !== 'overdue') sel.value = status;
   renderTickets();
 }
 
 function renderTickets() {
-  const filtered = ticketsFilter === 'all' ? allTickets : allTickets.filter(t=>t.status===ticketsFilter);
+  let filtered = allTickets;
+  if (ticketsFilter === 'overdue') filtered = allTickets.filter(t=>t._overdue);
+  else if (ticketsFilter !== 'all') filtered = allTickets.filter(t=>t.status===ticketsFilter);
+
   const el = document.getElementById('ticketsList');
   const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
 
   if (!filtered.length) {
-    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">No tickets found</div></div>';
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎫</div><div class="empty-title">No tickets found</div><p>All caught up!</p></div>';
     return;
   }
 
   const priorityColors = {'Low':'b-gray','Medium':'b-blue','High':'b-amber','Urgent':'b-red'};
   const statusColors = {'Open':'b-gold','In Progress':'b-blue','Resolved':'b-green','Closed':'b-gray'};
 
-  el.innerHTML = filtered.map(t => `
-    <div style="padding:14px 18px;border-bottom:1px solid var(--border);${t.status==='Resolved'||t.status==='Closed'?'opacity:0.7':''}">
+  el.innerHTML = filtered.map(t => {
+    const isOverdue = t._overdue;
+    const slaWarning = isOverdue ? `<span class="badge b-red" style="font-size:10px">⚠️ SLA Breached ${t._hrsOpen}h/${t._slaHrs}h</span>` :
+      (t.status !== 'Resolved' && t.status !== 'Closed') ? `<span style="font-size:10px;color:var(--muted)">⏱️ ${t._hrsOpen}h / ${t._slaHrs}h SLA</span>` : '';
+
+    return `<div style="padding:14px 18px;border-bottom:1px solid var(--border);${isOverdue?'background:#fdf0ee;':''}${t.status==='Resolved'||t.status==='Closed'?'opacity:0.7':''}">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
-        <div style="flex:1">
+        <div style="flex:1;cursor:pointer" onclick="openTicketDetail('${t.id}')">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
             <span style="font-size:11px;font-weight:700;color:var(--muted)">#${t.ticket_number}</span>
             <span style="font-size:13px;font-weight:700;color:var(--navy)">${esc(t.title)}</span>
             <span class="badge ${priorityColors[t.priority]||'b-gray'}" style="font-size:10px">${t.priority}</span>
             <span class="badge ${statusColors[t.status]||'b-gray'}" style="font-size:10px">${t.status}</span>
+            ${slaWarning}
           </div>
           <div style="font-size:12px;color:var(--muted);margin-bottom:6px">${esc(t.description||'').substring(0,100)}${(t.description||'').length>100?'...':''}</div>
           <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
             <span>📂 ${esc(t.category)}</span>
             <span>👤 By: ${esc(t.created_by_name)}</span>
-            ${t.assigned_to_name?`<span>→ ${esc(t.assigned_to_name)}</span>`:''}
+            ${t.assigned_to_name?`<span>→ Assigned: ${esc(t.assigned_to_name)}</span>`:''}
             <span>🕐 ${new Date(t.created_at).toLocaleDateString('en-IN')}</span>
           </div>
           ${t.resolution_note?`<div style="margin-top:8px;padding:8px;background:var(--green-bg);border-radius:6px;font-size:12px;color:var(--green)">✅ Resolution: ${esc(t.resolution_note)}</div>`:''}
+          ${t.rating?`<div style="margin-top:6px;font-size:12px">${'⭐'.repeat(t.rating)} <span style="color:var(--muted);font-size:11px">${esc(t.employee_feedback||'')}</span></div>`:''}
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;flex-shrink:0">
           ${isCEO && t.status==='Open'?`<button class="btn btn-primary btn-sm" onclick="updateTicketStatus('${t.id}','In Progress')">⚡ Start</button>`:''}
           ${isCEO && (t.status==='Open'||t.status==='In Progress')?`<button class="btn btn-green btn-sm" onclick="resolveTicket('${t.id}')">✅ Resolve</button>`:''}
           ${isCEO && t.status==='Resolved'?`<button class="btn btn-outline btn-sm" onclick="updateTicketStatus('${t.id}','Closed')">🔒 Close</button>`:''}
+          ${!isCEO && t.status==='Resolved' && !t.rating?`<button class="btn btn-gold btn-sm" onclick="rateTicket('${t.id}')">⭐ Rate</button>`:''}
+          ${!isCEO && (t.status==='Open'||t.status==='In Progress')?`<button class="btn btn-outline btn-sm" onclick="openTicketDetail('${t.id}')">💬 View</button>`:''}
           ${isCEO?`<button class="btn btn-sm" onclick="deleteTicket('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>`:''}
         </div>
       </div>
+    </div>`;
+  }).join('');
+}
+
+async function openTicketDetail(ticketId) {
+  const t = allTickets.find(x=>x.id===ticketId);
+  if (!t) return;
+  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
+
+  // Load comments
+  const { data: comments } = await sb.from('ticket_comments').select('*')
+    .eq('ticket_id', ticketId).order('created_at',{ascending:true});
+
+  const priorityColors = {'Low':'b-gray','Medium':'b-blue','High':'b-amber','Urgent':'b-red'};
+  const statusColors = {'Open':'b-gold','In Progress':'b-blue','Resolved':'b-green','Closed':'b-gray'};
+
+  document.getElementById('ticketDetailContent').innerHTML = `
+    <div style="padding:14px;background:#f8f9fc;border-radius:10px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <span style="font-size:12px;font-weight:700;color:var(--muted)">#${t.ticket_number}</span>
+        <span style="font-size:15px;font-weight:700;color:var(--navy)">${esc(t.title)}</span>
+        <span class="badge ${priorityColors[t.priority]||'b-gray'}">${t.priority}</span>
+        <span class="badge ${statusColors[t.status]||'b-gray'}">${t.status}</span>
+        ${t._overdue?'<span class="badge b-red">⚠️ SLA Breached</span>':''}
+      </div>
+      <div style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:10px">${esc(t.description||'')}</div>
+      <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
+        <span>📂 ${esc(t.category)}</span>
+        <span>👤 ${esc(t.created_by_name)}</span>
+        ${t.assigned_to_name?`<span>→ ${esc(t.assigned_to_name)}</span>`:''}
+        <span>🕐 ${new Date(t.created_at).toLocaleDateString('en-IN')}</span>
+      </div>
+      ${t.resolution_note?`<div style="margin-top:10px;padding:10px;background:var(--green-bg);border-radius:8px;font-size:12px;color:var(--green)">✅ <strong>Resolution:</strong> ${esc(t.resolution_note)}</div>`:''}
     </div>
-  `).join('');
+
+    <!-- Comments Thread -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">💬 Comments</div>
+      <div id="commentThread" style="display:flex;flex-direction:column;gap:10px;max-height:250px;overflow-y:auto;margin-bottom:12px">
+        ${(!comments||!comments.length)?'<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No comments yet</div>':
+          comments.map(c=>`
+            <div style="display:flex;gap:10px;${c.is_internal?'opacity:0.7':''}">
+              <div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px;flex-shrink:0">${esc(c.commented_by_name||'?').substring(0,2).toUpperCase()}</div>
+              <div style="flex:1">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <span style="font-size:12px;font-weight:700;color:var(--navy)">${esc(c.commented_by_name)}</span>
+                  ${c.is_internal?'<span class="badge b-gray" style="font-size:9px">Internal</span>':''}
+                  <span style="font-size:10px;color:var(--muted)">${new Date(c.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</span>
+                </div>
+                <div style="font-size:13px;color:var(--text);background:var(--bg);padding:8px 12px;border-radius:8px;line-height:1.5">${esc(c.comment)}</div>
+              </div>
+            </div>
+          `).join('')
+        }
+      </div>
+
+      <!-- Add Comment -->
+      ${t.status!=='Closed'?`
+      <div>
+        <textarea id="new-comment" placeholder="Add a comment..." style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;resize:vertical;min-height:70px;outline:none"></textarea>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <button class="btn btn-gold btn-sm" onclick="addTicketComment('${t.id}', false)">💬 Add Comment</button>
+          ${isCEO?`<button class="btn btn-outline btn-sm" onclick="addTicketComment('${t.id}', true)">🔒 Internal Note</button>`:''}
+          <span id="commentMsg" style="font-size:11px;font-weight:600"></span>
+        </div>
+      </div>`:'<div style="text-align:center;color:var(--muted);font-size:12px;padding:10px">Ticket is closed</div>'}
+    </div>
+
+    <!-- CEO Actions -->
+    ${isCEO?`
+    <div style="border-top:1px solid var(--border);padding-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+      ${t.status==='Open'?`<button class="btn btn-primary btn-sm" onclick="updateTicketStatus('${t.id}','In Progress');closeModal('ticketDetailModal');loadTickets()">⚡ Start Working</button>`:''}
+      ${(t.status==='Open'||t.status==='In Progress')?`<button class="btn btn-green btn-sm" onclick="resolveTicketFromModal('${t.id}')">✅ Mark Resolved</button>`:''}
+      ${t.status==='Resolved'?`<button class="btn btn-outline btn-sm" onclick="updateTicketStatus('${t.id}','Closed');closeModal('ticketDetailModal');loadTickets()">🔒 Close Ticket</button>`:''}
+    </div>`:''}
+  `;
+
+  document.getElementById('ticketDetailModal').classList.add('open');
+}
+
+async function addTicketComment(ticketId, isInternal) {
+  const comment = document.getElementById('new-comment').value.trim();
+  const msgEl = document.getElementById('commentMsg');
+  if (!comment) { msgEl.textContent = '⚠️ Enter a comment'; msgEl.style.color = 'var(--red)'; return; }
+
+  const { error } = await sb.from('ticket_comments').insert({
+    ticket_id: ticketId,
+    comment,
+    commented_by_name: currentUser.name,
+    commented_by_email: currentUser.email,
+    is_internal: isInternal
+  });
+
+  if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
+  msgEl.textContent = '✅ Added!'; msgEl.style.color = 'var(--green)';
+  document.getElementById('new-comment').value = '';
+  setTimeout(() => msgEl.textContent = '', 2000);
+  openTicketDetail(ticketId); // Refresh
+}
+
+async function resolveTicketFromModal(ticketId) {
+  const note = prompt('Resolution note (what was done):');
+  if (note === null) return;
+  const ticket = allTickets.find(t=>t.id===ticketId);
+  await sb.from('tickets').update({
+    status: 'Resolved',
+    resolution_note: note,
+    resolved_by_name: currentUser.name,
+    resolved_at: new Date().toISOString()
+  }).eq('id', ticketId);
+  if (ticket && ticket.created_by_email !== currentUser.email) {
+    await sendEmail(ticket.created_by_email, ticket.created_by_name,
+      'Your Ticket Has Been Resolved — Sayash Vastu',
+      `Dear ${ticket.created_by_name},
+
+Your ticket "${ticket.title}" has been resolved.
+
+Resolution: ${note}
+Resolved by: ${currentUser.name}
+
+Please login to rate your experience.`,
+      'Ticket Resolved', 'https://sayash-vastu-portal.vercel.app', 'Rate & View →'
+    );
+  }
+  closeModal('ticketDetailModal');
+  showToast('✅ Ticket resolved!', 'ok');
+  loadTickets();
+}
+
+async function rateTicket(ticketId) {
+  const rating = prompt('Rate this resolution (1-5 stars):');
+  if (!rating || isNaN(rating) || rating < 1 || rating > 5) { showToast('⚠️ Enter 1-5', 'err'); return; }
+  const feedback = prompt('Any feedback? (optional):');
+  await sb.from('tickets').update({
+    rating: parseInt(rating),
+    employee_feedback: feedback || ''
+  }).eq('id', ticketId);
+  showToast('✅ Thank you for your feedback!', 'ok');
+  loadTickets();
 }
 
 async function createTicket() {
@@ -3988,49 +4154,49 @@ async function createTicket() {
 
   if (!title || !desc) { msgEl.textContent='⚠️ Title aur description required'; msgEl.style.color='var(--red)'; return; }
 
-  // Find assigned person email
   let assignEmail = null;
   if (assignName) {
     const { data: emp } = await sb.from('employees').select('email').eq('name', assignName).single();
     if (emp) assignEmail = emp.email;
   }
 
-  const { error } = await sb.from('tickets').insert({
+  const slaHrs = SLA_HOURS[priority] || 48;
+
+  const { data: newTicket, error } = await sb.from('tickets').insert({
     title, description: desc, category, priority,
     status: 'Open',
+    sla_hours: slaHrs,
     created_by_email: currentUser.email,
     created_by_name: currentUser.name,
-    assigned_to_email: assignEmail,
-    assigned_to_name: assignName || null
-  });
+    assigned_to_email: assignEmail || CEO_EMAIL,
+    assigned_to_name: assignName || 'CEO Admin'
+  }).select().single();
 
   if (error) { msgEl.textContent='❌ '+error.message; msgEl.style.color='var(--red)'; return; }
 
-  // Send email notification
-  if (assignEmail && assignName) {
-    await sendEmail(
-      assignEmail, assignName,
-      `New Ticket Assigned — Sayash Vastu`,
-      `Dear ${assignName},
+  // Email notification
+  const notifyEmail = assignEmail || CEO_EMAIL;
+  const notifyName = assignName || 'CEO Admin';
+  await sendEmail(notifyEmail, notifyName,
+    `🎫 New Ticket #${newTicket?.ticket_number||''} — ${priority} Priority`,
+    `Dear ${notifyName},
 
-A new ticket has been assigned to you.
+A new ticket has been raised.
 
 Title: ${title}
 Category: ${category}
 Priority: ${priority}
 Raised by: ${currentUser.name}
+SLA: Resolve within ${slaHrs} hours
 
 Description: ${desc}
 
 Please login to view and respond.`,
-      'Ticket',
-      'https://sayash-vastu-portal.vercel.app',
-      'View Ticket →'
-    );
-  }
+    'Ticket', 'https://sayash-vastu-portal.vercel.app', 'View Ticket →'
+  );
 
   msgEl.textContent='✅ Ticket submitted!'; msgEl.style.color='var(--green)';
-  showToast('✅ Ticket #created successfully!','ok');
+  showToast('✅ Ticket created!','ok');
   document.getElementById('tk-title').value='';
   document.getElementById('tk-desc').value='';
   document.getElementById('tk-assign-name').value='';
@@ -4039,10 +4205,7 @@ Please login to view and respond.`,
 }
 
 async function updateTicketStatus(ticketId, status) {
-  const { error } = await sb.from('tickets').update({
-    status, updated_at: new Date().toISOString()
-  }).eq('id', ticketId);
-  if (error) { showToast('❌ '+error.message,'err'); return; }
+  await sb.from('tickets').update({ status }).eq('id', ticketId);
   showToast('✅ Ticket updated!','ok');
   loadTickets();
 }
@@ -4051,32 +4214,23 @@ async function resolveTicket(ticketId) {
   const note = prompt('Resolution note (what was done):');
   if (note === null) return;
   const ticket = allTickets.find(t=>t.id===ticketId);
-  const { error } = await sb.from('tickets').update({
-    status: 'Resolved',
-    resolution_note: note,
+  await sb.from('tickets').update({
+    status: 'Resolved', resolution_note: note,
     resolved_by_name: currentUser.name,
-    resolved_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    resolved_at: new Date().toISOString()
   }).eq('id', ticketId);
-  if (error) { showToast('❌ '+error.message,'err'); return; }
-  
-  // Notify employee
   if (ticket && ticket.created_by_email !== currentUser.email) {
-    await sendEmail(
-      ticket.created_by_email, ticket.created_by_name,
+    await sendEmail(ticket.created_by_email, ticket.created_by_name,
       'Your Ticket Has Been Resolved — Sayash Vastu',
       `Dear ${ticket.created_by_name},
 
-Your ticket has been resolved.
+Your ticket "${ticket.title}" has been resolved.
 
-Ticket: ${ticket.title}
 Resolution: ${note}
 Resolved by: ${currentUser.name}
 
-Please login to view details.`,
-      'Ticket Resolved',
-      'https://sayash-vastu-portal.vercel.app',
-      'View Ticket →'
+Please login to rate your experience.`,
+      'Ticket Resolved', 'https://sayash-vastu-portal.vercel.app', 'Rate & View →'
     );
   }
   showToast('✅ Ticket resolved!','ok');
@@ -4099,12 +4253,13 @@ function exportTicketsPDF() {
   doc.text('Generated: '+new Date().toLocaleDateString('en-IN'), 14, 26);
   let y = 36;
   doc.setFontSize(9); doc.setFont('helvetica','bold');
-  doc.text('#    Title                      Category      Priority  Status', 14, y);
+  doc.text('#    Title                 Category      Priority  Status     SLA', 14, y);
   y += 4; doc.line(14, y, 196, y); y += 5;
   doc.setFont('helvetica','normal');
   allTickets.forEach(t => {
     if (y > 270) { doc.addPage(); y = 20; }
-    doc.text(`${t.ticket_number}. ${(t.title||'').substring(0,25).padEnd(26)} ${(t.category||'').padEnd(14)} ${(t.priority||'').padEnd(10)} ${t.status}`, 14, y);
+    const slaStatus = t._overdue ? 'BREACHED' : 'OK';
+    doc.text(`${t.ticket_number}. ${(t.title||'').substring(0,20).padEnd(21)} ${(t.category||'').padEnd(14)} ${(t.priority||'').padEnd(10)} ${(t.status||'').padEnd(11)} ${slaStatus}`, 14, y);
     y += 6;
   });
   doc.save('SayashVastu_Tickets.pdf');
@@ -4163,10 +4318,13 @@ async function loadProjects() {
           </div>
           ${p.description?`<div style="font-size:12px;color:var(--muted);margin-top:4px">${esc(p.description)}</div>`:''}
         </div>
-        ${isCEO?`<button class="btn btn-sm btn-red" onclick="deleteProject('${p.id}')">🗑️</button>`:''}
+        <div style="display:flex;gap:8px;align-items:center">
+          ${(isCEO || members.some(m=>m.email===currentUser.email))?`<button class="btn btn-primary btn-sm" onclick="openProjectUpdate('${p.id}','${esc(p.project_name)}','${esc(p.description||'')}','${esc(p.status)}')">✏️ Update</button>`:''}
+          ${isCEO?`<button class="btn btn-sm" onclick="deleteProject('${p.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>`:''}
+        </div>
       </div>
       <div class="panel-body" style="padding-top:10px">
-        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:8px">
           <div style="font-size:12px;color:var(--muted)">
             📅 <strong>Start:</strong> ${fmtDate(p.start_date)} &nbsp;|&nbsp; 
             🏁 <strong>End:</strong> <span style="color:${isOverdue?'var(--red)':'var(--text)'};font-weight:${isOverdue?'700':'400'}">${fmtDate(p.end_date)}</span>
@@ -4174,14 +4332,15 @@ async function loadProjects() {
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span style="font-size:11px;color:var(--muted);font-weight:600">TEAM:</span>
             ${members.length ? members.map(m=>`
-              <div style="display:flex;align-items:center;gap:5px;background:var(--bg);padding:3px 8px;border-radius:20px">
-                <div class="av" style="width:20px;height:20px;font-size:8px;background:var(--navy)">${esc(m.name||'').substring(0,2).toUpperCase()}</div>
-                <span style="font-size:11px;color:var(--navy);font-weight:600">${esc(m.name||'')}</span>
+              <div style="display:flex;align-items:center;gap:5px;background:var(--bg);padding:3px 8px;border-radius:20px;${m.email===currentUser.email?'border:1px solid var(--gold)':''}">
+                <div class="av" style="width:20px;height:20px;font-size:8px;background:${m.email===currentUser.email?'var(--gold)':'var(--navy)'};color:${m.email===currentUser.email?'var(--navy)':'#fff'}">${esc(m.name||'').substring(0,2).toUpperCase()}</div>
+                <span style="font-size:11px;color:var(--navy);font-weight:600">${esc(m.name||'')}${m.email===currentUser.email?' (You)':''}</span>
               </div>
             `).join('') : '<span style="font-size:11px;color:var(--muted)">No members assigned</span>'}
           </div>
-          ${p.file_url ? `<div style="margin-top:10px"><a href="${p.file_url}" target="_blank" class="file-chip">📎 ${esc(p.file_name||'Attached File')}</a></div>` : ''}
         </div>
+        ${p.file_url ? `<div style="margin-bottom:8px"><a href="${p.file_url}" target="_blank" class="file-chip">📎 ${esc(p.file_name||'Attached File')}</a></div>` : ''}
+        ${p.last_update ? `<div style="padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;border-left:3px solid var(--blue)"><span style="font-weight:700;color:var(--navy)">Latest Update: </span><span style="color:var(--muted)">${esc(p.last_update)}</span>${p.updated_by?`<span style="font-size:10px;color:var(--muted)"> — ${esc(p.updated_by)}</span>`:''}</div>` : ''}
       </div>
     </div>`;
   }).join('');
@@ -4242,6 +4401,36 @@ async function deleteProject(id) {
   if (!confirm('Delete this project?')) return;
   await sb.from('projects').delete().eq('id',id);
   showToast('✅ Project deleted!','ok');
+  loadProjects();
+}
+
+let currentProjectId = null;
+function openProjectUpdate(projId, projName, projDesc, projStatus) {
+  currentProjectId = projId;
+  document.getElementById('puProjectName').textContent = projName;
+  document.getElementById('puProjectDesc').textContent = projDesc || 'No description';
+  document.getElementById('pu-status').value = projStatus || 'In Progress';
+  document.getElementById('pu-comment').value = '';
+  document.getElementById('puMsg').textContent = '';
+  document.getElementById('projectUpdateModal').classList.add('open');
+}
+
+async function saveProjectUpdate() {
+  const status = document.getElementById('pu-status').value;
+  const comment = document.getElementById('pu-comment').value.trim();
+  const msgEl = document.getElementById('puMsg');
+  if (!comment) { msgEl.textContent = '⚠️ Please add a comment'; msgEl.style.color = 'var(--red)'; return; }
+  
+  const { error } = await sb.from('projects').update({
+    status: status,
+    last_update: comment,
+    updated_by: currentUser.name,
+    updated_at: new Date().toISOString()
+  }).eq('id', currentProjectId);
+  
+  if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
+  showToast('✅ Project updated!', 'ok');
+  closeModal('projectUpdateModal');
   loadProjects();
 }
 
@@ -5095,7 +5284,7 @@ function toggleSideMenu(menuId) {
   const isOpen = menu.style.display !== 'none';
   menu.style.display = isOpen ? 'none' : 'block';
   // Update arrow
-  const arrowMap = {'workMenu':'work-arrow','hrMenu':'hr-arrow','ceoMenu':'ceo-arrow','companyMenu':'company-arrow'};
+  const arrowMap = {'workMenu':'work-arrow','hrMenu':'hr-arrow','ceoMenu':'ceo-arrow'};
   const arrowEl = document.getElementById(arrowMap[menuId]);
   if (arrowEl) arrowEl.style.transform = isOpen ? '' : 'rotate(90deg)';
 }
@@ -5149,121 +5338,6 @@ function showToast(msg, type) {
 document.querySelectorAll('.modal-overlay').forEach(el=>{
   el.addEventListener('click',function(e){ if(e.target===this) this.classList.remove('open'); });
 });
-
-// ═══════════════════════════════════════════
-//  PERFORMANCE
-// ═══════════════════════════════════════════
-async function loadPerformance() {
-  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
-  const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
-  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
-  const totalDays = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  const today = new Date(); today.setHours(0,0,0,0);
-
-  if (isCEO) {
-    document.getElementById('allPerfSection').style.display = 'block';
-    document.getElementById('myPerfCard').style.display = 'none';
-    const { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
-    const { data: allTasks } = await sb.from('tasks').select('*');
-    const { data: allAtt } = await sb.from('attendance').select('*').gte('date', monthStart).lte('date', monthEnd);
-    const tbody = document.getElementById('perfTableBody');
-    if (!emps || !emps.length) {
-      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No employees found</td></tr>';
-      return;
-    }
-    tbody.innerHTML = emps.map((emp, i) => {
-      const empTasks = (allTasks||[]).filter(t => t.assigned_to_email === emp.email);
-      const total = empTasks.length;
-      const completed = empTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
-      const pending = empTasks.filter(t => t.work_status === 'Not Started' || t.work_status === 'In Progress').length;
-      const delayed = empTasks.filter(t => {
-        const tat = t.tat_date ? new Date(t.tat_date) : null;
-        return tat && today > tat && t.work_status !== 'Completed' && t.work_status !== 'Report Ready';
-      }).length;
-      const completionPct = total > 0 ? Math.round((completed/total)*100) : 0;
-      const empAtt = (allAtt||[]).filter(a => a.employee_email === emp.email);
-      const presentDays = empAtt.filter(a => a.status === 'Present').length;
-      const attPct = totalDays > 0 ? Math.round((presentDays/totalDays)*100) : 0;
-      let status, statusClass;
-      const score = (completionPct * 0.6) + (attPct * 0.4);
-      if (score >= 90) { status = '🟢 Excellent'; statusClass = 'b-green'; }
-      else if (score >= 75) { status = '🔵 Good'; statusClass = 'b-blue'; }
-      else if (score >= 60) { status = '🟡 Average'; statusClass = 'b-amber'; }
-      else { status = '🔴 Needs Improvement'; statusClass = 'b-red'; }
-      const compColor = completionPct >= 75 ? 'var(--green)' : completionPct >= 50 ? 'var(--amber)' : 'var(--red)';
-      const attColor = attPct >= 75 ? 'var(--green)' : attPct >= 50 ? 'var(--amber)' : 'var(--red)';
-      return '<tr><td style="color:var(--muted);font-size:11px">' + (i+1) + '</td><td><div style="display:flex;align-items:center;gap:8px"><div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px">' + esc(emp.name).substring(0,2).toUpperCase() + '</div><div><div style="font-weight:600;font-size:13px">' + esc(emp.name) + '</div><div style="font-size:10px;color:var(--muted)">' + esc(emp.designation||'') + '</div></div></div></td><td style="font-size:12px">' + esc(emp.department||'—') + '</td><td style="font-weight:700;text-align:center">' + total + '</td><td style="color:var(--green);font-weight:700;text-align:center">' + completed + '</td><td style="color:var(--amber);font-weight:700;text-align:center">' + pending + '</td><td style="color:var(--red);font-weight:700;text-align:center">' + delayed + '</td><td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:' + completionPct + '%;background:' + compColor + '"></div></div><span style="font-size:12px;font-weight:700;color:' + compColor + '">' + completionPct + '%</span></div></td><td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:' + attPct + '%;background:' + attColor + '"></div></div><span style="font-size:12px;font-weight:700;color:' + attColor + '">' + attPct + '%</span></div></td><td><span class="badge ' + statusClass + '" style="font-size:10px;white-space:nowrap">' + status + '</span></td></tr>';
-    }).join('');
-  } else {
-    document.getElementById('myPerfCard').style.display = 'block';
-    document.getElementById('allPerfSection').style.display = 'none';
-    const { data: myTasksData } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email);
-    const { data: myAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).gte('date', monthStart).lte('date', monthEnd);
-    const total = (myTasksData||[]).length;
-    const completed = (myTasksData||[]).filter(t => t.work_status==='Completed'||t.work_status==='Report Ready').length;
-    const pending = (myTasksData||[]).filter(t => t.work_status==='Not Started'||t.work_status==='In Progress').length;
-    const delayed = (myTasksData||[]).filter(t => { const tat = t.tat_date ? new Date(t.tat_date) : null; return tat && today > tat && t.work_status !== 'Completed'; }).length;
-    const completionPct = total > 0 ? Math.round((completed/total)*100) : 0;
-    const presentDays = (myAtt||[]).filter(a => a.status==='Present').length;
-    const attPct = totalDays > 0 ? Math.round((presentDays/totalDays)*100) : 0;
-    const totalHrs = (myAtt||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
-    const avgHrs = presentDays > 0 ? (totalHrs/presentDays).toFixed(1) : '0.0';
-    let status, statusColor;
-    const score = (completionPct * 0.6) + (attPct * 0.4);
-    if (score >= 90) { status = '🟢 Excellent'; statusColor = 'var(--green)'; }
-    else if (score >= 75) { status = '🔵 Good'; statusColor = 'var(--blue)'; }
-    else if (score >= 60) { status = '🟡 Average'; statusColor = 'var(--amber)'; }
-    else { status = '🔴 Needs Improvement'; statusColor = 'var(--red)'; }
-    document.getElementById('myPerfContent').innerHTML = '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px"><div style="background:var(--bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--navy)"><div style="font-size:28px;font-weight:800;color:var(--navy)">' + total + '</div><div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;font-weight:700">Total Tasks</div></div><div style="background:var(--green-bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--green)"><div style="font-size:28px;font-weight:800;color:var(--green)">' + completed + '</div><div style="font-size:11px;color:var(--green);margin-top:4px;text-transform:uppercase;font-weight:700">Completed</div></div><div style="background:var(--amber-bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--amber)"><div style="font-size:28px;font-weight:800;color:var(--amber)">' + pending + '</div><div style="font-size:11px;color:var(--amber);margin-top:4px;text-transform:uppercase;font-weight:700">Pending</div></div><div style="background:var(--red-bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--red)"><div style="font-size:28px;font-weight:800;color:var(--red)">' + delayed + '</div><div style="font-size:11px;color:var(--red);margin-top:4px;text-transform:uppercase;font-weight:700">Delayed</div></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px"><div style="background:var(--bg);border-radius:10px;padding:16px"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Completion Rate</div><div style="font-size:28px;font-weight:800;color:' + (completionPct>=75?'var(--green)':completionPct>=50?'var(--amber)':'var(--red)') + '">' + completionPct + '%</div><div class="progress-bar" style="margin-top:8px"><div class="progress-fill" style="width:' + completionPct + '%;background:' + (completionPct>=75?'var(--green)':completionPct>=50?'var(--amber)':'var(--red)') + '"></div></div></div><div style="background:var(--bg);border-radius:10px;padding:16px"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Attendance This Month</div><div style="font-size:28px;font-weight:800;color:' + (attPct>=75?'var(--green)':attPct>=50?'var(--amber)':'var(--red)') + '">' + attPct + '%</div><div class="progress-bar" style="margin-top:8px"><div class="progress-fill" style="width:' + attPct + '%;background:' + (attPct>=75?'var(--green)':attPct>=50?'var(--amber)':'var(--red)') + '"></div></div></div><div style="background:var(--bg);border-radius:10px;padding:16px"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Overall Status</div><div style="font-size:22px;font-weight:800;color:' + statusColor + ';margin-top:8px">' + status + '</div><div style="font-size:12px;color:var(--muted);margin-top:8px">⏱️ Avg: ' + avgHrs + 'h/day</div></div></div>';
-  }
-}
-
-async function exportPerformancePDF() {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF('l','mm','a4');
-  doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('Sayash Vastu — Employee Performance Report', 14, 18);
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text('Month: ' + new Date().toLocaleString('default',{month:'long',year:'numeric'}) + '  |  Generated: ' + new Date().toLocaleDateString('en-IN'), 14, 26);
-  const rows = document.querySelectorAll('#perfTableBody tr');
-  let y = 36;
-  doc.setFontSize(8); doc.setFont('helvetica','bold');
-  doc.text('#  Name                 Dept          Total  Done  Pending  Delayed  Done%  Att%  Status', 14, y);
-  y += 4; doc.line(14, y, 280, y); y += 5;
-  doc.setFont('helvetica','normal');
-  rows.forEach((row,i) => {
-    if(y>190){doc.addPage();y=20;}
-    const cells = row.querySelectorAll('td');
-    if(cells.length>=10){
-      doc.text(String(i+1).padEnd(3)+cells[1].textContent.trim().substring(0,20).padEnd(21)+cells[2].textContent.trim().substring(0,13).padEnd(14)+cells[3].textContent.trim().padEnd(7)+cells[4].textContent.trim().padEnd(6)+cells[5].textContent.trim().padEnd(9)+cells[6].textContent.trim().padEnd(9)+cells[7].textContent.trim().padEnd(7)+cells[8].textContent.trim().padEnd(6)+cells[9].textContent.trim(), 14, y);
-      y+=6;
-    }
-  });
-  doc.save('SayashVastu_Performance_'+new Date().toISOString().split('T')[0]+'.pdf');
-  showToast('✅ Performance PDF exported!','ok');
-}
-
-
-
-// Hide Vercel toolbar
-function hideVercelBadge() {
-  const selectors = ['vercel-live-feedback','#__vercel_toolbar_container','.__vercel-toolbar'];
-  selectors.forEach(s => {
-    const el = document.querySelector(s);
-    if(el) el.style.display = 'none';
-  });
-  // Also hide by z-index
-  document.querySelectorAll('*').forEach(el => {
-    const z = window.getComputedStyle(el).zIndex;
-    if(parseInt(z) > 2000000 && el.tagName !== 'BODY' && el.tagName !== 'HTML') {
-      el.style.display = 'none';
-    }
-  });
-}
-setTimeout(hideVercelBadge, 1000);
-setTimeout(hideVercelBadge, 3000);
-
 </script>
 </body>
 </html>
