@@ -617,14 +617,9 @@ vercel-toolbar {
         <button class="nav-btn" onclick="showView('tasks')" id="nav-tasks" style="padding-left:32px">
           <span class="ni">📋</span><span>My Tasks</span><span class="nav-badge" id="nb-tasks">0</span>
         </button>
-        <button class="nav-btn" id="nav-senior-review" onclick="showView('seniorReview')" style="display:none;padding-left:32px">
-          <span class="ni">🔍</span><span>Senior Review</span><span class="nav-badge" id="nb-senior">0</span>
-        </button>
+        <!-- Senior Review removed -->
         <button class="nav-btn" id="nav-assign" onclick="showView('assign')" style="display:none;padding-left:32px">
           <span class="ni">➕</span><span>Assign Task</span>
-        </button>
-        <button class="nav-btn" onclick="showView('projects')" style="padding-left:32px">
-          <span class="ni">🗂️</span><span>Projects</span>
         </button>
         <button class="nav-btn" onclick="showView('helpRequest')" style="padding-left:32px">
           <span class="ni">🤝</span><span>Help Requests</span>
@@ -943,7 +938,7 @@ vercel-toolbar {
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Project</th><th>Task</th><th>Start</th><th>End</th><th>TAT</th><th>Status</th><th>CEO Approval</th><th>Files</th><th>Action</th></tr></thead>
+              <thead><tr><th>Project</th><th>Task</th><th>Start</th><th>End</th><th>Status</th><th>Pending With</th><th>Files</th><th>Action</th></tr></thead>
               <tbody id="myTasksBody"></tbody>
             </table>
           </div>
@@ -986,10 +981,7 @@ vercel-toolbar {
                 <label>End Date</label>
                 <input type="date" id="at-end"/>
               </div>
-              <div class="field">
-                <label>TAT Date</label>
-                <input type="date" id="at-tat"/>
-              </div>
+
             </div>
             <div style="margin-top:16px">
               <button class="btn btn-gold" id="assignBtn" onclick="assignTask()">➕ Assign Task</button>
@@ -1189,7 +1181,7 @@ vercel-toolbar {
           </div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>#</th><th>Project</th><th>Task</th><th>Assigned To</th><th>TAT Date</th><th>Status</th><th>CEO Approval</th><th>Files</th><th>Action</th></tr></thead>
+              <thead><tr><th>#</th><th>Project</th><th>Task</th><th>Assigned To</th><th>End Date</th><th>Status</th><th>Pending With</th><th>Files</th><th>Action</th></tr></thead>
               <tbody id="allTasksBody"></tbody>
             </table>
           </div>
@@ -2005,13 +1997,13 @@ async function sendDailySummaryEmail(period) {
     const completed = (tasks||[]).filter(t => t.work_status === 'Completed').length;
     const notStart = (tasks||[]).filter(t => t.work_status === 'Not Started').length;
     const delayed = (tasks||[]).filter(t => {
-      const tat = t.tat_date ? new Date(t.tat_date) : null;
-      return tat && today > tat && t.work_status !== 'Completed';
+      const ed = t.end_date ? new Date(t.end_date) : null;
+      return ed && today > ed && t.work_status !== 'Completed';
     }).length;
     const pendingLeaves = (leaves||[]).length;
     let taskLines = (tasks||[]).slice(0,15).map(t => {
-      const tat = t.tat_date ? new Date(t.tat_date) : null;
-      const isLate = tat && today > tat && t.work_status !== 'Completed';
+      const ed3 = t.end_date ? new Date(t.end_date) : null;
+      const isLate = ed3 && today > ed3 && t.work_status !== 'Completed';
       return `• ${t.project} | ${t.assigned_to_name} | ${t.work_status}${isLate ? ' ⚠️ DELAYED' : ''}`;
     }).join('\n');
     let leaveLines = pendingLeaves > 0
@@ -2121,7 +2113,7 @@ function exportTasksPDF() {
   doc.setFont('helvetica','normal');
   allTasksData.slice(0,50).forEach((t, i) => {
     if (y > 270) { doc.addPage(); y = 20; }
-    const row = `${i+1}. ${t.project.substring(0,20).padEnd(20)} ${t.assigned_to_name.substring(0,14).padEnd(14)} ${t.work_status.padEnd(14)} ${fmtDate(t.tat_date)}`;
+    const row = `${i+1}. ${t.project.substring(0,20).padEnd(20)} ${t.assigned_to_name.substring(0,14).padEnd(14)} ${t.work_status.padEnd(14)} ${fmtDate(t.end_date)}`;
     doc.text(row, 14, y);
     y += 6;
   });
@@ -2255,12 +2247,7 @@ function showApp() {
     const navLeaves = document.getElementById('nav-leaves');
     if (navAtt) navAtt.style.display = 'flex';
     if (navLeaves) navLeaves.style.display = 'flex';
-    // Senior Review - Alisha ya koi bhi senior designation wala
-    const seniorDesignations = ['Senior Vastu Research Analyst','Senior Designer','Project Head','Manager'];
-    if (seniorDesignations.includes(currentUser.designation)) {
-      document.getElementById('nav-senior-review').style.display = 'flex';
-      loadSeniorBadge();
-    }
+    // Senior Review removed
   }
 
   if (currentUser.role === 'employee') {
@@ -2474,14 +2461,14 @@ async function loadEmpDashboard() {
   } else {
     const todayD = new Date(); todayD.setHours(0,0,0,0);
     tbody.innerHTML = tasks.map((t, i) => {
-      const tat = t.tat_date ? new Date(t.tat_date) : null;
-      const isLate = tat && todayD > tat && t.work_status !== 'Completed';
+      const ed4 = t.end_date ? new Date(t.end_date) : null;
+      const isLate = ed4 && todayD > ed4 && t.work_status !== 'Completed';
       return `<tr style="${isLate ? 'background:#fdf0ee' : ''}">
         <td style="font-size:11px;color:var(--muted)">${i+1}</td>
         <td><span style="background:#e8ecf5;color:var(--navy);padding:2px 7px;border-radius:4px;font-size:11px;font-weight:700">${esc(t.project)}</span></td>
         <td style="font-size:12px;max-width:160px">${esc(t.task_detail.substring(0,40))}${t.task_detail.length>40?'...':''}</td>
         <td>${statusBadge(t.work_status)}</td>
-        <td style="font-size:11px;color:${isLate?'var(--red)':'var(--muted)'};font-weight:${isLate?'700':'400'}">${fmtDate(t.tat_date)}${isLate?' ⚠️':''}</td>
+        <td style="font-size:11px;color:${isLate?'var(--red)':'var(--muted)'};font-weight:${isLate?'700':'400'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       </tr>`;
     }).join('');
   }
@@ -2599,6 +2586,16 @@ async function loadEmpDashboard() {
     }).join('');
   }
 
+  // HR Policy pending acknowledgements
+  const { data: pendingPolicies } = await sb.from('hr_policies').select('*').eq('is_active', true);
+  const { data: myAcks } = await sb.from('policy_acknowledgements').select('policy_id').eq('employee_email', currentUser.email);
+  const myAckIds = (myAcks||[]).map(a=>a.policy_id);
+  const unackedPolicies = (pendingPolicies||[]).filter(p=>p.mandatory_acknowledge && !myAckIds.includes(p.id));
+  if (unackedPolicies.length > 0) {
+    const notifCount = document.getElementById('notifCount');
+    if (notifCount) { notifCount.textContent = unackedPolicies.length; notifCount.classList.add('show'); }
+  }
+
   // Notices
   const { data: notices } = await sb.from('notices').select('*').eq('is_active', true).order('created_at', {ascending: false}).limit(4);
   const noticesEl = document.getElementById('homeNotices');
@@ -2639,8 +2636,8 @@ async function loadCeoDashboard() {
   const { data: allTasks } = await sb.from('tasks').select('*');
   const today2 = new Date(); today2.setHours(0,0,0,0);
   const delayedTasks = (allTasks||[]).filter(t=>{
-    const tat = t.tat_date ? new Date(t.tat_date) : null;
-    return tat && today2 > tat && t.work_status !== 'Completed';
+    const ed = t.end_date ? new Date(t.end_date) : null;
+    return ed && today2 > ed && t.work_status !== 'Completed';
   });
 
   document.getElementById('nb-leave-approve').textContent = pendingLeaves || 0;
@@ -2934,8 +2931,8 @@ async function loadCeoActivityFeed() {
     const activeTasks = empTasks.filter(t => t.work_status !== 'Completed' && t.work_status !== 'Report Ready');
     const completedCount = empTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
     const delayedCount = activeTasks.filter(t => {
-      const tat = t.tat_date ? new Date(t.tat_date) : null;
-      return tat && today > tat;
+      const ed = t.end_date ? new Date(t.end_date) : null;
+      return ed && today > ed;
     }).length;
 
     const attRecord = (todayAtt||[]).find(a => a.employee_name === empName);
@@ -2947,9 +2944,9 @@ async function loadCeoActivityFeed() {
     else if (attRecord?.status === 'Half Day') attBadge = '<span class="badge b-amber" style="font-size:10px">Half Day</span>';
 
     const urgentTask = activeTasks.sort((a,b) => {
-      const tatA = a.tat_date ? new Date(a.tat_date) : new Date('9999');
-      const tatB = b.tat_date ? new Date(b.tat_date) : new Date('9999');
-      return tatA - tatB;
+      const edA = a.end_date ? new Date(a.end_date) : new Date('9999');
+      const edB = b.end_date ? new Date(b.end_date) : new Date('9999');
+      return edA - edB;
     })[0];
 
     let pendingWith = '—'; let pendingColor = 'var(--muted)';
@@ -2968,7 +2965,7 @@ async function loadCeoActivityFeed() {
       }
     }
 
-    const isLate = urgentTask && (() => { const tat = urgentTask.tat_date ? new Date(urgentTask.tat_date) : null; return tat && today > tat; })();
+    const isLate = urgentTask && (() => { const ed = urgentTask.end_date ? new Date(urgentTask.end_date) : null; return ed && today > ed; })();
 
     html += `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;${isLate?'border-left:3px solid var(--red)':delayedCount===0&&activeTasks.length===0?'border-left:3px solid var(--green)':'border-left:3px solid var(--blue)'}">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
@@ -2999,7 +2996,7 @@ async function loadCeoActivityFeed() {
           <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(urgentTask.project)} — ${esc(urgentTask.task_detail.substring(0,40))}${urgentTask.task_detail.length>40?'...':''}</div>
           <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
             ${statusBadge(urgentTask.work_status)}
-            <span style="font-size:10px;color:${isLate?'var(--red)':'var(--muted)'};font-weight:600">TAT: ${fmtDate(urgentTask.tat_date)}${isLate?' ⚠️':''}</span>
+            <span style="font-size:10px;color:${isLate?'var(--red)':'var(--muted)'};font-weight:600">End: ${fmtDate(urgentTask.end_date)}${isLate?' ⚠️':''}</span>
           </div>
         </div>`:'<div style="font-size:12px;color:var(--green);font-weight:600">✅ All tasks completed!</div>'}
         <div style="text-align:right">
@@ -3081,19 +3078,16 @@ async function renderMyTasks() {
   }));
 
   tbody.innerHTML = filtered.map(t => {
-    const tat = t.tat_date ? new Date(t.tat_date) : null;
-    const isLate = tat && today > tat && t.work_status !== 'Completed';
+    const endD = t.end_date ? new Date(t.end_date) : null;
+    const isLate = endD && today > endD && t.work_status !== 'Completed';
     const files = fileMap[t.id] || [];
     return `<tr style="${isLate?'background:#fdf0ee':''}">
       <td><span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${esc(t.project)}</span></td>
       <td style="font-weight:600;max-width:180px">${esc(t.task_detail.substring(0,45))}${t.task_detail.length>45?'...':''}</td>
       <td style="font-size:11px">${fmtDate(t.start_date)}</td>
-      <td style="font-size:11px">${fmtDate(t.end_date)}</td>
-      <td style="font-size:11px;font-weight:700;color:${isLate?'var(--red)':'var(--muted)'}">${fmtDate(t.tat_date)}</td>
+      <td style="font-size:11px;font-weight:${isLate?'700':'400'};color:${isLate?'var(--red)':'var(--text)'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       <td>${statusBadge(t.work_status)}</td>
-      <td>
-        ${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : ceoBadge(t.ceo_approval)}
-      </td>
+      <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : '—'}</td>
       <td style="min-width:100px">${files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td style="display:flex;gap:5px">
         <button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>
@@ -3114,7 +3108,8 @@ async function openTaskModal(taskId) {
       <div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">${esc(t.task_detail)}</div>
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
         ${statusBadge(t.work_status)}
-        <span style="font-size:11px;color:var(--muted)">TAT: ${fmtDate(t.tat_date)}</span>
+        <span style="font-size:11px;color:var(--muted)">End: ${fmtDate(t.end_date)}</span>
+        ${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 Pending with: ${esc(t.pending_with_name)}</span>`:''}
       </div>
     </div>
     ${locked ? '<div class="badge b-green" style="margin-bottom:12px">✅ Task Completed — locked</div>' : `
@@ -3287,10 +3282,9 @@ async function assignTask() {
   const detail = document.getElementById('at-detail').value.trim();
   const start = document.getElementById('at-start').value;
   const end = document.getElementById('at-end').value;
-  const tat = document.getElementById('at-tat').value;
   const btn = document.getElementById('assignBtn');
   const msg = document.getElementById('assignMsg');
-  if (!name||!email||!project||!detail||!start||!end||!tat) {
+  if (!name||!email||!project||!detail||!start||!end) {
     msg.textContent='⚠️ Please fill all fields'; msg.style.color='var(--red)'; return;
   }
   btn.disabled=true; btn.textContent='Assigning...';
@@ -3298,7 +3292,7 @@ async function assignTask() {
     project, task_detail: detail,
     assigned_to_email: email.toLowerCase(), assigned_to_name: name,
     assigned_by_email: currentUser.email, assigned_by_name: currentUser.name,
-    start_date: start, end_date: end, tat_date: tat,
+    start_date: start, end_date: end,
     work_status: 'Not Started', ceo_approval: 'Pending'
   });
   btn.disabled=false; btn.textContent='➕ Assign Task';
@@ -3314,14 +3308,12 @@ Project: ${project}
 Task: ${detail}
 Start Date: ${start}
 End Date: ${end}
-TAT Date: ${tat}
-
 Please login to view your task details.`,
     'Task Assigned',
     'https://sayash-vastu-portal.vercel.app',
     'View My Tasks →'
   );
-  ['at-project','at-detail','at-end','at-tat'].forEach(id => document.getElementById(id).value='');
+  ['at-project','at-detail','at-end'].forEach(id => document.getElementById(id).value='');
   if (currentUser.role!=='employee') {
     document.getElementById('at-name').value='';
     document.getElementById('at-email').value='';
@@ -3544,8 +3536,8 @@ async function loadAllTasks() {
   const ip=allTasksData.filter(t=>t.work_status==='In Progress').length;
   const done=allTasksData.filter(t=>t.work_status==='Completed').length;
   const delayed=allTasksData.filter(t=>{
-    const tat=t.tat_date?new Date(t.tat_date):null;
-    return tat&&today>tat&&t.work_status!=='Completed';
+    const ed=t.end_date?new Date(t.end_date):null;
+    return ed&&today>ed&&t.work_status!=='Completed';
   }).length;
   document.getElementById('allTaskStats').innerHTML=`
     <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${total}</div><div class="stat-lbl">Total Tasks</div></div>
@@ -3561,7 +3553,7 @@ async function renderAllTasks() {
   const today=new Date(); today.setHours(0,0,0,0);
   let data=allTasksData;
   if (allTasksFilter==='Delayed') {
-    data=data.filter(t=>{ const tat=t.tat_date?new Date(t.tat_date):null; return tat&&today>tat&&t.work_status!=='Completed'; });
+    data=data.filter(t=>{ const ed=t.end_date?new Date(t.end_date):null; return ed&&today>ed&&t.work_status!=='Completed'; });
   } else if (allTasksFilter!=='all') {
     data=data.filter(t=>t.work_status===allTasksFilter);
   }
@@ -3575,24 +3567,17 @@ async function renderAllTasks() {
   }));
 
   tbody.innerHTML=data.map((t,i)=>{
-    const tat=t.tat_date?new Date(t.tat_date):null;
-    const isLate=tat&&today>tat&&t.work_status!=='Completed';
+    const endDate2=t.end_date?new Date(t.end_date):null;
+    const isLate=endDate2&&today>endDate2&&t.work_status!=='Completed';
     const files=fileMap[t.id]||[];
     return `<tr style="${isLate?'background:#fdf0ee':''}">
       <td style="color:var(--muted);font-size:11px">${i+1}</td>
       <td><span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${esc(t.project)}</span></td>
       <td style="font-weight:600;max-width:160px;font-size:12px">${esc(t.task_detail.substring(0,45))}...</td>
       <td style="font-size:12px">${esc(t.assigned_to_name)}</td>
-      <td style="font-size:11px;font-weight:700;color:${isLate?'var(--red)':'var(--muted)'}">${fmtDate(t.tat_date)}</td>
+      <td style="font-size:11px;font-weight:${isLate?'700':'400'};color:${isLate?'var(--red)':'var(--text)'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       <td>${statusBadge(t.work_status)}</td>
-      <td>
-        ${t.work_status==='Senior Approved'?`
-        <select onchange="ceoFinalizeTask('${t.id}',this.value)" style="padding:4px 8px;border:1.5px solid var(--gold);border-radius:6px;font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;color:var(--navy)">
-          <option value="">— Finalize —</option>
-          <option>Finalize with SG</option>
-          <option>Finalize with YG</option>
-        </select>`:ceoBadge(t.ceo_approval)}
-      </td>
+      <td>${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>`:ceoBadge(t.ceo_approval)}</td>
       <td>${files.length?renderFileChips(files):'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td><button class="btn btn-sm" onclick="deleteTask('${t.id}',true)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️ Delete</button></td>
     </tr>`;
@@ -4753,8 +4738,9 @@ function exportHolidaysPDF() {
 //  HR POLICIES
 // ═══════════════════════════════════════════
 async function loadHRPolicies() {
+  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
   const ceoPanel = document.getElementById('ceo-policy-panel');
-  if (ceoPanel) ceoPanel.style.display = (currentUser.role==='ceo'||currentUser.role==='manager') ? 'block' : 'none';
+  if (ceoPanel) ceoPanel.style.display = isCEO ? 'block' : 'none';
 
   const { data: policies } = await sb.from('hr_policies').select('*').eq('is_active', true).order('created_at', {ascending: false});
   const el = document.getElementById('policiesList');
@@ -5306,7 +5292,7 @@ async function loadSeniorReview() {
           </div>
           <div style="font-size:13px;font-weight:600;color:var(--navy)">${esc(t.task_detail)}</div>
           <div style="font-size:11px;color:var(--muted);margin-top:4px">
-            👤 Assigned to: ${esc(t.assigned_to_name)} · TAT: ${fmtDate(t.tat_date)}
+            👤 Assigned to: ${esc(t.assigned_to_name)} · End: ${fmtDate(t.end_date)}
           </div>
           ${t.comments ? `<div style="font-size:12px;color:var(--muted);margin-top:6px;padding:8px;background:#f8f9fc;border-radius:6px">💬 ${esc(t.comments)}</div>` : ''}
         </div>
