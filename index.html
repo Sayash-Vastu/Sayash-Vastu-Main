@@ -2039,7 +2039,7 @@ async function sendEmail(toEmail, toName, subject, message, type = 'General', ac
 
 async function sendDailySummaryEmail(period) {
   try {
-    const { data: tasks } = await sb.from('tasks').select('*').order('created_at', { ascending: false });
+    const { data: tasks } = await sb.from('tasks').select('*').eq('is_archived',false).order('created_at', { ascending: false });
     const { data: leaves } = await sb.from('leaves').select('*').eq('status', 'Pending');
     const today = new Date(); today.setHours(0,0,0,0);
     const total = (tasks||[]).length;
@@ -2537,11 +2537,11 @@ async function loadEmpDashboard() {
   }
 
   // Open tasks count
-  const { data: myTasks } = await sb.from('tasks').select('id').eq('assigned_to_email', currentUser.email).neq('work_status', 'Completed').neq('work_status', 'Report Ready');
+  const { data: myTasks } = await sb.from('tasks').select('id').eq('assigned_to_email', currentUser.email).eq('is_archived',false).neq('work_status', 'Completed').neq('work_status', 'Report Ready');
   document.getElementById('empOpenTasks').textContent = (myTasks || []).length;
 
   // All tasks for stats
-  const { data: allMyTasks } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email);
+  const { data: allMyTasks } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email).eq('is_archived',false);
   const totalT = (allMyTasks||[]).length;
   const pendingT = (allMyTasks||[]).filter(t=>t.work_status==='Not Started').length;
   const inProgT = (allMyTasks||[]).filter(t=>t.work_status==='In Progress'||t.work_status==='Sent to Senior'||t.work_status==='Sent for Review').length;
@@ -2723,15 +2723,15 @@ async function loadCeoDashboard() {
   document.getElementById('homeSubtitle').textContent = "Here's your company overview for today";
 
   const { count: totalEmp } = await sb.from('employees').select('*',{count:'exact'}).eq('is_active',true);
-  const { count: totalTasks } = await sb.from('tasks').select('*',{count:'exact'});
+  const { count: totalTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false);
   const { count: pendingLeaves } = await sb.from('leaves').select('*',{count:'exact'}).eq('status','Pending');
-  const { count: doneTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('work_status','Completed');
+  const { count: doneTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false).eq('work_status','Completed');
 
   const todayDate = new Date().toISOString().split('T')[0];
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', todayDate).eq('is_archived',false);
   const presentToday = (todayAtt||[]).filter(a=>a.status==='Present'||a.status==='Half Day').length;
 
-  const { data: allTasks } = await sb.from('tasks').select('*');
+  const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
   const today2 = new Date(); today2.setHours(0,0,0,0);
   const delayedTasks = (allTasks||[]).filter(t=>{
     const ed = t.end_date ? new Date(t.end_date) : null;
@@ -3005,7 +3005,7 @@ async function loadHelpBadge() {
 
 async function loadCeoActivityFeed() {
   document.getElementById('ceoActivitySection').style.display = 'block';
-  const { data: tasks } = await sb.from('tasks').select('*').order('updated_at',{ascending:false});
+  const { data: tasks } = await sb.from('tasks').select('*').eq('is_archived',false).order('updated_at',{ascending:false});
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', new Date().toISOString().split('T')[0]).eq('is_archived',false);
   const { data: emps } = await sb.from('employees').select('name,email,designation').eq('is_active',true);
   const el = document.getElementById('ceoActivityFeed');
@@ -3145,8 +3145,8 @@ async function loadTodayAttendanceWidget() {
 // ═══════════════════════════════════════════
 async function loadMyTasks() {
   // Load own tasks + tasks forwarded to me
-  const { data: ownTasks } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email).order('created_at',{ascending:false});
-  const { data: forwardedTasks } = await sb.from('tasks').select('*').eq('pending_with_email', currentUser.email).order('created_at',{ascending:false});
+  const { data: ownTasks } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
+  const { data: forwardedTasks } = await sb.from('tasks').select('*').eq('pending_with_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
   
   // Merge and deduplicate
   const allMyTasksMap = {};
@@ -3485,14 +3485,15 @@ async function loadAttendance() {
   const { data: allAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('is_archived',false).order('date',{ascending:false}).limit(30);
   const tbody = document.getElementById('attBody');
   if (!allAtt||!allAtt.length) {
-    tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No attendance records</td></tr>'; return;
+    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No attendance records</td></tr>'; return;
   }
   tbody.innerHTML = allAtt.map(a=>`<tr>
     <td style="font-weight:600">${fmtDate(a.date)}</td>
     <td>${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
     <td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
-    <td>${a.working_hours?a.working_hours+' hrs':'—'}</td>
+    <td>${a.working_hours?parseFloat(a.working_hours).toFixed(1)+' hrs':'—'}</td>
     <td>${attBadge(a.status)}</td>
+    <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
   </tr>`).join('');
 }
 
@@ -5461,14 +5462,14 @@ async function deleteLeaveRecord(leaveId) {
 //  SENIOR REVIEW
 // ═══════════════════════════════════════════
 async function loadSeniorBadge() {
-  const { data } = await sb.from('tasks').select('id').eq('work_status','Sent to Senior').eq('senior_approval','Pending');
+  const { data } = await sb.from('tasks').select('id').eq('is_archived',false).eq('work_status','Sent to Senior').eq('senior_approval','Pending');
   const count = (data||[]).length;
   const badge = document.getElementById('nb-senior');
   if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline-block' : 'none'; }
 }
 
 async function loadSeniorReview() {
-  const { data } = await sb.from('tasks').select('*').eq('work_status','Sent to Senior').order('created_at',{ascending:false});
+  const { data } = await sb.from('tasks').select('*').eq('is_archived',false).eq('work_status','Sent to Senior').order('created_at',{ascending:false});
   const el = document.getElementById('seniorReviewList');
   if (!data || !data.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎉</div><div class="empty-title">No pending reviews</div><p>All tasks reviewed!</p></div>';
@@ -5573,7 +5574,7 @@ async function loadPerformance() {
     document.getElementById('allPerfSection').style.display = 'block';
     document.getElementById('myPerfCard').style.display = 'none';
     const { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
-    const { data: allTasks } = await sb.from('tasks').select('*');
+    const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
     const { data: allAtt } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
     const tbody = document.getElementById('perfTableBody');
     if (!emps || !emps.length) {
@@ -5636,7 +5637,7 @@ async function loadPerformance() {
     // Employee view
     document.getElementById('myPerfCard').style.display = 'block';
     document.getElementById('allPerfSection').style.display = 'none';
-    const { data: myTasksData } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email);
+    const { data: myTasksData } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email).eq('is_archived',false);
     const { data: myAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
     const total = (myTasksData||[]).length;
     const completed = (myTasksData||[]).filter(t => t.work_status==='Completed'||t.work_status==='Report Ready').length;
