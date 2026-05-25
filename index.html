@@ -3838,9 +3838,12 @@ async function loadAttReport() {
             <div class="progress-fill" style="width:${pct}%;background:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}"></div>
           </div>
           <span style="font-size:12px;font-weight:700;color:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}">${pct}%</span>
-        </div>
-      </td>
-    </tr>`;
+          </div>
+        </td>
+        <td>
+          <button class="btn btn-sm" onclick="deleteAttendance('${e.email}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️ Delete</button>
+        </td>
+      </tr>`;
   }).join('');
 }
 
