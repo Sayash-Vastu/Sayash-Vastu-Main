@@ -643,12 +643,18 @@ vercel-toolbar {
       </div>
 
       <div class="sidebar-section">Company</div>
-      <button class="nav-btn" onclick="showView('performance')"><span class="ni">📈</span><span>Performance</span></button>
-      <button class="nav-btn" onclick="showView('notices')"><span class="ni">📢</span><span>Notice Board</span></button>
-      <button class="nav-btn" onclick="showView('tickets')">
-        <span class="ni">🎫</span><span>Tickets</span>
-        <span class="nav-badge" id="nb-tickets" style="display:none">0</span>
+      <button class="nav-btn" onclick="toggleSideMenu('companyMenu')" id="nav-company-parent">
+        <span class="ni">🏢</span><span>Company</span>
+        <span id="company-arrow" style="margin-left:auto;font-size:10px;transition:transform 0.2s">▶</span>
       </button>
+      <div id="companyMenu" style="display:none">
+        <button class="nav-btn" onclick="showView('performance')" style="padding-left:32px"><span class="ni">📈</span><span>Performance</span></button>
+        <button class="nav-btn" onclick="showView('notices')" style="padding-left:32px"><span class="ni">📢</span><span>Notice Board</span></button>
+        <button class="nav-btn" onclick="showView('tickets')" style="padding-left:32px">
+          <span class="ni">🎫</span><span>Tickets</span>
+          <span class="nav-badge" id="nb-tickets" style="display:none">0</span>
+        </button>
+      </div>
 
       <div class="sidebar-section">Account</div>
       <button class="nav-btn" id="nav-profile" onclick="showView('myProfile')"><span class="ni">⚙️</span><span>My Profile</span></button>
@@ -665,7 +671,7 @@ vercel-toolbar {
           <span class="ni">✅</span><span>Leave Approvals</span>
           <span class="nav-badge" id="nb-leave-approve" style="display:none">0</span>
         </button>
-        <button class="nav-btn" id="nav-perf-ceo" onclick="showView('performance')" style="display:none;padding-left:32px"><span class="ni">📈</span><span>Performance</span></button>
+
       </div>
 
       <div class="sidebar-logout">
@@ -1707,6 +1713,49 @@ vercel-toolbar {
         </div>
       </div>
 
+      <!-- PERFORMANCE VIEW -->
+      <div class="view" id="view-performance">
+        <div class="page-header">
+          <h2>Performance</h2>
+          <p id="perfSubtitle">Track and monitor performance</p>
+        </div>
+        <!-- My Performance (Employee) -->
+        <div id="myPerfCard" style="display:none;margin-bottom:20px">
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">📈 My Performance — This Month</div></div>
+            <div id="myPerfContent" class="panel-body"></div>
+          </div>
+        </div>
+        <!-- Team Performance (CEO) -->
+        <div id="allPerfSection" style="display:none">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <button class="btn-export" onclick="exportPerformancePDF()">📄 Export PDF</button>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><div class="panel-title">📊 Team Performance Report</div></div>
+            <div class="tbl-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Dept</th>
+                    <th>Total Tasks</th>
+                    <th>Completed</th>
+                    <th>Pending</th>
+                    <th>Delayed</th>
+                    <th>Completion %</th>
+                    <th>Attendance %</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="perfTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- LEAVE APPROVALS CEO -->
       <div class="view" id="view-leaveApprove">
         <div class="page-header">
@@ -2336,6 +2385,12 @@ function showView(name) {
     const arr = document.getElementById('work-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
   }
+  if (['performance','notices','tickets'].includes(name)) {
+    const cm = document.getElementById('companyMenu');
+    if (cm) cm.style.display = 'block';
+    const arr = document.getElementById('company-arrow');
+    if (arr) arr.style.transform = 'rotate(90deg)';
+  }
   if (['attendance','leaves','holidays','hrPolicy'].includes(name)) {
     const hrMenuEl = document.getElementById('hrMenu');
     if (hrMenuEl) hrMenuEl.style.display = 'block';
@@ -2370,6 +2425,7 @@ function showView(name) {
   if (name === 'leaveApprove') loadLeaveApprovals();
   if (name === 'seniorReview') loadSeniorReview();
   if (name === 'myProfile') loadMyProfile();
+  if (name === 'performance') loadPerformance();
   if (name === 'tickets') loadTickets();
   if (name === 'holidays') loadHolidays();
   if (name === 'hrPolicy') loadHRPolicies();
@@ -5478,6 +5534,170 @@ async function deleteTask(taskId, reload=false) {
 }
 
 // ═══════════════════════════════════════════
+//  PERFORMANCE
+// ═══════════════════════════════════════════
+async function loadPerformance() {
+  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
+  const subtitle = document.getElementById('perfSubtitle');
+  if (subtitle) subtitle.textContent = isCEO ? 'Team performance overview for this month' : 'Your performance overview for this month';
+
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
+  const totalDays = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  if (isCEO) {
+    document.getElementById('allPerfSection').style.display = 'block';
+    document.getElementById('myPerfCard').style.display = 'none';
+    const { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
+    const { data: allTasks } = await sb.from('tasks').select('*');
+    const { data: allAtt } = await sb.from('attendance').select('*').gte('date', monthStart).lte('date', monthEnd);
+    const tbody = document.getElementById('perfTableBody');
+    if (!emps || !emps.length) {
+      tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No employees found</td></tr>';
+      return;
+    }
+    tbody.innerHTML = emps.map((emp, i) => {
+      const empTasks = (allTasks||[]).filter(t => t.assigned_to_email === emp.email);
+      const total = empTasks.length;
+      const completed = empTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
+      const pending = empTasks.filter(t => t.work_status === 'Not Started' || t.work_status === 'In Progress').length;
+      const delayed = empTasks.filter(t => {
+        const ed = t.end_date ? new Date(t.end_date) : null;
+        return ed && today > ed && t.work_status !== 'Completed' && t.work_status !== 'Report Ready';
+      }).length;
+      const completionPct = total > 0 ? Math.round((completed/total)*100) : 0;
+      const empAtt = (allAtt||[]).filter(a => a.employee_email === emp.email);
+      const presentDays = empAtt.filter(a => a.status === 'Present').length;
+      const attPct = totalDays > 0 ? Math.round((presentDays/totalDays)*100) : 0;
+      let status, statusClass;
+      const score = (completionPct * 0.6) + (attPct * 0.4);
+      if (score >= 90) { status = '🟢 Excellent'; statusClass = 'b-green'; }
+      else if (score >= 75) { status = '🔵 Good'; statusClass = 'b-blue'; }
+      else if (score >= 60) { status = '🟡 Average'; statusClass = 'b-amber'; }
+      else { status = '🔴 Needs Improvement'; statusClass = 'b-red'; }
+      const compColor = completionPct >= 75 ? 'var(--green)' : completionPct >= 50 ? 'var(--amber)' : 'var(--red)';
+      const attColor = attPct >= 75 ? 'var(--green)' : attPct >= 50 ? 'var(--amber)' : 'var(--red)';
+      return `<tr>
+        <td style="color:var(--muted);font-size:11px">${i+1}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px">${esc(emp.name).substring(0,2).toUpperCase()}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${esc(emp.name)}</div>
+              <div style="font-size:10px;color:var(--muted)">${esc(emp.designation||'')}</div>
+            </div>
+          </div>
+        </td>
+        <td style="font-size:12px">${esc(emp.department||'—')}</td>
+        <td style="font-weight:700;text-align:center">${total}</td>
+        <td style="color:var(--green);font-weight:700;text-align:center">${completed}</td>
+        <td style="color:var(--amber);font-weight:700;text-align:center">${pending}</td>
+        <td style="color:var(--red);font-weight:700;text-align:center">${delayed}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:${completionPct}%;background:${compColor}"></div></div>
+            <span style="font-size:12px;font-weight:700;color:${compColor}">${completionPct}%</span>
+          </div>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:${attPct}%;background:${attColor}"></div></div>
+            <span style="font-size:12px;font-weight:700;color:${attColor}">${attPct}%</span>
+          </div>
+        </td>
+        <td><span class="badge ${statusClass}" style="font-size:10px;white-space:nowrap">${status}</span></td>
+      </tr>`;
+    }).join('');
+  } else {
+    // Employee view
+    document.getElementById('myPerfCard').style.display = 'block';
+    document.getElementById('allPerfSection').style.display = 'none';
+    const { data: myTasksData } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email);
+    const { data: myAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).gte('date', monthStart).lte('date', monthEnd);
+    const total = (myTasksData||[]).length;
+    const completed = (myTasksData||[]).filter(t => t.work_status==='Completed'||t.work_status==='Report Ready').length;
+    const pending = (myTasksData||[]).filter(t => t.work_status==='Not Started'||t.work_status==='In Progress').length;
+    const delayed = (myTasksData||[]).filter(t => { const ed = t.end_date ? new Date(t.end_date) : null; return ed && today > ed && t.work_status !== 'Completed'; }).length;
+    const completionPct = total > 0 ? Math.round((completed/total)*100) : 0;
+    const presentDays = (myAtt||[]).filter(a => a.status==='Present').length;
+    const attPct = totalDays > 0 ? Math.round((presentDays/totalDays)*100) : 0;
+    const totalHrs = (myAtt||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
+    const avgHrs = presentDays > 0 ? (totalHrs/presentDays).toFixed(1) : '0.0';
+    let status, statusColor;
+    const score = (completionPct * 0.6) + (attPct * 0.4);
+    if (score >= 90) { status = '🟢 Excellent'; statusColor = 'var(--green)'; }
+    else if (score >= 75) { status = '🔵 Good'; statusColor = 'var(--blue)'; }
+    else if (score >= 60) { status = '🟡 Average'; statusColor = 'var(--amber)'; }
+    else { status = '🔴 Needs Improvement'; statusColor = 'var(--red)'; }
+    document.getElementById('myPerfContent').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+        <div style="background:var(--bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--navy)">
+          <div style="font-size:28px;font-weight:800;color:var(--navy)">${total}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;text-transform:uppercase;font-weight:700">Total Tasks</div>
+        </div>
+        <div style="background:var(--green-bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--green)">
+          <div style="font-size:28px;font-weight:800;color:var(--green)">${completed}</div>
+          <div style="font-size:11px;color:var(--green);margin-top:4px;text-transform:uppercase;font-weight:700">Completed</div>
+        </div>
+        <div style="background:var(--amber-bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--amber)">
+          <div style="font-size:28px;font-weight:800;color:var(--amber)">${pending}</div>
+          <div style="font-size:11px;color:var(--amber);margin-top:4px;text-transform:uppercase;font-weight:700">Pending</div>
+        </div>
+        <div style="background:var(--red-bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--red)">
+          <div style="font-size:28px;font-weight:800;color:var(--red)">${delayed}</div>
+          <div style="font-size:11px;color:var(--red);margin-top:4px;text-transform:uppercase;font-weight:700">Delayed</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+        <div style="background:var(--bg);border-radius:10px;padding:16px">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Task Completion</div>
+          <div style="font-size:28px;font-weight:800;color:${completionPct>=75?'var(--green)':completionPct>=50?'var(--amber)':'var(--red)'}">${completionPct}%</div>
+          <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" style="width:${completionPct}%;background:${completionPct>=75?'var(--green)':completionPct>=50?'var(--amber)':'var(--red)'}"></div></div>
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:16px">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Attendance</div>
+          <div style="font-size:28px;font-weight:800;color:${attPct>=75?'var(--green)':attPct>=50?'var(--amber)':'var(--red)'}">${attPct}%</div>
+          <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" style="width:${attPct}%;background:${attPct>=75?'var(--green)':attPct>=50?'var(--amber)':'var(--red)'}"></div></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:6px">⏱️ Avg ${avgHrs}h/day</div>
+        </div>
+        <div style="background:var(--bg);border-radius:10px;padding:16px">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Overall Status</div>
+          <div style="font-size:20px;font-weight:800;color:${statusColor};margin-top:8px">${status}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:8px">Score: ${Math.round(score)}%</div>
+        </div>
+      </div>
+    `;
+  }
+}
+
+async function exportPerformancePDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF('l','mm','a4');
+  doc.setFontSize(16); doc.setFont('helvetica','bold');
+  doc.text('Sayash Vastu — Employee Performance Report', 14, 18);
+  doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text('Month: ' + new Date().toLocaleString('default',{month:'long',year:'numeric'}) + '  |  Generated: ' + new Date().toLocaleDateString('en-IN'), 14, 26);
+  const rows = document.querySelectorAll('#perfTableBody tr');
+  let y = 36;
+  doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text('#  Name                 Dept          Total  Done  Pending  Delayed  Done%  Att%  Status', 14, y);
+  y += 4; doc.line(14, y, 280, y); y += 5;
+  doc.setFont('helvetica','normal');
+  rows.forEach((row,i) => {
+    if(y>190){doc.addPage();y=20;}
+    const cells = row.querySelectorAll('td');
+    if(cells.length>=10){
+      doc.text(String(i+1).padEnd(3)+cells[1].textContent.trim().substring(0,20).padEnd(21)+cells[2].textContent.trim().substring(0,13).padEnd(14)+cells[3].textContent.trim().padEnd(7)+cells[4].textContent.trim().padEnd(6)+cells[5].textContent.trim().padEnd(9)+cells[6].textContent.trim().padEnd(9)+cells[7].textContent.trim().padEnd(7)+cells[8].textContent.trim().padEnd(6)+cells[9].textContent.trim(), 14, y);
+      y+=6;
+    }
+  });
+  doc.save('SayashVastu_Performance_'+new Date().toISOString().split('T')[0]+'.pdf');
+  showToast('✅ Performance PDF exported!','ok');
+}
+
+// ═══════════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════════
 function toggleSideMenu(menuId) {
@@ -5485,8 +5705,7 @@ function toggleSideMenu(menuId) {
   if (!menu) return;
   const isOpen = menu.style.display !== 'none';
   menu.style.display = isOpen ? 'none' : 'block';
-  // Update arrow
-  const arrowMap = {'workMenu':'work-arrow','hrMenu':'hr-arrow','ceoMenu':'ceo-arrow'};
+  const arrowMap = {'workMenu':'work-arrow','hrMenu':'hr-arrow','ceoMenu':'ceo-arrow','companyMenu':'company-arrow'};
   const arrowEl = document.getElementById(arrowMap[menuId]);
   if (arrowEl) arrowEl.style.transform = isOpen ? '' : 'rotate(90deg)';
 }
