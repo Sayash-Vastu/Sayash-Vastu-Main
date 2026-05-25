@@ -621,6 +621,9 @@ vercel-toolbar {
         <button class="nav-btn" id="nav-assign" onclick="showView('assign')" style="display:none;padding-left:32px">
           <span class="ni">➕</span><span>Assign Task</span>
         </button>
+        <button class="nav-btn" id="nav-assign-ceo" onclick="showView('assign')" style="display:none;padding-left:32px">
+          <span class="ni">➕</span><span>Assign Task</span>
+        </button>
         <button class="nav-btn" id="nav-all-tasks-work" onclick="showView('allTasks')" style="display:none;padding-left:32px">
           <span class="ni">📊</span><span>All Tasks</span>
         </button>
@@ -731,9 +734,10 @@ vercel-toolbar {
               <div>
                 <div id="loginTypeWrap" style="display:none;flex-direction:column;gap:8px;align-items:flex-end">
               <div style="font-size:11px;color:rgba(255,255,255,0.6);font-weight:600;text-align:right">Select Work Type:</div>
-              <div style="display:flex;gap:8px">
+              <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
                 <button class="btn" onclick="markEmpLogin('Office')" style="padding:10px 16px;font-size:12px;font-weight:700;background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.25);color:#fff">🏢 WFO</button>
                 <button class="btn btn-gold" onclick="markEmpLogin('WFH')" style="padding:10px 16px;font-size:12px;font-weight:700">🏠 WFH</button>
+                <button class="btn" onclick="markEmpLogin('On Site')" style="padding:10px 16px;font-size:12px;font-weight:700;background:rgba(13,122,78,0.7);border-color:rgba(13,122,78,0.5);color:#fff">📍 On Site</button>
               </div>
             </div>
             <button class="btn btn-gold" id="empLoginBtn" onclick="showLoginTypeOptions()" style="display:none;padding:11px 24px;font-size:13px;font-weight:700">🔐 Log In</button>
@@ -1041,7 +1045,7 @@ vercel-toolbar {
             </div>
             <div class="tbl-wrap">
               <table>
-<thead><tr><th>Date</th><th>Day</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Action</th></tr></thead>
+                <thead><tr><th>Date</th><th>Day</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody id="attBody"></tbody>
               </table>
             </div>
@@ -2021,45 +2025,16 @@ function updateDateHeader() {
 // ═══════════════════════════════════════════
 async function sendEmail(toEmail, toName, subject, message, type = 'General', actionUrl = '', actionLabel = '') {
   try {
-    const response = await fetch('/api/send-email', {
+    await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
+      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: toName,
-        email: toEmail,
-        to: toEmail,
-        subject: subject,
-        message: message,
-        html: `
-          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px;">
-            <h2 style="color: #c9a84c; border-bottom: 2px solid #c9a84c; padding-bottom: 10px;">${type} — Sayash Vastu</h2>
-            <p>Dear ${toName},</p>
-            <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #c9a84c; border-radius: 4px; white-space: pre-wrap; margin: 15px 0; line-height: 1.6;">
-              ${message.replace(/\n/g, '<br>')}
-            </div>
-            ${actionUrl ? `
-            <div style="text-align: center; margin: 25px 0;">
-              <a href="${actionUrl}" style="background-color: #c9a84c; color: #0b1629; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 14px;">
-                ${actionLabel || 'View Details'}
-              </a>
-            </div>
-            ` : ''}
-            <hr style="border: 0; border-top: 1px solid #eee; margin-top: 20px;" />
-            <p style="font-size: 11px; color: #888; text-align: center;">This is an automated notification from Sayash Vastu Portal.</p>
-          </div>
-        `
+        to_email: toEmail, to_name: toName,
+        subject, message, type, action_url: actionUrl, action_label: actionLabel
       })
     });
-
-    const result = await response.json();
-    if (result.success) {
-      console.log('Email sent successfully to', toEmail);
-    } else {
-      console.error('Email sending failed:', result.error || result);
-    }
-  } catch(err) {
-    console.error('Email error:', err);
-  }
+  } catch(err) { console.error('Email error:', err); }
 }
 
 async function sendDailySummaryEmail(period) {
@@ -2322,7 +2297,7 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    ['nav-employees','nav-att-report','nav-leave-approve','nav-perf-ceo','nav-all-tasks-work'].forEach(id => {
+    ['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
     });
@@ -2521,11 +2496,8 @@ async function loadEmpDashboard() {
 
   // Today attendance - Login/Logout buttons
   const today = new Date().toISOString().split('T')[0];
-const { data: attData } = await sb.from('attendance').select('*')
-    .eq('employee_email', currentUser.email)
-    .eq('is_archived', false)
-    .gte('date', start).lte('date', end)
-    .order('date', {ascending: false});
+  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('date', today).eq('is_archived',false).maybeSingle();
+
   const loginBtn = document.getElementById('empLoginBtn');
   const logoutBtn = document.getElementById('empLogoutBtn');
   const loginDone = document.getElementById('empLoginDone');
@@ -2623,7 +2595,7 @@ const { data: attData } = await sb.from('attendance').select('*')
   }
 
   // WFH Today
-  const { data: wfhToday } = await sb.from('attendance').select('*').eq('date', today).eq('work_type','WFH');
+  const { data: wfhToday } = await sb.from('attendance').select('*').eq('date', today).eq('is_archived',false).eq('work_type','WFH');
   const wfhEl = document.getElementById('empWFHToday');
   if (!wfhToday || !wfhToday.length) {
     wfhEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No one working from home today</div>';
@@ -2756,7 +2728,7 @@ async function loadCeoDashboard() {
   const { count: doneTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('work_status','Completed');
 
   const todayDate = new Date().toISOString().split('T')[0];
-  const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', todayDate);
+  const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', todayDate).eq('is_archived',false);
   const presentToday = (todayAtt||[]).filter(a=>a.status==='Present'||a.status==='Half Day').length;
 
   const { data: allTasks } = await sb.from('tasks').select('*');
@@ -2846,7 +2818,7 @@ async function loadCeoDashboard() {
   }
 
   // WFH Today
-  const { data: wfhToday } = await sb.from('attendance').select('*').eq('date',todayStr).eq('work_type','WFH');
+  const { data: wfhToday } = await sb.from('attendance').select('*').eq('date',todayStr).eq('is_archived',false).eq('work_type','WFH');
   const wfhEl = document.getElementById('ceoWFHToday');
   if (wfhEl) {
     if (!wfhToday||!wfhToday.length) {
@@ -2891,7 +2863,7 @@ async function loadCeoDashboard() {
   }
 
   // Today's Attendance Log
-  const { data: todayAttAll } = await sb.from('attendance').select('*').eq('date',todayStr).order('check_in',{ascending:true});
+  const { data: todayAttAll } = await sb.from('attendance').select('*').eq('date',todayStr).eq('is_archived',false).order('check_in',{ascending:true});
   const todayLogEl = document.getElementById('ceoTodayLog');
   if (todayLogEl) {
     if (!todayAttAll||!todayAttAll.length) {
@@ -2912,10 +2884,9 @@ async function loadCeoDashboard() {
           <td style="padding:9px 14px">${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
           <td style="padding:9px 14px;font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+'h':'—'}</td>
           <td style="padding:9px 14px"><span class="badge ${a.work_type==='WFH'?'b-blue':'b-navy'}" style="font-size:10px">${a.work_type||'Office'}</span></td>
-<td style="padding:9px 14px">${attBadge(a.status)}</td>
-          <td style="padding:9px 14px"><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
-          </tr>`).join('')}
-                </table>`;
+          <td style="padding:9px 14px">${attBadge(a.status)}</td>
+        </tr>`).join('')}</tbody>
+      </table>`;
     }
   }
 
@@ -2980,7 +2951,8 @@ async function markEmpLogin(workType) {
     work_type: workType || 'Office'
   });
   if (error) { showToast('❌ '+error.message, 'err'); return; }
-  showToast(`✅ Logged in (${workType==='WFH'?'Work From Home':'Office'}) at `+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), 'ok');
+  const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
+  showToast(`✅ Logged in (${typeLabel}) at `+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), 'ok');
   loadEmpDashboard();
 }
 
@@ -2989,7 +2961,7 @@ async function markEmpLogout() {
   const today = now.toISOString().split('T')[0];
   const btn = document.getElementById('empLogoutBtn');
   btn.disabled = true; btn.textContent = 'Logging out...';
-  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('date', today).single();
+  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('date', today).eq('is_archived',false).maybeSingle();
   if (!todayAtt) { showToast('❌ No login found!', 'err'); btn.disabled=false; btn.textContent='🚪 Log Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
   const { error } = await sb.from('attendance').update({
@@ -3034,7 +3006,7 @@ async function loadHelpBadge() {
 async function loadCeoActivityFeed() {
   document.getElementById('ceoActivitySection').style.display = 'block';
   const { data: tasks } = await sb.from('tasks').select('*').order('updated_at',{ascending:false});
-  const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', new Date().toISOString().split('T')[0]);
+  const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', new Date().toISOString().split('T')[0]).eq('is_archived',false);
   const { data: emps } = await sb.from('employees').select('name,email,designation').eq('is_active',true);
   const el = document.getElementById('ceoActivityFeed');
 
@@ -3150,7 +3122,7 @@ async function loadCeoActivityFeed() {
 
 async function loadTodayAttendanceWidget() {
   const today = new Date().toISOString().split('T')[0];
-  const { data } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('date', today).single();
+  const { data } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('date', today).eq('is_archived',false).maybeSingle();
   const el = document.getElementById('homeAttendance');
   if (data) {
     el.innerHTML = `
@@ -3233,6 +3205,7 @@ async function renderMyTasks() {
       <td style="min-width:100px">${files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td style="display:flex;gap:5px">
         <button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>
+        <button class="btn btn-sm" onclick="deleteTask('${t.id}',false)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
       </td>
     </tr>`;
   }).join('');
@@ -3486,7 +3459,7 @@ Please login to view your task details.`,
 // ═══════════════════════════════════════════
 async function loadAttendance() {
   const today = new Date().toISOString().split('T')[0];
-  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('date',today).single();
+  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('date',today).eq('is_archived',false).maybeSingle();
   const checkInBtn = document.getElementById('checkInBtn');
   const checkOutBtn = document.getElementById('checkOutBtn');
   const checkedMsg = document.getElementById('attCheckedMsg');
@@ -3509,7 +3482,7 @@ async function loadAttendance() {
   document.getElementById('att-absent').textContent=(monthAtt||[]).filter(a=>a.status==='Absent').length;
   document.getElementById('att-half').textContent=(monthAtt||[]).filter(a=>a.status==='Half Day').length;
   document.getElementById('att-leave').textContent=(monthAtt||[]).filter(a=>a.status==='Leave').length;
-  const { data: allAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).order('date',{ascending:false}).limit(30);
+  const { data: allAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('is_archived',false).order('date',{ascending:false}).limit(30);
   const tbody = document.getElementById('attBody');
   if (!allAtt||!allAtt.length) {
     tbody.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No attendance records</td></tr>'; return;
@@ -3520,8 +3493,7 @@ async function loadAttendance() {
     <td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
     <td>${a.working_hours?a.working_hours+' hrs':'—'}</td>
     <td>${attBadge(a.status)}</td>
-      <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
-    </tr>`).join('');
+  </tr>`).join('');
 }
 
 function initAttMonth() {
@@ -3555,7 +3527,7 @@ async function markCheckOut() {
   const today = now.toISOString().split('T')[0];
   const btn = document.getElementById('checkOutBtn');
   btn.disabled=true; btn.textContent='Checking out...';
-  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('date',today).single();
+  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('date',today).eq('is_archived',false).maybeSingle();
   if (!todayAtt) { showToast('❌ No check-in found!','err'); btn.disabled=false; btn.textContent='🚪 Check Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
   const { error } = await sb.from('attendance').update({
@@ -3703,7 +3675,7 @@ async function postNotice() {
 //  ALL TASKS CEO
 // ═══════════════════════════════════════════
 async function loadAllTasks() {
-  const { data } = await sb.from('tasks').select('*').eq('is_archived', false).order('created_at',{ascending:false});
+  const { data } = await sb.from('tasks').select('*').eq('is_archived',false).order('created_at',{ascending:false});
   allTasksData = data || [];
   renderAllTasks();
   const today=new Date(); today.setHours(0,0,0,0);
@@ -3840,10 +3812,7 @@ async function loadAttReport() {
   const start=`${yr}-${mo}-01`;
   const end=new Date(yr,mo,0).toISOString().split('T')[0];
   const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true);
-const { data: attData } = await sb.from('attendance').select('*')
-    .eq('is_archived', false)
-    .gte('date',start).lte('date',end)
-    .order('date',{ascending:false});
+  const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
   const tbody=document.getElementById('attReportBody');
   if (!emps) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px">No data</td></tr>'; return; }
   const totalDays=new Date(yr,mo,0).getDate();
@@ -3867,12 +3836,10 @@ const { data: attData } = await sb.from('attendance').select('*')
             <div class="progress-fill" style="width:${pct}%;background:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}"></div>
           </div>
           <span style="font-size:12px;font-weight:700;color:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}">${pct}%</span>
-          </div>
-        </td>
-        <td>
-          <button class="btn btn-sm" onclick="deleteAttendance('${e.email}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️ Delete</button>
-        </td>
-      </tr>`;
+        </div>
+      </td>
+      <td><button class="btn btn-sm" onclick="deleteEmpAttendance('${e.email}','${monthVal}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+    </tr>`;
   }).join('');
 }
 
@@ -3880,7 +3847,7 @@ const { data: attData } = await sb.from('attendance').select('*')
 //  LEAVE APPROVALS CEO
 // ═══════════════════════════════════════════
 async function loadLeaveApprovals() {
-const { data } = await sb.from('leaves').select('*').eq('is_archived', false).order('created_at',{ascending:false});
+  const { data } = await sb.from('leaves').select('*').eq('is_archived',false).order('created_at',{ascending:false});
   const el=document.getElementById('leaveApproveList');
   if (!data||!data.length) {
     el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No leave requests</div></div>'; return;
@@ -4108,7 +4075,7 @@ async function loadTickets() {
   }
 
   const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
-  let query = sb.from('tickets').select('*').eq('is_archived', false).order('created_at',{ascending:false});
+  let query = sb.from('tickets').select('*').eq('is_archived',false).order('created_at',{ascending:false});
   if (!isCEO) query = query.eq('created_by_email', currentUser.email);
   const { data: tickets } = await query;
   allTickets = tickets || [];
@@ -4447,7 +4414,7 @@ Please login to rate your experience.`,
 }
 
 async function deleteTicket(ticketId) {
-if (!confirm('Delete this ticket?')) return;
+  if (!confirm('Delete this ticket?')) return;
   const { error } = await sb.from('tickets').update({is_archived: true}).eq('id', ticketId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Ticket archived!', 'ok');
@@ -5111,6 +5078,7 @@ async function loadMyAttendance() {
 
   const { data: attData } = await sb.from('attendance').select('*')
     .eq('employee_email', currentUser.email)
+    .eq('is_archived', false)
     .gte('date', start).lte('date', end)
     .order('date', {ascending: false});
 
@@ -5167,6 +5135,7 @@ async function loadMyAttendance() {
       <td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
       <td style="font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+'h':'—'}</td>
       <td>${attBadge(a.status)}</td>
+      <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
     </tr>`;
   }).join('');
 }
@@ -5435,14 +5404,26 @@ Designation: ${emp.designation||'—'}`,
   }
 }
 
-  async function deleteAttendance(attId) {
+async function deleteAttendance(attId) {
   if (!confirm('Delete this attendance record?')) return;
   const { error } = await sb.from('attendance').update({is_archived: true}).eq('id', attId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
-  showToast('✅ Attendance deleted!', 'ok');
-  loadAttReport();
+  showToast('✅ Attendance archived!', 'ok');
+  loadAttendance();
   loadMyAttendance();
 }
+
+async function deleteEmpAttendance(empEmail, monthVal) {
+  if (!confirm('Delete all attendance records for this employee this month?')) return;
+  const [yr, mo] = monthVal.split('-');
+  const start = `${yr}-${mo}-01`;
+  const end = new Date(yr, mo, 0).toISOString().split('T')[0];
+  const { error } = await sb.from('attendance').delete().eq('employee_email', empEmail).gte('date', start).lte('date', end);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Records deleted!', 'ok');
+  loadAttReport();
+}
+
 async function toggleEmployee(empId, isActive) {
   const action = isActive ? 'deactivate' : 'activate';
   if (!confirm(`Are you sure you want to ${action} this employee?`)) return;
@@ -5469,8 +5450,8 @@ async function cancelLeave(leaveId) {
 }
 
 async function deleteLeaveRecord(leaveId) {
-if (!confirm('Delete this leave record?')) return;
-    const { error } = await sb.from('leaves').update({is_archived: true}).eq('id', leaveId);
+  if (!confirm('Delete this leave record?')) return;
+  const { error } = await sb.from('leaves').update({is_archived: true}).eq('id', leaveId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Leave archived!', 'ok');
   loadLeaveApprovals();
@@ -5567,7 +5548,7 @@ async function ceoFinalizeTask(taskId, decision) {
 }
 
 async function deleteTask(taskId, reload=false) {
-if (!confirm('Delete this task?')) return;
+  if (!confirm('Delete this task?')) return;
   const { error } = await sb.from('tasks').update({is_archived: true}).eq('id', taskId);
   if (error) { showToast('❌ Failed: ' + error.message, 'err'); return; }
   showToast('✅ Task archived!', 'ok');
@@ -5593,7 +5574,7 @@ async function loadPerformance() {
     document.getElementById('myPerfCard').style.display = 'none';
     const { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
     const { data: allTasks } = await sb.from('tasks').select('*');
-    const { data: allAtt } = await sb.from('attendance').select('*').gte('date', monthStart).lte('date', monthEnd);
+    const { data: allAtt } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
     const tbody = document.getElementById('perfTableBody');
     if (!emps || !emps.length) {
       tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No employees found</td></tr>';
@@ -5656,7 +5637,7 @@ async function loadPerformance() {
     document.getElementById('myPerfCard').style.display = 'block';
     document.getElementById('allPerfSection').style.display = 'none';
     const { data: myTasksData } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email);
-    const { data: myAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).gte('date', monthStart).lte('date', monthEnd);
+    const { data: myAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
     const total = (myTasksData||[]).length;
     const completed = (myTasksData||[]).filter(t => t.work_status==='Completed'||t.work_status==='Report Ready').length;
     const pending = (myTasksData||[]).filter(t => t.work_status==='Not Started'||t.work_status==='In Progress').length;
