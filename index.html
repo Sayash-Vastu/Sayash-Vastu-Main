@@ -5428,10 +5428,10 @@ async function cancelLeave(leaveId) {
 }
 
 async function deleteLeaveRecord(leaveId) {
-  if (!confirm('Delete this leave record permanently?')) return;
-  const { error } = await sb.from('leaves').delete().eq('id', leaveId);
+  if (!confirm('Archive this leave record? Data stays in database.')) return;
+  const { error } = await sb.from('leaves').update({is_archived: true}).eq('id', leaveId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
-  showToast('✅ Leave record deleted!', 'ok');
+  showToast('✅ Leave archived!', 'ok');
   loadLeaveApprovals();
 }
 
