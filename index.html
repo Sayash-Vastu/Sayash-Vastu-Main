@@ -1041,7 +1041,7 @@ vercel-toolbar {
             </div>
             <div class="tbl-wrap">
               <table>
-                <thead><tr><th>Date</th><th>Day</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th></tr></thead>
+<thead><tr><th>Date</th><th>Day</th><th>Check In</th><th>Check Out</th><th>Hours</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody id="attBody"></tbody>
               </table>
             </div>
@@ -2888,9 +2888,10 @@ async function loadCeoDashboard() {
           <td style="padding:9px 14px">${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
           <td style="padding:9px 14px;font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+'h':'—'}</td>
           <td style="padding:9px 14px"><span class="badge ${a.work_type==='WFH'?'b-blue':'b-navy'}" style="font-size:10px">${a.work_type||'Office'}</span></td>
-          <td style="padding:9px 14px">${attBadge(a.status)}</td>
-        </tr>`).join('')}</tbody>
-      </table>`;
+<td style="padding:9px 14px">${attBadge(a.status)}</td>
+          <td style="padding:9px 14px"><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+          </tr>`).join('')}
+                </table>`;
     }
   }
 
