@@ -4418,7 +4418,7 @@ Please login to rate your experience.`,
 }
 
 async function deleteTicket(ticketId) {
-  if (!confirm('Archive this ticket? Data stays in database.')) return;
+if (!confirm('Delete this ticket?')) return;
   const { error } = await sb.from('tickets').update({is_archived: true}).eq('id', ticketId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Ticket archived!', 'ok');
@@ -5439,8 +5439,8 @@ async function cancelLeave(leaveId) {
 }
 
 async function deleteLeaveRecord(leaveId) {
-  if (!confirm('Archive this leave record? Data stays in database.')) return;
-  const { error } = await sb.from('leaves').update({is_archived: true}).eq('id', leaveId);
+if (!confirm('Delete this leave record?')) return;
+    const { error } = await sb.from('leaves').update({is_archived: true}).eq('id', leaveId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Leave archived!', 'ok');
   loadLeaveApprovals();
@@ -5537,7 +5537,7 @@ async function ceoFinalizeTask(taskId, decision) {
 }
 
 async function deleteTask(taskId, reload=false) {
-  if (!confirm('Archive this task? Data will be saved in database.')) return;
+if (!confirm('Delete this task?')) return;
   const { error } = await sb.from('tasks').update({is_archived: true}).eq('id', taskId);
   if (error) { showToast('❌ Failed: ' + error.message, 'err'); return; }
   showToast('✅ Task archived!', 'ok');
