@@ -3848,7 +3848,7 @@ async function loadAttReport() {
 //  LEAVE APPROVALS CEO
 // ═══════════════════════════════════════════
 async function loadLeaveApprovals() {
-  const { data } = await sb.from('leaves').select('*').order('created_at',{ascending:false});
+const { data } = await sb.from('leaves').select('*').eq('is_archived', false).order('created_at',{ascending:false});
   const el=document.getElementById('leaveApproveList');
   if (!data||!data.length) {
     el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No leave requests</div></div>'; return;
