@@ -3816,7 +3816,10 @@ async function loadAttReport() {
   const start=`${yr}-${mo}-01`;
   const end=new Date(yr,mo,0).toISOString().split('T')[0];
   const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true);
-  const { data: attData } = await sb.from('attendance').select('*').gte('date',start).lte('date',end);
+const { data: attData } = await sb.from('attendance').select('*')
+    .eq('is_archived', false)
+    .gte('date',start).lte('date',end)
+    .order('date',{ascending:false});
   const tbody=document.getElementById('attReportBody');
   if (!emps) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px">No data</td></tr>'; return; }
   const totalDays=new Date(yr,mo,0).getDate();
