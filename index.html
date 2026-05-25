@@ -1021,6 +1021,7 @@ vercel-toolbar {
           <div>
             <div class="att-time" id="attClock">--:--</div>
             <div class="att-date" id="attDate">Loading...</div>
+            <div style="font-size:11px;color:rgba(255,255,255,0.4);margin-top:2px">🕐 Work: 10:00 AM – 6:00 PM &nbsp;|&nbsp; 🔒 Auto logout: 9 PM</div>
             <div class="att-status-text" id="attStatusText">Checking attendance...</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:10px;align-items:flex-end;position:relative;z-index:1">
@@ -1070,10 +1071,14 @@ vercel-toolbar {
             <div class="panel" style="margin-top:14px">
               <div class="panel-head"><div class="panel-title">🗓️ Legend</div></div>
               <div style="padding:14px 16px;display:flex;flex-direction:column;gap:8px">
-                <div style="display:flex;align-items:center;gap:8px"><span class="badge b-green">Present</span><span style="font-size:12px;color:var(--muted)">Full day attended</span></div>
+                <div style="display:flex;align-items:center;gap:8px"><span class="badge b-green">Present</span><span style="font-size:12px;color:var(--muted)">5+ hours (Full Day)</span></div>
+                <div style="display:flex;align-items:center;gap:8px"><span class="badge b-amber">Half Day</span><span style="font-size:12px;color:var(--muted)">Less than 5 hours</span></div>
                 <div style="display:flex;align-items:center;gap:8px"><span class="badge b-red">Absent</span><span style="font-size:12px;color:var(--muted)">No attendance marked</span></div>
-                <div style="display:flex;align-items:center;gap:8px"><span class="badge b-amber">Half Day</span><span style="font-size:12px;color:var(--muted)">Less than 4 hours</span></div>
                 <div style="display:flex;align-items:center;gap:8px"><span class="badge b-blue">On Leave</span><span style="font-size:12px;color:var(--muted)">Approved leave</span></div>
+                <div style="padding:8px;background:var(--bg);border-radius:6px;font-size:11px;color:var(--muted);margin-top:4px">
+                  🕐 Work Timing: 10:00 AM — 6:00 PM<br/>
+                  🔒 Auto Logout: 9:00 PM
+                </div>
               </div>
             </div>
           </div>
@@ -2013,6 +2018,36 @@ window.onload = function() {
   setInterval(function() {
     if (currentUser) loadNotifications();
   }, 30000);
+
+  // Auto logout at 9 PM
+  setInterval(async function() {
+    if (!currentUser || currentUser.role === 'ceo' || currentUser.role === 'manager') return;
+    const now = new Date();
+    if (now.getHours() >= 21) {
+      const today = now.toISOString().split('T')[0];
+      const { data: openAtt } = await sb.from('attendance')
+        .select('*').eq('employee_email', currentUser.email)
+        .eq('date', today).eq('is_archived', false).maybeSingle();
+      if (openAtt && openAtt.check_in && !openAtt.check_out) {
+        // Auto checkout at 9 PM (21:00)
+        const checkoutTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 21, 0, 0);
+        const hrs = ((checkoutTime - new Date(openAtt.check_in))/3600000).toFixed(2);
+        const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
+        await sb.from('attendance').update({
+          check_out: checkoutTime.toISOString(),
+          working_hours: hrs, status
+        }).eq('id', openAtt.id);
+        console.log('Auto logout at 9 PM — worked', hrs, 'hrs');
+        // Refresh dashboard if on home
+        if (document.getElementById('view-home').classList.contains('active')) {
+          loadEmpDashboard();
+        }
+        if (document.getElementById('view-attendance').classList.contains('active')) {
+          loadAttendance();
+        }
+      }
+    }
+  }, 60000); // Check every minute
 
   // Auto summary emails + birthday check
   setInterval(function() {
@@ -3037,14 +3072,14 @@ async function markEmpLogout() {
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('date', today).eq('is_archived',false).maybeSingle();
   if (!todayAtt) { showToast('❌ No login found!', 'err'); btn.disabled=false; btn.textContent='🚪 Log Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
+  const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
   const { error } = await sb.from('attendance').update({
     check_out: now.toISOString(),
-    working_hours: hrs,
-    status: hrs < 4 ? 'Half Day' : 'Present'
+    working_hours: hrs, status
   }).eq('id', todayAtt.id);
   btn.disabled = false; btn.textContent = '🚪 Log Out';
   if (error) { showToast('❌ '+error.message, 'err'); return; }
-  showToast('✅ Logged out! Worked '+hrs+' hrs', 'ok');
+  showToast(`✅ Logged out! Worked ${parseFloat(hrs).toFixed(1)} hrs — ${status}`, 'ok');
   loadEmpDashboard();
 }
 
@@ -3638,13 +3673,13 @@ async function markCheckOut() {
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('date',today).eq('is_archived',false).maybeSingle();
   if (!todayAtt) { showToast('❌ No check-in found!','err'); btn.disabled=false; btn.textContent='🚪 Check Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
+  const status = parseFloat(hrs) >= 5 ? 'Present' : parseFloat(hrs) >= 2 ? 'Half Day' : 'Half Day';
   const { error } = await sb.from('attendance').update({
-    check_out: now.toISOString(), working_hours: hrs,
-    status: hrs < 4 ? 'Half Day' : 'Present'
+    check_out: now.toISOString(), working_hours: hrs, status
   }).eq('id',todayAtt.id);
   btn.disabled=false; btn.textContent='🚪 Check Out';
   if (error) { showToast('❌ '+error.message,'err'); return; }
-  showToast('✅ Checked out! Worked '+hrs+' hrs','ok');
+  showToast(`✅ Checked out! Worked ${parseFloat(hrs).toFixed(1)} hrs — ${status}`,'ok');
   loadAttendance();
 }
 
