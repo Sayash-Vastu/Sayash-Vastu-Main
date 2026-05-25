@@ -5403,6 +5403,13 @@ Designation: ${emp.designation||'—'}`,
   }
 }
 
+  async function deleteAttendance(attId) {
+  if (!confirm('Delete this attendance record permanently?')) return;
+  const { error } = await sb.from('attendance').delete().eq('id', attId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Attendance deleted!', 'ok');
+  loadAttReport();
+}
 async function toggleEmployee(empId, isActive) {
   const action = isActive ? 'deactivate' : 'activate';
   if (!confirm(`Are you sure you want to ${action} this employee?`)) return;
