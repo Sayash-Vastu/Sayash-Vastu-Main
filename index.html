@@ -4076,7 +4076,7 @@ async function loadTickets() {
   }
 
   const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
-  let query = sb.from('tickets').select('*').order('created_at',{ascending:false});
+  let query = sb.from('tickets').select('*').eq('is_archived', false).order('created_at',{ascending:false});
   if (!isCEO) query = query.eq('created_by_email', currentUser.email);
   const { data: tickets } = await query;
   allTickets = tickets || [];
