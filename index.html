@@ -617,6 +617,10 @@ vercel-toolbar {
         <button class="nav-btn" onclick="showView('tasks')" id="nav-tasks" style="padding-left:32px">
           <span class="ni">📋</span><span>My Tasks</span><span class="nav-badge" id="nb-tasks">0</span>
         </button>
+        <button class="nav-btn" id="nav-my-reports" onclick="showView('myReports')" style="padding-left:32px">
+          <span class="ni">📑</span><span>My Reports</span>
+          <span class="nav-badge" id="nb-my-reports" style="display:none">0</span>
+        </button>
         <!-- Senior Review removed -->
         <button class="nav-btn" id="nav-assign" onclick="showView('assign')" style="display:none;padding-left:32px">
           <span class="ni">➕</span><span>Assign Task</span>
@@ -1074,6 +1078,27 @@ vercel-toolbar {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- MY REPORTS VIEW (Employee) -->
+      <div class="view" id="view-myReports">
+        <div class="page-header">
+          <h2>My Reports</h2>
+          <p>Reports you submitted for approval</p>
+        </div>
+        <!-- Stats -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+          <div class="stat-card sc-gold">
+            <div class="stat-icon">⏳</div><div class="stat-num" id="mr-pending">0</div><div class="stat-lbl">Pending</div>
+          </div>
+          <div class="stat-card sc-green">
+            <div class="stat-icon">✅</div><div class="stat-num" id="mr-approved">0</div><div class="stat-lbl">Approved</div>
+          </div>
+          <div class="stat-card sc-red">
+            <div class="stat-icon">❌</div><div class="stat-num" id="mr-rejected">0</div><div class="stat-lbl">Rejected</div>
+          </div>
+        </div>
+        <div id="myReportsList"></div>
       </div>
 
       <!-- LEAVE VIEW -->
@@ -2348,6 +2373,9 @@ function showApp() {
     const navLeavesCeo = document.getElementById('nav-leaves');
     if (navAttCeo) navAttCeo.style.display = 'none';
     if (navLeavesCeo) navLeavesCeo.style.display = 'none';
+    // Hide My Reports for CEO
+    const navMyRep = document.getElementById('nav-my-reports');
+    if (navMyRep) navMyRep.style.display = 'none';
   } else {
     ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
       document.getElementById(id).style.display = 'none';
@@ -2362,6 +2390,9 @@ function showApp() {
     const navLeaves = document.getElementById('nav-leaves');
     if (navAtt) navAtt.style.display = 'flex';
     if (navLeaves) navLeaves.style.display = 'flex';
+    // Show My Reports for employees
+    const navMyReports = document.getElementById('nav-my-reports');
+    if (navMyReports) navMyReports.style.display = 'flex';
     // Senior Review removed
   }
 
@@ -2402,6 +2433,7 @@ const viewTitles = {
   attReport: ['Attendance Report','Monthly attendance overview'],
   leaveApprove: ['Leave Approvals','Approve or reject leave requests'],
   reportsApproval: ['Reports Approval','Pending approvals — SG & YG'],
+  myReports: ['My Reports','Reports submitted for approval'],
   seniorReview: ['Senior Review','Approve tasks before CEO review'],
   myProfile: ['My Profile','Update your personal information'],
   tickets: ['Tickets','Raise and track support tickets'],
@@ -2415,7 +2447,7 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   // Auto open parent menus
-  if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval'].includes(name)) {
+  if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval','myReports'].includes(name)) {
     document.getElementById('workMenu').style.display = 'block';
     const arr = document.getElementById('work-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
@@ -2459,6 +2491,7 @@ function showView(name) {
   }
   if (name === 'leaveApprove') loadLeaveApprovals();
   if (name === 'reportsApproval') loadReportsApproval();
+  if (name === 'myReports') loadMyReports();
   if (name === 'seniorReview') loadSeniorReview();
   if (name === 'myProfile') loadMyProfile();
   if (name === 'performance') loadPerformance();
@@ -3452,6 +3485,7 @@ Sayash Vastu Portal`,
   closeModal('taskModal');
   loadMyTasks();
   loadNotifications();
+  loadMyReportsBadge();
 }
 
 // ═══════════════════════════════════════════
@@ -5793,6 +5827,95 @@ async function exportPerformancePDF() {
   });
   doc.save('SayashVastu_Performance_'+new Date().toISOString().split('T')[0]+'.pdf');
   showToast('✅ Performance PDF exported!','ok');
+}
+
+// ═══════════════════════════════════════════
+//  MY REPORTS (Employee)
+// ═══════════════════════════════════════════
+async function loadMyReports() {
+  const { data: reports } = await sb.from('tasks')
+    .select('*')
+    .eq('assigned_to_email', currentUser.email)
+    .eq('is_archived', false)
+    .not('approval_type', 'is', null)
+    .order('updated_at', {ascending: false});
+
+  const myReports = reports || [];
+
+  const pending = myReports.filter(r => r.approval_status === 'Pending').length;
+  const approved = myReports.filter(r => r.approval_status === 'Approved').length;
+  const rejected = myReports.filter(r => r.approval_status === 'Rejected').length;
+
+  document.getElementById('mr-pending').textContent = pending;
+  document.getElementById('mr-approved').textContent = approved;
+  document.getElementById('mr-rejected').textContent = rejected;
+
+  // Update badge
+  const badge = document.getElementById('nb-my-reports');
+  if (badge) {
+    badge.textContent = pending;
+    badge.style.display = pending > 0 ? 'inline-block' : 'none';
+  }
+
+  const el = document.getElementById('myReportsList');
+  if (!myReports.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📑</div><div class="empty-title">No reports submitted yet</div><p>Submit a task for review to see it here</p></div>';
+    return;
+  }
+
+  el.innerHTML = myReports.map(r => {
+    const statusColor = r.approval_status === 'Approved' ? 'var(--green)' : r.approval_status === 'Rejected' ? 'var(--red)' : 'var(--amber)';
+    const statusIcon = r.approval_status === 'Approved' ? '✅' : r.approval_status === 'Rejected' ? '❌' : '⏳';
+    const statusClass = r.approval_status === 'Approved' ? 'b-green' : r.approval_status === 'Rejected' ? 'b-red' : 'b-amber';
+
+    return `<div class="panel" style="margin-bottom:14px;border-left:3px solid ${statusColor}">
+      <div class="panel-head">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${esc(r.project)}</span>
+            <span class="badge ${r.approval_type==='Approval for SG'?'b-navy':'b-blue'}">${esc(r.approval_type||'—')}</span>
+            <span class="badge ${statusClass}">${statusIcon} ${esc(r.approval_status||'Pending')}</span>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-top:8px">${esc(r.task_detail.substring(0,80))}${r.task_detail.length>80?'...':''}</div>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
+          <span>📅 End Date: ${fmtDate(r.end_date)}</span>
+          <span>🕐 Submitted: ${new Date(r.updated_at||r.created_at).toLocaleDateString('en-IN')}</span>
+        </div>
+        ${r.comments ? `<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--muted)">💬 ${esc(r.comments)}</div>` : ''}
+        ${r.approval_status === 'Rejected' && r.approval_note ? `
+          <div style="margin-top:10px;padding:10px 14px;background:var(--red-bg);border-radius:8px;border-left:3px solid var(--red)">
+            <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px">❌ Rejection Reason:</div>
+            <div style="font-size:12px;color:var(--text)">${esc(r.approval_note)}</div>
+          </div>` : ''}
+        ${r.approval_status === 'Approved' ? `
+          <div style="margin-top:10px;padding:10px 14px;background:var(--green-bg);border-radius:8px">
+            <div style="font-size:12px;font-weight:600;color:var(--green)">✅ Approved by CEO — Task Completed!</div>
+          </div>` : ''}
+        ${r.approval_status === 'Pending' ? `
+          <div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:8px">
+            <div style="font-size:12px;font-weight:600;color:var(--amber)">⏳ Waiting for CEO approval...</div>
+          </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadMyReportsBadge() {
+  try {
+    const { count } = await sb.from('tasks').select('*', {count: 'exact'})
+      .eq('assigned_to_email', currentUser.email)
+      .eq('is_archived', false)
+      .eq('approval_status', 'Pending')
+      .not('approval_type', 'is', null);
+    const badge = document.getElementById('nb-my-reports');
+    if (badge) {
+      badge.textContent = count || 0;
+      badge.style.display = (count && count > 0) ? 'inline-block' : 'none';
+    }
+  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════
