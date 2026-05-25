@@ -1,0 +1,12 @@
+{
+  "name": "sayash-vastu-main",
+  "version": "1.0.0",
+  "description": "Vastu consultancy main website and serverless backend",
+  "main": "api/send-email.js",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.13"
+  }
+}

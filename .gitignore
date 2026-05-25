@@ -1,0 +1,25 @@
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Dependency directories
+node_modules/
+jspm_packages/
+web_modules/
+
+# Build and deployment outputs
+.next/
+out/
+dist/
+build/
+.vercel/
+
+# Editor and OS logs
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
