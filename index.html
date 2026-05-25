@@ -3677,7 +3677,7 @@ async function postNotice() {
 //  ALL TASKS CEO
 // ═══════════════════════════════════════════
 async function loadAllTasks() {
-  const { data } = await sb.from('tasks').select('*').order('created_at',{ascending:false});
+  const { data } = await sb.from('tasks').select('*').eq('is_archived', false).order('created_at',{ascending:false});
   allTasksData = data || [];
   renderAllTasks();
   const today=new Date(); today.setHours(0,0,0,0);
