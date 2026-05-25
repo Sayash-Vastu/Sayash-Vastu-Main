@@ -1577,7 +1577,7 @@ vercel-toolbar {
                   </div>
                   <div class="field">
                     <label>Description</label>
-                    <textarea id="tk-desc" placeholder="Describe your issue in detail..." style="min-height:80px"></textarea>
+                    <textarea id="tk-desc" placeholder="Describe your issue and solution in detail..." style="min-height:80px"></textarea>
                   </div>
                 </div>
                 <button class="btn btn-gold" style="width:100%;margin-top:12px" onclick="createTicket()">🎫 Submit Ticket</button>
@@ -1959,10 +1959,10 @@ window.onload = function() {
 
   document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
-  // Refresh notifications every 2 min
+  // Refresh notifications every 30 seconds
   setInterval(function() {
     if (currentUser) loadNotifications();
-  }, 120000);
+  }, 30000);
 
   // Auto summary emails + birthday check
   setInterval(function() {
@@ -2127,23 +2127,35 @@ async function handleNotifClick(notifId, linkTo) {
 
 function toggleNotifPanel() {
   document.getElementById('notifPanel').classList.toggle('open');
+  // Refresh when opening
+  if (document.getElementById('notifPanel').classList.contains('open')) {
+    loadNotifications();
+  }
 }
 
 async function markAllRead() {
-  await sb.from('notifications').update({is_read: true}).eq('to_email', currentUser.email).eq('is_read', false);
+  const { error } = await sb.from('notifications').update({is_read: true}).eq('to_email', currentUser.email).eq('is_read', false);
+  if (error) { console.error('Mark read error:', error); }
   notifications = [];
   document.getElementById('notifCount').classList.remove('show');
   document.getElementById('notifList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">🎉 All caught up!</div>';
   document.getElementById('notifPanel').classList.remove('open');
+  loadNotifications();
 }
 
 // Helper to create notification
 async function createNotification(toEmail, title, message, type, linkTo) {
   try {
-    await sb.from('notifications').insert({
-      to_email: toEmail, title, message, type: type||'General', link_to: linkTo||null
+    const { error } = await sb.from('notifications').insert({
+      to_email: toEmail,
+      title: title,
+      message: message,
+      type: type || 'General',
+      link_to: linkTo || null,
+      is_read: false
     });
-  } catch(e) { console.log('Notif error:', e); }
+    if (error) console.error('Notification insert error:', error.message);
+  } catch(e) { console.error('Notif error:', e); }
 }
 
 // ═══════════════════════════════════════════
@@ -2338,9 +2350,10 @@ function showApp() {
   }
 
   loadEmployeeAutocomplete();
-  loadNotifications();
   loadHome();
   showView('home');
+  // Load notifications with small delay
+  setTimeout(() => loadNotifications(), 500);
 
   // Greeting handled in loadHome now
 
@@ -3230,7 +3243,15 @@ async function openTaskModal(taskId) {
     <div class="field" style="margin-bottom:14px">
       <label>Update Status</label>
       <select id="modal-status" onchange="handleStatusChange(this.value)">
-        ${['Not Started','In Progress','Completed'].map(s=>`<option ${s===t.work_status?'selected':''}>${s}</option>`).join('')}
+        ${['Not Started','In Progress','Sent for Review','Completed'].map(s=>`<option ${s===t.work_status?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div id="approval-field" style="margin-bottom:14px;display:none">
+      <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:5px">Approval Type</label>
+      <select id="modal-approval" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
+        <option value="">— Select Approval —</option>
+        <option value="Approval for SG">Approval for SG</option>
+        <option value="Approval for YG">Approval for YG</option>
       </select>
     </div>
     <div id="send-to-field" style="margin-bottom:14px;display:block">
@@ -3330,9 +3351,19 @@ async function saveTaskUpdate() {
   const sendToEmail = sendToEl ? sendToEl.value : '';
   const sendToName = sendToEl && sendToEl.selectedOptions[0] ? sendToEl.selectedOptions[0].dataset.name : '';
 
+  // Validate approval for Sent for Review
+  const approvalEl = document.getElementById('modal-approval');
+  const approvalVal = approvalEl ? approvalEl.value : '';
+  if (status === 'Sent for Review' && !approvalVal) {
+    msgEl.textContent = '⚠️ Please select Approval type (SG or YG)';
+    msgEl.style.color = 'var(--red)';
+    return;
+  }
+
   const updates = { work_status: status, comments, updated_at: new Date().toISOString() };
+  if (status === 'Sent for Review' && approvalVal) updates.ceo_approval = approvalVal;
   if (status === 'Completed' && ceoVal) updates.ceo_approval = ceoVal;
-  if (status === 'Completed' && sendToEmail) {
+  if (sendToEmail) {
     updates.pending_with_email = sendToEmail;
     updates.pending_with_name = sendToName;
   }
@@ -3380,6 +3411,7 @@ Sayash Vastu Portal`,
   }
   closeModal('taskModal');
   loadMyTasks();
+  loadNotifications();
 }
 
 // ═══════════════════════════════════════════
@@ -3452,6 +3484,7 @@ Please login to view your task details.`,
     document.getElementById('at-email').value='';
   }
   setTimeout(()=>msg.textContent='',4000);
+  loadNotifications();
 }
 
 // ═══════════════════════════════════════════
@@ -3477,7 +3510,7 @@ async function loadAttendance() {
   }
   const now = new Date();
   const monthStart = new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0];
-  const { data: monthAtt } = await sb.from('attendance').select('status').eq('employee_email',currentUser.email).gte('date',monthStart);
+  const { data: monthAtt } = await sb.from('attendance').select('status').eq('employee_email',currentUser.email).eq('is_archived',false).gte('date',monthStart);
   document.getElementById('att-present').textContent=(monthAtt||[]).filter(a=>a.status==='Present').length;
   document.getElementById('att-absent').textContent=(monthAtt||[]).filter(a=>a.status==='Absent').length;
   document.getElementById('att-half').textContent=(monthAtt||[]).filter(a=>a.status==='Half Day').length;
@@ -3668,7 +3701,7 @@ async function postNotice() {
   document.getElementById('nt-title').value='';
   document.getElementById('nt-content').value='';
   loadNotices();
-  loadNotifications();
+  setTimeout(() => loadNotifications(), 1000);
   setTimeout(()=>msg.textContent='',4000);
 }
 
@@ -5529,7 +5562,9 @@ async function rejectSeniorTask(taskId) {
 
 function handleStatusChange(val) {
   const sendToField = document.getElementById('send-to-field');
-  if (sendToField) sendToField.style.display = val==='Completed'?'block':'none';
+  if (sendToField) sendToField.style.display = (val==='Completed'||val==='Sent for Review') ? 'block' : 'block';
+  const approvalField = document.getElementById('approval-field');
+  if (approvalField) approvalField.style.display = val==='Sent for Review' ? 'block' : 'none';
 }
 
 // ═══════════════════════════════════════════
