@@ -4415,9 +4415,10 @@ Please login to rate your experience.`,
 }
 
 async function deleteTicket(ticketId) {
-  if (!confirm('Delete this ticket?')) return;
-  await sb.from('tickets').delete().eq('id', ticketId);
-  showToast('✅ Ticket deleted!','ok');
+  if (!confirm('Archive this ticket? Data stays in database.')) return;
+  const { error } = await sb.from('tickets').update({is_archived: true}).eq('id', ticketId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Ticket archived!', 'ok');
   loadTickets();
 }
 
