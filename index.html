@@ -627,6 +627,10 @@ vercel-toolbar {
         <button class="nav-btn" id="nav-all-tasks-work" onclick="showView('allTasks')" style="display:none;padding-left:32px">
           <span class="ni">📊</span><span>All Tasks</span>
         </button>
+        <button class="nav-btn" id="nav-reports-approval" onclick="showView('reportsApproval')" style="display:none;padding-left:32px">
+          <span class="ni">📑</span><span>Reports Approval</span>
+          <span class="nav-badge" id="nb-reports" style="display:none">0</span>
+        </button>
       </div>
 
       <div class="sidebar-section">HR</div>
@@ -1760,6 +1764,27 @@ vercel-toolbar {
         </div>
       </div>
 
+      <!-- REPORTS APPROVAL VIEW -->
+      <div class="view" id="view-reportsApproval">
+        <div class="page-header">
+          <h2>Reports Approval</h2>
+          <p>Tasks pending approval — SG & YG</p>
+        </div>
+        <!-- Stats -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+          <div class="stat-card sc-gold" style="cursor:pointer" onclick="filterReports('all')">
+            <div class="stat-icon">📑</div><div class="stat-num" id="ra-total">0</div><div class="stat-lbl">Total Pending</div>
+          </div>
+          <div class="stat-card sc-navy" style="cursor:pointer" onclick="filterReports('Approval for SG')">
+            <div class="stat-icon">👤</div><div class="stat-num" id="ra-sg">0</div><div class="stat-lbl">Approval for SG</div>
+          </div>
+          <div class="stat-card sc-blue" style="cursor:pointer" onclick="filterReports('Approval for YG')">
+            <div class="stat-icon">👤</div><div class="stat-num" id="ra-yg">0</div><div class="stat-lbl">Approval for YG</div>
+          </div>
+        </div>
+        <div id="reportsApprovalList"></div>
+      </div>
+
       <!-- LEAVE APPROVALS CEO -->
       <div class="view" id="view-leaveApprove">
         <div class="page-header">
@@ -2309,7 +2334,7 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    ['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo'].forEach(id => {
+    ['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
     });
@@ -2376,6 +2401,7 @@ const viewTitles = {
   employees: ['Employees','Manage company employees'],
   attReport: ['Attendance Report','Monthly attendance overview'],
   leaveApprove: ['Leave Approvals','Approve or reject leave requests'],
+  reportsApproval: ['Reports Approval','Pending approvals — SG & YG'],
   seniorReview: ['Senior Review','Approve tasks before CEO review'],
   myProfile: ['My Profile','Update your personal information'],
   tickets: ['Tickets','Raise and track support tickets'],
@@ -2389,7 +2415,7 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   // Auto open parent menus
-  if (['tasks','assign','seniorReview','projects','helpRequest','allTasks'].includes(name)) {
+  if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval'].includes(name)) {
     document.getElementById('workMenu').style.display = 'block';
     const arr = document.getElementById('work-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
@@ -2432,6 +2458,7 @@ function showView(name) {
     loadAttReport();
   }
   if (name === 'leaveApprove') loadLeaveApprovals();
+  if (name === 'reportsApproval') loadReportsApproval();
   if (name === 'seniorReview') loadSeniorReview();
   if (name === 'myProfile') loadMyProfile();
   if (name === 'performance') loadPerformance();
@@ -3214,7 +3241,7 @@ async function renderMyTasks() {
       <td style="font-size:11px">${fmtDate(t.start_date)}</td>
       <td style="font-size:11px;font-weight:${isLate?'700':'400'};color:${isLate?'var(--red)':'var(--text)'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       <td>${statusBadge(t.work_status)}</td>
-      <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':'—'}</td>
+      <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : t.approval_type && t.approval_status==='Pending' ? `<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':'—'}</td>
       <td style="min-width:100px">${files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td style="display:flex;gap:5px">
         <button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>
@@ -3361,7 +3388,11 @@ async function saveTaskUpdate() {
   }
 
   const updates = { work_status: status, comments, updated_at: new Date().toISOString() };
-  if (status === 'Sent for Review' && approvalVal) updates.ceo_approval = approvalVal;
+  if (status === 'Sent for Review' && approvalVal) {
+    updates.ceo_approval = approvalVal;
+    updates.approval_type = approvalVal;
+    updates.approval_status = 'Pending';
+  }
   if (status === 'Completed' && ceoVal) updates.ceo_approval = ceoVal;
   if (sendToEmail) {
     updates.pending_with_email = sendToEmail;
@@ -3408,6 +3439,15 @@ Sayash Vastu Portal`,
     showToast('✅ Task forwarded to ' + sendToName + '!', 'ok');
   } else {
     showToast('✅ Task updated!', 'ok');
+  }
+  // Notify CEO if Sent for Review
+  if (status === 'Sent for Review' && approvalVal) {
+    await createNotification(
+      CEO_EMAIL,
+      `📑 Report pending ${approvalVal} — ${currentTaskRow.project}`,
+      `${currentUser.name} submitted a report for ${approvalVal}. Project: ${currentTaskRow.project}`,
+      'task', 'reportsApproval'
+    );
   }
   closeModal('taskModal');
   loadMyTasks();
@@ -3758,7 +3798,7 @@ async function renderAllTasks() {
       <td style="font-size:12px">${esc(t.assigned_to_name)}</td>
       <td style="font-size:11px;font-weight:${isLate?'700':'400'};color:${isLate?'var(--red)':'var(--text)'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       <td>${statusBadge(t.work_status)}</td>
-      <td>${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>`:ceoBadge(t.ceo_approval)}</td>
+      <td>${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>`:t.approval_type&&t.approval_status==='Pending'?`<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>`:ceoBadge(t.ceo_approval)}</td>
       <td>${files.length?renderFileChips(files):'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td><button class="btn btn-sm" onclick="deleteTask('${t.id}',true)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️ Delete</button></td>
     </tr>`;
@@ -5753,6 +5793,172 @@ async function exportPerformancePDF() {
   });
   doc.save('SayashVastu_Performance_'+new Date().toISOString().split('T')[0]+'.pdf');
   showToast('✅ Performance PDF exported!','ok');
+}
+
+// ═══════════════════════════════════════════
+//  REPORTS APPROVAL
+// ═══════════════════════════════════════════
+let allReports = [];
+let reportsFilter = 'all';
+
+async function loadReportsApproval() {
+  // Load tasks that are Sent for Review with pending approval
+  const { data: tasks } = await sb.from('tasks')
+    .select('*')
+    .eq('is_archived', false)
+    .eq('work_status', 'Sent for Review')
+    .eq('approval_status', 'Pending')
+    .order('updated_at', {ascending: false});
+
+  allReports = tasks || [];
+
+  const total = allReports.length;
+  const sg = allReports.filter(t => t.approval_type === 'Approval for SG').length;
+  const yg = allReports.filter(t => t.approval_type === 'Approval for YG').length;
+
+  document.getElementById('ra-total').textContent = total;
+  document.getElementById('ra-sg').textContent = sg;
+  document.getElementById('ra-yg').textContent = yg;
+
+  // Update badge
+  const badge = document.getElementById('nb-reports');
+  if (badge) {
+    badge.textContent = total;
+    badge.style.display = total > 0 ? 'inline-block' : 'none';
+  }
+
+  renderReportsApproval();
+}
+
+function filterReports(type) {
+  reportsFilter = type;
+  renderReportsApproval();
+}
+
+function renderReportsApproval() {
+  const filtered = reportsFilter === 'all' ? allReports : allReports.filter(t => t.approval_type === reportsFilter);
+  const el = document.getElementById('reportsApprovalList');
+
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">📑</div><div class="empty-title">No pending approvals</div><p>All reports reviewed!</p></div>';
+    return;
+  }
+
+  el.innerHTML = filtered.map(t => `
+    <div class="leave-action-card" style="margin-bottom:12px">
+      <div class="leave-action-head">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+            <span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${esc(t.project)}</span>
+            <span class="badge ${t.approval_type==='Approval for SG'?'b-navy':'b-blue'}">${esc(t.approval_type||'—')}</span>
+            <span class="badge b-amber">⏳ Pending</span>
+          </div>
+          <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:6px">${esc(t.task_detail.substring(0,80))}${t.task_detail.length>80?'...':''}</div>
+          <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted)">
+            <span>👤 By: <strong>${esc(t.assigned_to_name)}</strong></span>
+            <span>📅 End: ${fmtDate(t.end_date)}</span>
+            <span>🕐 Submitted: ${new Date(t.updated_at||t.created_at).toLocaleDateString('en-IN')}</span>
+          </div>
+          ${t.comments ? `<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--muted)">💬 ${esc(t.comments)}</div>` : ''}
+        </div>
+      </div>
+      <div class="leave-action-actions">
+        <button class="btn btn-green btn-sm" onclick="approveReport('${t.id}','${esc(t.assigned_to_email)}','${esc(t.assigned_to_name)}','${esc(t.project)}')">✅ Approve</button>
+        <button class="btn btn-red btn-sm" onclick="rejectReport('${t.id}','${esc(t.assigned_to_email)}','${esc(t.assigned_to_name)}','${esc(t.project)}')">❌ Reject</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function approveReport(taskId, empEmail, empName, project) {
+  const { error } = await sb.from('tasks').update({
+    approval_status: 'Approved',
+    work_status: 'Completed',
+    ceo_approval: 'Approved',
+    updated_at: new Date().toISOString()
+  }).eq('id', taskId);
+
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+
+  // Notify employee
+  await createNotification(
+    empEmail,
+    `✅ Report Approved — ${project}`,
+    `Your report for project "${project}" has been approved by ${currentUser.name}.`,
+    'task', 'tasks'
+  );
+  await sendEmail(empEmail, empName,
+    `✅ Report Approved — ${project}`,
+    `Dear ${empName},
+
+Your report for project "${project}" has been approved by ${currentUser.name}.
+
+Great work!
+
+Regards,
+Sayash Vastu Portal`,
+    'Report Approved', 'https://sayash-vastu-portal.vercel.app', 'View Tasks →'
+  );
+
+  showToast('✅ Report Approved!', 'ok');
+  loadReportsApproval();
+  // Update badge
+  const badge = document.getElementById('nb-reports');
+  const count = allReports.length;
+  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? 'inline-block' : 'none'; }
+}
+
+async function rejectReport(taskId, empEmail, empName, project) {
+  const note = prompt('Reason for rejection (will be sent to employee):');
+  if (note === null) return;
+
+  const { error } = await sb.from('tasks').update({
+    approval_status: 'Rejected',
+    work_status: 'In Progress',
+    approval_note: note,
+    updated_at: new Date().toISOString()
+  }).eq('id', taskId);
+
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+
+  // Notify employee
+  await createNotification(
+    empEmail,
+    `❌ Report Rejected — ${project}`,
+    `Your report for "${project}" was rejected. Reason: ${note}`,
+    'task', 'tasks'
+  );
+  await sendEmail(empEmail, empName,
+    `❌ Report Needs Revision — ${project}`,
+    `Dear ${empName},
+
+Your report for project "${project}" needs revision.
+
+Reason: ${note}
+
+Please update and resubmit.
+
+Regards,
+Sayash Vastu Portal`,
+    'Report Revision', 'https://sayash-vastu-portal.vercel.app', 'View Tasks →'
+  );
+
+  showToast('↩️ Report sent back!', 'ok');
+  loadReportsApproval();
+}
+
+async function loadReportsBadge() {
+  try {
+    const { count } = await sb.from('tasks').select('*', {count: 'exact'})
+      .eq('is_archived', false)
+      .eq('work_status', 'Sent for Review')
+      .eq('approval_status', 'Pending');
+    const badge = document.getElementById('nb-reports');
+    if (badge) {
+      badge.textContent = count || 0;
+      badge.style.display = (count && count > 0) ? 'inline-block' : 'none';
+    }
+  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════
