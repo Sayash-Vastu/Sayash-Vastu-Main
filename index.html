@@ -2021,21 +2021,42 @@ function updateDateHeader() {
 // ═══════════════════════════════════════════
 async function sendEmail(toEmail, toName, subject, message, type = 'General', actionUrl = '', actionLabel = '') {
   try {
-    await fetch(APPS_SCRIPT_URL, {
+    const response = await fetch('/api/send-email', {
       method: 'POST',
-      mode: 'no-cors',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        to_email: toEmail,
-        to_name: toName,
+        name: toName,
+        email: toEmail,
+        to: toEmail,
         subject: subject,
         message: message,
-        type: type,
-        action_url: actionUrl,
-        action_label: actionLabel
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #eee; border-radius: 10px;">
+            <h2 style="color: #c9a84c; border-bottom: 2px solid #c9a84c; padding-bottom: 10px;">${type} — Sayash Vastu</h2>
+            <p>Dear ${toName},</p>
+            <div style="background-color: #f9f9f9; padding: 15px; border-left: 4px solid #c9a84c; border-radius: 4px; white-space: pre-wrap; margin: 15px 0; line-height: 1.6;">
+              ${message.replace(/\n/g, '<br>')}
+            </div>
+            ${actionUrl ? `
+            <div style="text-align: center; margin: 25px 0;">
+              <a href="${actionUrl}" style="background-color: #c9a84c; color: #0b1629; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 14px;">
+                ${actionLabel || 'View Details'}
+              </a>
+            </div>
+            ` : ''}
+            <hr style="border: 0; border-top: 1px solid #eee; margin-top: 20px;" />
+            <p style="font-size: 11px; color: #888; text-align: center;">This is an automated notification from Sayash Vastu Portal.</p>
+          </div>
+        `
       })
     });
-    console.log('Email sent to', toEmail);
+
+    const result = await response.json();
+    if (result.success) {
+      console.log('Email sent successfully to', toEmail);
+    } else {
+      console.error('Email sending failed:', result.error || result);
+    }
   } catch(err) {
     console.error('Email error:', err);
   }
