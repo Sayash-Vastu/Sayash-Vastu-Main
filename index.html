@@ -3496,7 +3496,8 @@ async function loadAttendance() {
     <td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
     <td>${a.working_hours?a.working_hours+' hrs':'—'}</td>
     <td>${attBadge(a.status)}</td>
-  </tr>`).join('');
+      <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+    </tr>`).join('');
 }
 
 function initAttMonth() {
