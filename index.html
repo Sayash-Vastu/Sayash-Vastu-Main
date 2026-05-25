@@ -2500,8 +2500,11 @@ async function loadEmpDashboard() {
 
   // Today attendance - Login/Logout buttons
   const today = new Date().toISOString().split('T')[0];
-  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('date', today).single();
-
+const { data: attData } = await sb.from('attendance').select('*')
+    .eq('employee_email', currentUser.email)
+    .eq('is_archived', false)
+    .gte('date', start).lte('date', end)
+    .order('date', {ascending: false});
   const loginBtn = document.getElementById('empLoginBtn');
   const logoutBtn = document.getElementById('empLogoutBtn');
   const loginDone = document.getElementById('empLoginDone');
