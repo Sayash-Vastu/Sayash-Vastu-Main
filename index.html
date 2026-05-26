@@ -1013,15 +1013,12 @@ vercel-toolbar {
           <div class="panel-head"><div class="panel-title">➕ New Task</div></div>
           <div class="panel-body">
             <div class="form-grid cols-2">
-              <div class="field">
-                <label>Employee Name</label>
-                <input type="text" id="at-name" list="empNameList" placeholder="Select or type name..."/>
-                <datalist id="empNameList"></datalist>
-              </div>
-              <div class="field">
-                <label>Employee Email</label>
-                <input type="email" id="at-email" list="empEmailList" placeholder="employee@sayashvastu.com"/>
-                <datalist id="empEmailList"></datalist>
+              <div class="field" style="grid-column:1/-1">
+                <label>Select Employees (1 ya zyada)</label>
+                <div id="at-emp-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--border);border-radius:8px;min-height:52px;background:#fff;align-items:center">
+                  <span style="font-size:12px;color:var(--muted)">Loading...</span>
+                </div>
+                <div id="at-selected-count" style="font-size:11px;color:var(--gold);font-weight:600;margin-top:4px"></div>
               </div>
               <div class="field">
                 <label>Project Name</label>
@@ -1039,7 +1036,18 @@ vercel-toolbar {
                 <label>End Date</label>
                 <input type="date" id="at-end"/>
               </div>
-
+<div class="field" style="grid-column:1/-1">
+                <label>Attach File (Optional)</label>
+                <div class="upload-zone" onclick="document.getElementById('at-file').click()" style="padding:12px">
+                  <input type="file" id="at-file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.dwg,.zip" onchange="previewAssignFile(this)" style="display:none"/>
+                  <div id="at-file-preview" style="display:flex;align-items:center;gap:10px;justify-content:center">
+                    <span style="font-size:20px">📎</span>
+                    <div><div class="upload-zone-text">Click to attach file</div>
+                    <div class="upload-zone-hint">PDF, Image, Excel, DWG — max 10MB</div></div>
+                  </div>
+                </div>
+              </div>
+              
             </div>
             <div style="margin-top:16px">
               <button class="btn btn-gold" id="assignBtn" onclick="assignTask()">➕ Assign Task</button>
@@ -3781,70 +3789,90 @@ Sayash Vastu Portal`,
 async function loadEmployeeAutocomplete() {
   const { data } = await sb.from('employees').select('name,email').eq('is_active',true);
   if (!data) return;
-  const nameList = document.getElementById('empNameList');
-  const emailList = document.getElementById('empEmailList');
-  if (nameList) nameList.innerHTML = data.map(e=>`<option value="${esc(e.name)}">`).join('');
-  if (emailList) emailList.innerHTML = data.map(e=>`<option value="${esc(e.email)}">`).join('');
-  const nameEl = document.getElementById('at-name');
-  if (nameEl) {
-    nameEl.addEventListener('change', function() {
-      const emp = data.find(e=>e.name===this.value);
-      if (emp) document.getElementById('at-email').value = emp.email;
-    });
+  window._selectedAssignEmps = [];
+  const atEmpList = document.getElementById('at-emp-list');
+  if (atEmpList) {
+    atEmpList.innerHTML = data.map(e => {
+      const chipId = 'emp-chip-' + e.email.replace(/[@.]/g,'_');
+      return `<label id="${chipId}" style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid var(--border);transition:all 0.15s;user-select:none">
+        <input type="checkbox" value="${esc(e.email)}" data-name="${esc(e.name)}" onchange="toggleAssignEmp(this)" style="cursor:pointer;accent-color:var(--gold)"/>
+        <div class="av" style="width:20px;height:20px;font-size:8px;background:var(--navy);color:#fff;flex-shrink:0">${esc(e.name).substring(0,2).toUpperCase()}</div>
+        ${esc(e.name)}
+      </label>`;
+    }).join('');
   }
+  const helpList = document.getElementById('helpNameList');
+  if (helpList) helpList.innerHTML = data.filter(e=>e.email!==(currentUser&&currentUser.email)).map(e=>`<option value="${esc(e.name)}" data-email="${esc(e.email)}">`).join('');
+  const tkList = document.getElementById('tkAssignList');
+  if (tkList) tkList.innerHTML = data.map(e=>`<option value="${esc(e.name)}">`).join('');
+}
+function previewAssignFile(input) {
+  ...
+}
+
+function toggleAssignEmp(checkbox) {
+  ...
 }
 
 async function assignTask() {
-  const name = document.getElementById('at-name').value.trim();
-  const email = document.getElementById('at-email').value.trim();
+  window._selectedAssignEmps = window._selectedAssignEmps || [];
+  const empsToAssign = window._selectedAssignEmps;
   const project = document.getElementById('at-project').value.trim();
   const detail = document.getElementById('at-detail').value.trim();
   const start = document.getElementById('at-start').value;
   const end = document.getElementById('at-end').value;
   const btn = document.getElementById('assignBtn');
   const msg = document.getElementById('assignMsg');
-  if (!name||!email||!project||!detail||!start||!end) {
-    msg.textContent='⚠️ Please fill all fields'; msg.style.color='var(--red)'; return;
-  }
+  if (!empsToAssign.length) { msg.textContent='⚠️ Kam se kam ek employee select karo'; msg.style.color='var(--red)'; return; }
+  if (!project||!detail||!start||!end) { msg.textContent='⚠️ Please fill all fields'; msg.style.color='var(--red)'; return; }
   btn.disabled=true; btn.textContent='Assigning...';
-  const { error } = await sb.from('tasks').insert({
-    project, task_detail: detail,
-    assigned_to_email: email.toLowerCase(), assigned_to_name: name,
-    assigned_by_email: currentUser.email, assigned_by_name: currentUser.name,
-    start_date: start, end_date: end,
-    work_status: 'Not Started', ceo_approval: 'Pending'
-  });
-  btn.disabled=false; btn.textContent='➕ Assign Task';
-  if (error) { msg.textContent='❌ '+error.message; msg.style.color='var(--red)'; return; }
-  msg.textContent='✅ Task assigned!'; msg.style.color='var(--green)';
-  showToast('✅ Task assigned to '+name, 'ok');
-  // Create notification
-  await createNotification(
-    email.toLowerCase(),
-    `📋 New task assigned by ${currentUser.name}`,
-    `Project: ${project} — ${detail.substring(0,60)}`,
-    'task', 'tasks'
-  );
-  await sendEmail(
-    email, name,
-    '📋 New Task Assigned — Sayash Vastu',
-    `You have been assigned a new task.
-
-Project: ${project}
-Task: ${detail}
-Start Date: ${start}
-End Date: ${end}
-Please login to view your task details.`,
-    'Task Assigned',
-    'https://sayash-vastu-portal.vercel.app',
-    'View My Tasks →'
-  );
-  ['at-project','at-detail','at-end'].forEach(id => document.getElementById(id).value='');
-  if (currentUser.role!=='employee') {
-    document.getElementById('at-name').value='';
-    document.getElementById('at-email').value='';
+  const atFile = document.getElementById('at-file');
+  let atFileUrl = null; let atFileName = null;
+  if (atFile && atFile.files[0]) {
+    const f = atFile.files[0];
+    if (f.size > 10 * 1024 * 1024) { msg.textContent='❌ File too large (max 10MB)'; msg.style.color='var(--red)'; btn.disabled=false; btn.textContent='➕ Assign Task'; return; }
+    msg.textContent='⏳ Uploading file...'; msg.style.color='var(--muted)';
+    const path = `assign/${Date.now()}_${f.name.replace(/[^a-z0-9.]/gi,'_')}`;
+    const { error: uploadErr } = await sb.storage.from('task-files').upload(path, f, {upsert: false});
+    if (!uploadErr) {
+      const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+      atFileUrl = urlData.publicUrl; atFileName = f.name;
+    }
   }
-  setTimeout(()=>msg.textContent='',4000);
+  let successCount = 0;
+  for (const emp of empsToAssign) {
+    const { error } = await sb.from('tasks').insert({
+      project, task_detail: detail,
+      assigned_to_email: emp.email.toLowerCase(), assigned_to_name: emp.name,
+      assigned_by_email: currentUser.email, assigned_by_name: currentUser.name,
+      start_date: start, end_date: end,
+      work_status: 'Not Started', ceo_approval: 'Pending',
+      file_url: atFileUrl, file_name: atFileName
+    });
+    if (!error) {
+      successCount++;
+      await createNotification(emp.email.toLowerCase(), `📋 New task assigned by ${currentUser.name}`, `Project: ${project} — ${detail.substring(0,60)}`, 'task', 'tasks');
+      await sendEmail(emp.email, emp.name, '📋 New Task Assigned — Sayash Vastu',
+        `You have been assigned a new task.\n\nProject: ${project}\nTask: ${detail}\nStart: ${start}\nEnd: ${end}${atFileUrl?'\nFile: '+atFileName:''}`,
+        'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
+    }
+  }
+  btn.disabled=false; btn.textContent='➕ Assign Task';
+  if (successCount > 0) {
+    msg.textContent=`✅ Task assigned to ${empsToAssign.map(e=>e.name).join(', ')}!`; msg.style.color='var(--green)';
+    showToast(`✅ Task assigned to ${successCount} employee(s)!`, 'ok');
+  } else { msg.textContent='❌ Assignment failed'; msg.style.color='var(--red)'; }
+  window._selectedAssignEmps = [];
+  document.querySelectorAll('#at-emp-list input[type=checkbox]').forEach(cb => {
+    cb.checked = false;
+    const chip = document.getElementById('emp-chip-' + cb.value.replace(/[@.]/g,'_'));
+    if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
+  });
+  const countEl = document.getElementById('at-selected-count');
+  if (countEl) countEl.textContent = '';
+  ['at-project','at-detail','at-end'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  if (atFile) { atFile.value=''; document.getElementById('at-file-preview').innerHTML='<div style="display:flex;align-items:center;gap:10px;justify-content:center"><span style="font-size:20px">📎</span><div><div class="upload-zone-text">Click to attach file</div><div class="upload-zone-hint">PDF, Image, Excel, DWG — max 10MB</div></div></div>'; }
+  setTimeout(()=>msg.textContent='',5000);
   loadNotifications();
 }
 
