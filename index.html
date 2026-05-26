@@ -2069,10 +2069,10 @@ window.onload = function() {
 
   document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
-  // Refresh notifications every 60 seconds as backup
+  // Refresh notifications every 10 seconds
   setInterval(function() {
     if (currentUser) loadNotifications();
-  }, 60000);
+  }, 10000);
 
   // Auto logout at 9 PM
   setInterval(async function() {
@@ -2270,31 +2270,40 @@ function setupNotifRealtime() {
   // Remove existing channel
   if (notifChannel) { try { sb.removeChannel(notifChannel); } catch(e){} notifChannel = null; }
 
-  notifChannel = sb.channel('db-notifs-' + currentUser.id)
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'notifications',
-      filter: 'to_email=eq.' + currentUser.email
-    }, (payload) => {
-      console.log('🔔 New notification!', payload.new.title);
-      notifications.unshift(payload.new);
-      updateNotifBadge(notifications.length);
-      renderNotifList(notifications);
-      // Flash bell
-      const bell = document.querySelector('.notif-btn');
-      if (bell) {
-        bell.classList.add('has-notif');
-        setTimeout(() => bell.classList.remove('has-notif'), 3000);
-      }
-      showToast('🔔 ' + payload.new.title, '');
-    })
-    .subscribe((status) => {
-      console.log('Notif channel status:', status);
-      if (status === 'SUBSCRIBED') {
-        console.log('✅ Realtime notifications active for', currentUser.email);
-      }
-    });
+  try {
+    notifChannel = sb.channel('notif-ch-' + Date.now())
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications'
+      }, (payload) => {
+        // Only process if for current user
+        if (!payload.new || payload.new.to_email !== currentUser.email) return;
+        console.log('🔔 Realtime notification:', payload.new.title);
+        // Avoid duplicates
+        if (notifications.find(n => n.id === payload.new.id)) return;
+        notifications.unshift(payload.new);
+        updateNotifBadge(notifications.length);
+        renderNotifList(notifications);
+        // Flash bell
+        const bell = document.querySelector('.notif-btn');
+        if (bell) {
+          bell.classList.add('has-notif');
+          setTimeout(() => bell.classList.remove('has-notif'), 3000);
+        }
+        showToast('🔔 ' + payload.new.title, '');
+      })
+      .subscribe((status) => {
+        console.log('Notif realtime:', status);
+        if (status === 'SUBSCRIBED') console.log('✅ Realtime active for', currentUser.email);
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          // Fallback to polling if realtime fails
+          console.log('Realtime failed, using polling');
+        }
+      });
+  } catch(e) {
+    console.log('Realtime setup error:', e);
+  }
 }
 
 async function handleNotifClick(notifId, linkTo) {
@@ -3123,7 +3132,6 @@ async function loadCeoDashboard() {
     .select('*')
     .eq('assigned_to_email', currentUser.email)
     .eq('is_archived', false)
-    .neq('work_status', 'Completed')
     .order('created_at', {ascending: false});
 
   const ceoTasksEl = document.getElementById('ceoDashMyTasks');
@@ -3995,7 +4003,7 @@ async function postNotice() {
   document.getElementById('nt-title').value='';
   document.getElementById('nt-content').value='';
   loadNotices();
-  setTimeout(() => loadNotifications(), 1000);
+  loadNotifications();
   setTimeout(()=>msg.textContent='',4000);
 }
 
@@ -4223,6 +4231,7 @@ async function approveLeave(id, status) {
   }).eq('id',id);
   if (error) { showToast('❌ '+error.message,'err'); return; }
   showToast(`✅ Leave ${status}!`,'ok');
+  loadNotifications();
   if (leave) {
     // Create notification for employee
     await createNotification(
@@ -6324,6 +6333,7 @@ Sayash Vastu Portal`,
   );
 
   showToast('✅ Report Approved!', 'ok');
+  loadNotifications();
   loadReportsApproval();
   // Update badge
   const badge = document.getElementById('nb-reports');
@@ -6367,6 +6377,7 @@ Sayash Vastu Portal`,
   );
 
   showToast('↩️ Report sent back!', 'ok');
+  loadNotifications();
   loadReportsApproval();
 }
 
