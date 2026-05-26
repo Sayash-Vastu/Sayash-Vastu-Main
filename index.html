@@ -3807,11 +3807,38 @@ async function loadEmployeeAutocomplete() {
   if (tkList) tkList.innerHTML = data.map(e=>`<option value="${esc(e.name)}">`).join('');
 }
 function previewAssignFile(input) {
-  ...
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('at-file-preview').innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;justify-content:center">
+      <span style="font-size:20px">📎</span>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">${file.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${(file.size/1024).toFixed(0)} KB</div>
+      </div>
+    </div>`;
+}
+  
 }
 
 function toggleAssignEmp(checkbox) {
-  ...
+  window._selectedAssignEmps = window._selectedAssignEmps || [];
+  const email = checkbox.value;
+  const name = checkbox.dataset.name;
+  const chipId = 'emp-chip-' + email.replace(/[@.]/g,'_');
+  const chip = document.getElementById(chipId);
+  if (checkbox.checked) {
+    if (!window._selectedAssignEmps.find(e => e.email === email)) window._selectedAssignEmps.push({email, name});
+    if (chip) { chip.style.background='var(--gold)'; chip.style.borderColor='var(--gold)'; chip.style.color='var(--navy)'; chip.style.fontWeight='700'; }
+  } else {
+    window._selectedAssignEmps = window._selectedAssignEmps.filter(e => e.email !== email);
+    if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
+  }
+  const countEl = document.getElementById('at-selected-count');
+  if (countEl) {
+    const cnt = (window._selectedAssignEmps||[]).length;
+    countEl.textContent = cnt > 0 ? `✅ ${cnt} employee${cnt>1?'s':''} selected: ${window._selectedAssignEmps.map(e=>e.name).join(', ')}` : '';
+  }
 }
 
 async function assignTask() {
