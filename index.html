@@ -247,12 +247,16 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 }
 .notif-count{
   position:absolute;top:-3px;right:-3px;
-  background:var(--gold);color:var(--navy);
-  font-size:9px;font-weight:700;width:16px;height:16px;
+  background:var(--red);color:#fff;
+  font-size:9px;font-weight:700;width:18px;height:18px;
   border-radius:50%;display:none;align-items:center;justify-content:center;
   border:2px solid #fff;
 }
-.notif-count.show{display:flex}
+.notif-count.show{display:flex;animation:pulseBadge 1.5s ease infinite}
+@keyframes pulseBadge{
+  0%,100%{transform:scale(1)}
+  50%{transform:scale(1.2)}
+}
 .notif-panel{
   position:absolute;top:calc(100% + 10px);right:0;
   width:320px;background:#fff;
@@ -2230,31 +2234,32 @@ async function loadNotifications() {
 function setupNotifRealtime() {
   if (!currentUser) return;
   // Remove existing channel
-  if (notifChannel) { sb.removeChannel(notifChannel); notifChannel = null; }
+  if (notifChannel) { try { sb.removeChannel(notifChannel); } catch(e){} notifChannel = null; }
 
-  notifChannel = sb.channel('notifications-' + currentUser.email)
+  notifChannel = sb.channel('db-notifs-' + currentUser.id)
     .on('postgres_changes', {
       event: 'INSERT',
       schema: 'public',
       table: 'notifications',
-      filter: `to_email=eq.${currentUser.email}`
+      filter: 'to_email=eq.' + currentUser.email
     }, (payload) => {
-      console.log('New notification received!', payload.new);
-      // Add to top of list
+      console.log('🔔 New notification!', payload.new.title);
       notifications.unshift(payload.new);
       updateNotifBadge(notifications.length);
       renderNotifList(notifications);
-      // Shake & flash bell
+      // Flash bell
       const bell = document.querySelector('.notif-btn');
       if (bell) {
         bell.classList.add('has-notif');
-        setTimeout(() => bell.classList.remove('has-notif'), 2000);
+        setTimeout(() => bell.classList.remove('has-notif'), 3000);
       }
-      // Show toast for new notification
       showToast('🔔 ' + payload.new.title, '');
     })
     .subscribe((status) => {
-      console.log('Notif realtime status:', status);
+      console.log('Notif channel status:', status);
+      if (status === 'SUBSCRIBED') {
+        console.log('✅ Realtime notifications active for', currentUser.email);
+      }
     });
 }
 
@@ -3244,7 +3249,7 @@ async function loadCeoActivityFeed() {
       return ed && today > ed;
     }).length;
 
-const attRecord = (todayAtt||[]).find(a => a.employee_name === empName || a.employee_email === (emps||[]).find(e => e.name === empName)?.email);
+    const attRecord = (todayAtt||[]).find(a => a.employee_name === empName);
     const empInfo = (emps||[]).find(e => e.name === empName);
 
     let attBadge = '<span class="badge b-red" style="font-size:10px">Absent</span>';
@@ -3354,28 +3359,37 @@ async function loadTodayAttendanceWidget() {
 //  TASKS
 // ═══════════════════════════════════════════
 async function loadMyTasks() {
-  // Load own tasks + tasks forwarded to me
+  // 1. Tasks assigned TO me
   const { data: ownTasks } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
+  // 2. Tasks forwarded TO me (pending_with)
   const { data: forwardedTasks } = await sb.from('tasks').select('*').eq('pending_with_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
-  
+  // 3. Tasks assigned BY me (follow-up) - only active ones
+  const { data: assignedByMe } = await sb.from('tasks').select('*').eq('assigned_by_email', currentUser.email).eq('is_archived',false).neq('assigned_to_email', currentUser.email).order('created_at',{ascending:false});
+
   // Merge and deduplicate
   const allMyTasksMap = {};
-  (ownTasks||[]).forEach(t => allMyTasksMap[t.id] = {...t, _isForwarded: false});
+  (ownTasks||[]).forEach(t => allMyTasksMap[t.id] = {...t, _isForwarded: false, _assignedByMe: false});
   (forwardedTasks||[]).forEach(t => {
-    if (!allMyTasksMap[t.id]) allMyTasksMap[t.id] = {...t, _isForwarded: true};
+    if (!allMyTasksMap[t.id]) allMyTasksMap[t.id] = {...t, _isForwarded: true, _assignedByMe: false};
   });
-  
+  (assignedByMe||[]).forEach(t => {
+    if (!allMyTasksMap[t.id]) allMyTasksMap[t.id] = {...t, _isForwarded: false, _assignedByMe: true};
+  });
+
   myTasks = Object.values(allMyTasksMap).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   renderMyTasks();
   const ns = myTasks.filter(t=>t.work_status==='Not Started').length;
   const ip = myTasks.filter(t=>t.work_status==='In Progress').length;
   const rv = myTasks.filter(t=>t.work_status==='Sent for Review').length;
   const done = myTasks.filter(t=>t.work_status==='Completed').length;
+  const assignedByMeCount = myTasks.filter(t=>t._assignedByMe).length;
+  const myOwnCount = myTasks.filter(t=>!t._assignedByMe).length;
   document.getElementById('taskStats').innerHTML = `
-    <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${myTasks.length}</div><div class="stat-lbl">Total</div></div>
+    <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${myOwnCount}</div><div class="stat-lbl">My Tasks</div></div>
     <div class="stat-card sc-blue"><div class="stat-icon">⚡</div><div class="stat-num">${ip}</div><div class="stat-lbl">In Progress</div></div>
     <div class="stat-card sc-gold"><div class="stat-icon">🔍</div><div class="stat-num">${rv}</div><div class="stat-lbl">In Review</div></div>
     <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num">${done}</div><div class="stat-lbl">Completed</div></div>
+    <div class="stat-card sc-blue" style="border-top-color:var(--blue)"><div class="stat-icon">👁️</div><div class="stat-num">${assignedByMeCount}</div><div class="stat-lbl">Follow-up</div></div>
   `;
   const pendingCount = myTasks.filter(t=>t.work_status!=='Completed'||t._isForwarded).length;
   document.getElementById('nb-tasks').textContent = pendingCount;
@@ -3402,21 +3416,28 @@ async function renderMyTasks() {
     const isLate = endD && today > endD && t.work_status !== 'Completed';
     const files = fileMap[t.id] || [];
     const isForwarded = t._isForwarded;
-    return `<tr style="${isLate?'background:#fdf0ee':isForwarded?'background:#f0ebff':''}">
+    const isAssignedByMe = t._assignedByMe;
+    let rowBg = '';
+    if (isLate) rowBg = 'background:#fdf0ee';
+    else if (isForwarded) rowBg = 'background:#f0ebff';
+    else if (isAssignedByMe) rowBg = 'background:#f0f7ff';
+    return `<tr style="${rowBg}">
       <td>
         <span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${esc(t.project)}</span>
         ${isForwarded?'<div style="font-size:10px;color:var(--purple);font-weight:700;margin-top:3px">📌 Forwarded to you by '+esc(t.assigned_to_name)+'</div>':''}
-        ${t.assigned_by_name && t.assigned_by_name !== currentUser.name?'<div style="font-size:10px;color:var(--muted);margin-top:2px">👤 Assigned by: '+esc(t.assigned_by_name)+'</div>':''}
+        ${isAssignedByMe?'<div style="font-size:10px;color:var(--blue);font-weight:700;margin-top:3px">👁️ Follow-up: Assigned to '+esc(t.assigned_to_name)+'</div>':''}
+        ${!isAssignedByMe && t.assigned_by_name && t.assigned_by_name !== currentUser.name?'<div style="font-size:10px;color:var(--muted);margin-top:2px">👤 Assigned by: '+esc(t.assigned_by_name)+'</div>':''}
       </td>
       <td style="font-weight:600;max-width:180px">${esc(t.task_detail.substring(0,45))}${t.task_detail.length>45?'...':''}</td>
       <td style="font-size:11px">${fmtDate(t.start_date)}</td>
       <td style="font-size:11px;font-weight:${isLate?'700':'400'};color:${isLate?'var(--red)':'var(--text)'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       <td>${statusBadge(t.work_status)}</td>
-      <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : t.approval_type && t.approval_status==='Pending' ? `<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':'—'}</td>
+      <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : t.approval_type && t.approval_status==='Pending' ? `<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':isAssignedByMe?'<span style="font-size:11px;color:var(--blue);font-weight:600">👁️ Monitoring</span>':'—'}</td>
       <td style="min-width:100px">${files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td style="display:flex;gap:5px">
-        <button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>
-        <button class="btn btn-sm" onclick="deleteTask('${t.id}',false)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
+        ${!isAssignedByMe?`<button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>`:''}
+        ${!isAssignedByMe?`<button class="btn btn-sm" onclick="deleteTask('${t.id}',false)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>`:''}
+        ${isAssignedByMe?`<span style="font-size:11px;color:var(--blue)">View only</span>`:''}
       </td>
     </tr>`;
   }).join('');
@@ -3565,11 +3586,13 @@ async function saveTaskUpdate() {
     updates.approval_status = 'Pending';
   }
   if (status === 'Completed' && ceoVal) updates.ceo_approval = ceoVal;
-  if (sendToEmail) {
+  // Handle forwarding
+  if (sendToEmail && sendToName) {
+    // Forward to someone
     updates.pending_with_email = sendToEmail;
     updates.pending_with_name = sendToName;
-  }
-  if (status !== 'Completed') {
+  } else if (!sendToEmail && sendToEl && sendToEl.value === '') {
+    // Explicitly cleared - remove forward
     updates.pending_with_email = null;
     updates.pending_with_name = null;
   }
