@@ -6268,7 +6268,7 @@ async function loadFollowUp() {
       + (t.comments ? '<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--muted)">💬 ' + esc(t.comments) + '</div>' : '')
       + '</div>'
       + '<div style="padding:10px 18px;border-top:1px solid var(--border);background:#fafbff">'
-      + '<button class="btn btn-primary btn-sm" onclick="openTaskViewModal('' + t.id + '')">👁️ View Details</button>'
+      + '<button class="btn btn-primary btn-sm" onclick="openTaskViewModal(\'' + t.id + '\')">👁️ View Details</button>'
       + '</div>'
       + '</div>'
       + '</div>';
@@ -6437,7 +6437,7 @@ async function loadCeoMyTasks() {
       + '<td style="font-size:11px;font-weight:' + (isLate?'700':'400') + ';color:' + (isLate?'var(--red)':'var(--text)') + '">' + fmtDate(t.end_date) + (isLate?' ⚠️':'') + '</td>'
       + '<td>' + statusBadge(t.work_status) + '</td>'
       + '<td>' + (files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>') + '</td>'
-      + '<td><button class="btn btn-primary btn-sm" onclick="openTaskViewModal('' + t.id + '')">👁️ View</button></td>'
+      + '<td><button class="btn btn-primary btn-sm" onclick=\"openTaskViewModal(\''+t.id+'\')\">👁️ View</button></td>'
       + '</tr>';
   }).join('');
 }
