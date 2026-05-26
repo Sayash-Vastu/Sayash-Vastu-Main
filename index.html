@@ -3760,7 +3760,12 @@ Sayash Vastu Portal`,
     );
   }
   closeModal('taskModal');
-  loadMyTasks();
+  // Reload appropriate task list
+  if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
+    loadCeoMyTasks();
+  } else {
+    loadMyTasks();
+  }
   loadNotifications();
   loadMyReportsBadge();
 }
@@ -5939,11 +5944,9 @@ async function ceoFinalizeTask(taskId, decision) {
 }
 
 async function openTaskViewModal(taskId) {
-  let t = allTasksData.find(x => x.id === taskId);
-  if (!t) {
-    const { data } = await sb.from('tasks').select('*').eq('id', taskId).single();
-    t = data;
-  }
+  // Always fetch fresh from DB for CEO tasks
+  const { data: taskData } = await sb.from('tasks').select('*').eq('id', taskId).maybeSingle();
+  let t = taskData || allTasksData.find(x => x.id === taskId);
   if (!t) return;
 
   const files = await getTaskFiles(taskId);
