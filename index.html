@@ -1870,7 +1870,7 @@ vercel-toolbar {
           <div class="panel-head"><div class="panel-title">📋 Task List</div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>Project</th><th>Task</th><th>Assigned By</th><th>Start</th><th>End</th><th>Status</th><th>Action</th></tr></thead>
+              <thead><tr><th>Project</th><th>Task</th><th>Assigned By</th><th>Start</th><th>End</th><th>Status</th><th>Files</th><th>Action</th></tr></thead>
               <tbody id="ceoMyTasksBody"></tbody>
             </table>
           </div>
@@ -1964,6 +1964,17 @@ vercel-toolbar {
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- TASK VIEW MODAL -->
+<div class="modal-overlay" id="taskViewModal">
+  <div class="modal" style="width:580px;max-height:88vh;overflow-y:auto">
+    <div class="modal-title">📋 Task Details</div>
+    <div id="taskViewModalContent"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('taskViewModal')">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- EDIT EMPLOYEE PHOTO MODAL -->
 <div class="modal-overlay" id="photoModal">
@@ -4099,7 +4110,10 @@ async function renderAllTasks() {
       <td>${statusBadge(t.work_status)}</td>
       <td>${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>`:t.approval_type&&t.approval_status==='Pending'?`<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>`:ceoBadge(t.ceo_approval)}</td>
       <td>${files.length?renderFileChips(files):'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
-      <td><button class="btn btn-sm" onclick="deleteTask('${t.id}',true)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️ Delete</button></td>
+      <td style="display:flex;gap:5px">
+        <button class="btn btn-primary btn-sm" onclick="openTaskViewModal('${t.id}')">👁️ View</button>
+        <button class="btn btn-sm" onclick="deleteTask('${t.id}',true)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -5923,6 +5937,82 @@ async function ceoFinalizeTask(taskId, decision) {
   loadAllTasks();
 }
 
+async function openTaskViewModal(taskId) {
+  // Find from allTasksData or fetch
+  let t = allTasksData.find(x => x.id === taskId);
+  if (!t) {
+    const { data } = await sb.from('tasks').select('*').eq('id', taskId).single();
+    t = data;
+  }
+  if (!t) return;
+
+  // Load files
+  const files = await getTaskFiles(taskId);
+
+  // Load comments if any
+  const statusColors = {
+    'Not Started':'background:#f1f3f7;color:var(--muted)',
+    'In Progress':'background:var(--blue-bg);color:var(--blue)',
+    'Sent for Review':'background:var(--amber-bg);color:var(--amber)',
+    'Completed':'background:var(--green-bg);color:var(--green)',
+    'Report Ready':'background:var(--green-bg);color:var(--green)'
+  };
+  const sStyle = statusColors[t.work_status] || 'background:#f1f3f7;color:var(--muted)';
+
+  document.getElementById('taskViewModalContent').innerHTML = `
+    <div style="background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:12px;padding:18px 20px;margin-bottom:18px;color:#fff">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="background:rgba(201,168,76,0.2);color:var(--gold);padding:3px 10px;border-radius:4px;font-size:12px;font-weight:700">${esc(t.project)}</span>
+        <span style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;${sStyle}">${esc(t.work_status)}</span>
+        ${t.approval_type ? `<span style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.8);padding:3px 10px;border-radius:20px;font-size:11px">${esc(t.approval_type)}</span>` : ''}
+      </div>
+      <div style="font-size:16px;font-weight:700;color:#fff;line-height:1.4">${esc(t.task_detail)}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:#f8f9fc;border-radius:10px;padding:14px">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Assignment</div>
+        <div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:4px">👤 ${esc(t.assigned_to_name)}</div>
+        <div style="font-size:12px;color:var(--muted)">${esc(t.assigned_to_email)}</div>
+        ${t.assigned_by_name ? `<div style="font-size:11px;color:var(--muted);margin-top:6px">Assigned by: <strong>${esc(t.assigned_by_name)}</strong></div>` : ''}
+      </div>
+      <div style="background:#f8f9fc;border-radius:10px;padding:14px">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">Timeline</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">📅 Start: <strong style="color:var(--navy)">${fmtDate(t.start_date)}</strong></div>
+        <div style="font-size:12px;color:var(--muted)">🏁 End: <strong style="color:${new Date(t.end_date) < new Date() && t.work_status !== 'Completed' ? 'var(--red)' : 'var(--navy)'}">${fmtDate(t.end_date)}${new Date(t.end_date) < new Date() && t.work_status !== 'Completed' ? ' ⚠️' : ''}</strong></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">Created: ${new Date(t.created_at).toLocaleDateString('en-IN')}</div>
+      </div>
+    </div>
+
+    ${t.pending_with_name ? `
+    <div style="background:var(--purple-bg);border-radius:10px;padding:12px 16px;margin-bottom:14px;border-left:3px solid var(--purple)">
+      <div style="font-size:11px;color:var(--purple);font-weight:700;margin-bottom:4px">📌 CURRENTLY WITH</div>
+      <div style="font-size:13px;font-weight:700;color:var(--purple)">${esc(t.pending_with_name)}</div>
+    </div>` : ''}
+
+    ${t.comments ? `
+    <div style="background:#f8f9fc;border-radius:10px;padding:14px;margin-bottom:14px">
+      <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">💬 Latest Comments</div>
+      <div style="font-size:13px;color:var(--text);line-height:1.6">${esc(t.comments)}</div>
+    </div>` : ''}
+
+    ${t.approval_status && t.approval_type ? `
+    <div style="background:${t.approval_status==='Approved'?'var(--green-bg)':t.approval_status==='Rejected'?'var(--red-bg)':'var(--amber-bg)'};border-radius:10px;padding:12px 16px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:${t.approval_status==='Approved'?'var(--green)':t.approval_status==='Rejected'?'var(--red)':'var(--amber)'};margin-bottom:4px">
+        ${t.approval_status==='Approved'?'✅':'t.approval_status==='Rejected'?'❌':'⏳'} APPROVAL: ${esc(t.approval_type)} — ${esc(t.approval_status)}
+      </div>
+      ${t.approval_note ? `<div style="font-size:12px;color:var(--text)">${esc(t.approval_note)}</div>` : ''}
+    </div>` : ''}
+
+    ${files.length ? `
+    <div style="margin-bottom:14px">
+      <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px">📎 Attached Files</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${renderFileChips(files)}</div>
+    </div>` : ''}
+  `;
+  document.getElementById('taskViewModal').classList.add('open');
+}
+
 async function deleteTask(taskId, reload=false) {
   if (!confirm('Delete this task?')) return;
   const { error } = await sb.from('tasks').update({is_archived: true}).eq('id', taskId);
@@ -6154,6 +6244,9 @@ async function loadFollowUp() {
       + '</div>'
       + (t.comments ? '<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--muted)">💬 ' + esc(t.comments) + '</div>' : '')
       + '</div>'
+      + '<div style="padding:10px 18px;border-top:1px solid var(--border);background:#fafbff">'
+      + '<button class="btn btn-primary btn-sm" onclick="openTaskViewModal('' + t.id + '')">👁️ View Details</button>'
+      + '</div>'
       + '</div>'
       + '</div>';
   }).join('');
@@ -6321,6 +6414,7 @@ async function loadCeoMyTasks() {
       + '<td style="font-size:11px;font-weight:' + (isLate?'700':'400') + ';color:' + (isLate?'var(--red)':'var(--text)') + '">' + fmtDate(t.end_date) + (isLate?' ⚠️':'') + '</td>'
       + '<td>' + statusBadge(t.work_status) + '</td>'
       + '<td>' + (files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>') + '</td>'
+      + '<td><button class="btn btn-primary btn-sm" onclick="openTaskViewModal('' + t.id + '')">👁️ View</button></td>'
       + '</tr>';
   }).join('');
 }
