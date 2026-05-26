@@ -647,6 +647,10 @@ vercel-toolbar {
         <button class="nav-btn" id="nav-assign-ceo" onclick="showView('assign')" style="display:none;padding-left:32px">
           <span class="ni">➕</span><span>Assign Task</span>
         </button>
+        <button class="nav-btn" id="nav-ceo-my-tasks" onclick="showView('ceoMyTasks')" style="display:none;padding-left:32px">
+          <span class="ni">📋</span><span>My Tasks</span>
+          <span class="nav-badge" id="nb-ceo-tasks" style="display:none">0</span>
+        </button>
         <button class="nav-btn" id="nav-all-tasks-work" onclick="showView('allTasks')" style="display:none;padding-left:32px">
           <span class="ni">📊</span><span>All Tasks</span>
         </button>
@@ -1850,6 +1854,29 @@ vercel-toolbar {
         </div>
       </div>
 
+      <!-- CEO MY TASKS VIEW -->
+      <div class="view" id="view-ceoMyTasks">
+        <div class="page-header">
+          <h2>My Tasks</h2>
+          <p>Tasks assigned to you by employees</p>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+          <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num" id="cmt-total">0</div><div class="stat-lbl">Total</div></div>
+          <div class="stat-card sc-blue"><div class="stat-icon">⚡</div><div class="stat-num" id="cmt-active">0</div><div class="stat-lbl">In Progress</div></div>
+          <div class="stat-card sc-red"><div class="stat-icon">⚠️</div><div class="stat-num" id="cmt-delayed">0</div><div class="stat-lbl">Delayed</div></div>
+          <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num" id="cmt-done">0</div><div class="stat-lbl">Completed</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">📋 Task List</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Project</th><th>Task</th><th>Assigned By</th><th>Start</th><th>End</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody id="ceoMyTasksBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
       <!-- REPORTS APPROVAL VIEW -->
       <div class="view" id="view-reportsApproval">
         <div class="page-header">
@@ -2272,7 +2299,8 @@ function setupNotifRealtime() {
   if (notifChannel) { try { sb.removeChannel(notifChannel); } catch(e){} notifChannel = null; }
 
   try {
-    notifChannel = sb.channel('notif-ch-' + Date.now())
+    const chName = 'notif-' + currentUser.email.replace(/[^a-z0-9]/gi,'-');
+    notifChannel = sb.channel(chName)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
@@ -2295,11 +2323,11 @@ function setupNotifRealtime() {
         showToast('🔔 ' + payload.new.title, '');
       })
       .subscribe((status) => {
-        console.log('Notif realtime:', status);
-        if (status === 'SUBSCRIBED') console.log('✅ Realtime active for', currentUser.email);
-        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          // Fallback to polling if realtime fails
-          console.log('Realtime failed, using polling');
+        console.log('🔔 Notif channel [' + currentUser.email + ']:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime active for', currentUser.email);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.warn('⚠️ Realtime error for', currentUser.email, '— polling every 10s');
         }
       });
   } catch(e) {
@@ -2347,7 +2375,11 @@ async function createNotification(toEmail, title, message, type, linkTo) {
       link_to: linkTo || null,
       is_read: false
     });
-    if (error) console.error('Notification insert error:', error.message);
+    if (error) {
+      console.error('❌ Notification insert error:', error.message, '| to:', toEmail);
+    } else {
+      console.log('✅ Notification created for:', toEmail, '|', title);
+    }
   } catch(e) { console.error('Notif error:', e); }
 }
 
@@ -2502,7 +2534,7 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    ['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval'].forEach(id => {
+    ['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks'].forEach(id => {
       const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
     });
@@ -2584,6 +2616,7 @@ const viewTitles = {
   attReport: ['Attendance Report','Monthly attendance overview'],
   leaveApprove: ['Leave Approvals','Approve or reject leave requests'],
   reportsApproval: ['Reports Approval','Pending approvals — SG & YG'],
+  ceoMyTasks: ['My Tasks','Tasks assigned to you by employees'],
   myReports: ['My Reports','Reports submitted for approval'],
   followUp: ['Follow-up Tasks','Tasks you assigned — track progress'],
   seniorReview: ['Senior Review','Approve tasks before CEO review'],
@@ -2599,7 +2632,7 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   // Auto open parent menus
-  if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval','myReports','followUp'].includes(name)) {
+  if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval','myReports','followUp','ceoMyTasks'].includes(name)) {
     document.getElementById('workMenu').style.display = 'block';
     const arr = document.getElementById('work-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
@@ -2643,6 +2676,7 @@ function showView(name) {
   }
   if (name === 'leaveApprove') loadLeaveApprovals();
   if (name === 'reportsApproval') loadReportsApproval();
+  if (name === 'ceoMyTasks') loadCeoMyTasks();
   if (name === 'myReports') loadMyReports();
   if (name === 'followUp') loadFollowUp();
   if (name === 'seniorReview') loadSeniorReview();
@@ -3128,34 +3162,36 @@ async function loadCeoDashboard() {
     }
   }
 
-  // CEO My Tasks (tasks assigned to CEO by employees)
+  // CEO My Tasks (tasks assigned to CEO by employees) - dashboard preview
   const { data: ceoTasks } = await sb.from('tasks')
     .select('*')
     .eq('assigned_to_email', currentUser.email)
     .eq('is_archived', false)
-    .order('created_at', {ascending: false});
+    .neq('work_status', 'Completed')
+    .order('created_at', {ascending: false})
+    .limit(5);
 
   const ceoTasksEl = document.getElementById('ceoDashMyTasks');
   if (ceoTasksEl) {
     if (!ceoTasks || !ceoTasks.length) {
-      ceoTasksEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No tasks assigned to you</div>';
+      ceoTasksEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No active tasks assigned to you</div>';
     } else {
       const today2 = new Date(); today2.setHours(0,0,0,0);
-      ceoTasksEl.innerHTML = '<div class="tbl-wrap"><table><thead><tr>'
-        + '<th>Project</th><th>Task</th><th>Assigned By</th><th>End Date</th><th>Status</th>'
-        + '</tr></thead><tbody>'
-        + ceoTasks.map(t => {
-          const endD = t.end_date ? new Date(t.end_date) : null;
-          const isLate = endD && today2 > endD;
-          return '<tr style="' + (isLate ? 'background:#fdf0ee' : '') + '">'
-            + '<td><span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + esc(t.project) + '</span></td>'
-            + '<td style="font-size:12px;font-weight:600;max-width:180px">' + esc(t.task_detail.substring(0,45)) + (t.task_detail.length>45?'...':'') + '</td>'
-            + '<td style="font-size:12px">' + esc(t.assigned_by_name || '—') + '</td>'
-            + '<td style="font-size:11px;color:' + (isLate?'var(--red)':'var(--text)') + ';font-weight:' + (isLate?'700':'400') + '">' + fmtDate(t.end_date) + (isLate?' ⚠️':'') + '</td>'
-            + '<td>' + statusBadge(t.work_status) + '</td>'
-            + '</tr>';
-        }).join('')
-        + '</tbody></table></div>';
+      ceoTasksEl.innerHTML = ceoTasks.map(t => {
+        const endD = t.end_date ? new Date(t.end_date) : null;
+        const isLate = endD && today2 > endD;
+        return '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid #f5f6fa;' + (isLate?'background:#fdf0ee':'') + '">'
+          + '<div style="flex:1">'
+          + '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'
+          + '<span style="background:#e8ecf5;color:var(--navy);padding:1px 7px;border-radius:4px;font-size:10px;font-weight:700">' + esc(t.project) + '</span>'
+          + statusBadge(t.work_status)
+          + '</div>'
+          + '<div style="font-size:12px;font-weight:600;color:var(--navy);margin-top:4px">' + esc(t.task_detail.substring(0,60)) + (t.task_detail.length>60?'...':'') + '</div>'
+          + '<div style="font-size:11px;color:var(--muted);margin-top:2px">👤 By: ' + esc(t.assigned_by_name||'—') + ' &nbsp;|&nbsp; End: <span style="color:' + (isLate?'var(--red)':'var(--muted)') + ';font-weight:' + (isLate?'700':'400') + '">' + fmtDate(t.end_date) + (isLate?' ⚠️':'') + '</span></div>'
+          + '</div>'
+          + '</div>';
+      }).join('')
+      + (ceoTasks.length >= 5 ? '<div style="padding:10px 14px;text-align:center"><button class="btn btn-outline btn-sm" onclick="showView('ceoMyTasks')">View All →</button></div>' : '');
     }
   }
 
@@ -6221,6 +6257,82 @@ async function loadMyReportsBadge() {
       .eq('approval_status', 'Pending')
       .not('approval_type', 'is', null);
     const badge = document.getElementById('nb-my-reports');
+    if (badge) {
+      badge.textContent = count || 0;
+      badge.style.display = (count && count > 0) ? 'inline-block' : 'none';
+    }
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════════
+//  CEO MY TASKS
+// ═══════════════════════════════════════════
+async function loadCeoMyTasks() {
+  const { data: tasks } = await sb.from('tasks')
+    .select('*')
+    .eq('assigned_to_email', currentUser.email)
+    .eq('is_archived', false)
+    .order('created_at', {ascending: false});
+
+  const ceoTasks = tasks || [];
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const total = ceoTasks.length;
+  const active = ceoTasks.filter(t => t.work_status !== 'Completed' && t.work_status !== 'Report Ready').length;
+  const done = ceoTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
+  const delayed = ceoTasks.filter(t => {
+    const ed = t.end_date ? new Date(t.end_date) : null;
+    return ed && today > ed && t.work_status !== 'Completed';
+  }).length;
+
+  document.getElementById('cmt-total').textContent = total;
+  document.getElementById('cmt-active').textContent = active;
+  document.getElementById('cmt-delayed').textContent = delayed;
+  document.getElementById('cmt-done').textContent = done;
+
+  // Update nav badge
+  const badge = document.getElementById('nb-ceo-tasks');
+  if (badge) {
+    badge.textContent = active;
+    badge.style.display = active > 0 ? 'inline-block' : 'none';
+  }
+
+  const tbody = document.getElementById('ceoMyTasksBody');
+  if (!ceoTasks.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No tasks assigned to you yet</td></tr>';
+    return;
+  }
+
+  // Load files
+  const fileMap = {};
+  await Promise.all(ceoTasks.slice(0,20).map(async t => {
+    fileMap[t.id] = await getTaskFiles(t.id);
+  }));
+
+  tbody.innerHTML = ceoTasks.map(t => {
+    const endD = t.end_date ? new Date(t.end_date) : null;
+    const isLate = endD && today > endD && t.work_status !== 'Completed';
+    const files = fileMap[t.id] || [];
+    return '<tr style="' + (isLate ? 'background:#fdf0ee' : '') + '">'
+      + '<td><span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + esc(t.project) + '</span></td>'
+      + '<td style="font-weight:600;max-width:180px;font-size:12px">' + esc(t.task_detail.substring(0,50)) + (t.task_detail.length>50?'...':'') + '</td>'
+      + '<td style="font-size:12px;color:var(--navy);font-weight:600">' + esc(t.assigned_by_name || '—') + '</td>'
+      + '<td style="font-size:11px">' + fmtDate(t.start_date) + '</td>'
+      + '<td style="font-size:11px;font-weight:' + (isLate?'700':'400') + ';color:' + (isLate?'var(--red)':'var(--text)') + '">' + fmtDate(t.end_date) + (isLate?' ⚠️':'') + '</td>'
+      + '<td>' + statusBadge(t.work_status) + '</td>'
+      + '<td>' + (files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>') + '</td>'
+      + '</tr>';
+  }).join('');
+}
+
+async function loadCeoTasksBadge() {
+  try {
+    const { count } = await sb.from('tasks').select('*', {count:'exact'})
+      .eq('assigned_to_email', currentUser.email)
+      .eq('is_archived', false)
+      .neq('work_status', 'Completed')
+      .neq('work_status', 'Report Ready');
+    const badge = document.getElementById('nb-ceo-tasks');
     if (badge) {
       badge.textContent = count || 0;
       badge.style.display = (count && count > 0) ? 'inline-block' : 'none';
