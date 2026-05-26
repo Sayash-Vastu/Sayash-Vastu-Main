@@ -3244,7 +3244,7 @@ async function loadCeoActivityFeed() {
       return ed && today > ed;
     }).length;
 
-    const attRecord = (todayAtt||[]).find(a => a.employee_name === empName);
+const attRecord = (todayAtt||[]).find(a => a.employee_name === empName || a.employee_email === (emps||[]).find(e => e.name === empName)?.email);
     const empInfo = (emps||[]).find(e => e.name === empName);
 
     let attBadge = '<span class="badge b-red" style="font-size:10px">Absent</span>';
