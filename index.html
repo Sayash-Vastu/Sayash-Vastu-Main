@@ -3551,6 +3551,7 @@ async function renderMyTasks() {
       <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : t.approval_type && t.approval_status==='Pending' ? `<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':'—'}</td>
       <td style="min-width:100px">${files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td style="display:flex;gap:5px">
+        <button class="btn btn-outline btn-sm" onclick="openTaskViewModal('${t.id}')">👁️</button>
         <button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>
         <button class="btn btn-sm" onclick="deleteTask('${t.id}',false)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
       </td>
@@ -6035,6 +6036,66 @@ async function openTaskViewModal(taskId) {
   document.getElementById('taskViewModal').classList.add('open');
 }
 
+
+async function openCeoTaskUpdateModal(taskId) {
+  let t = allTasksData.find(x => x.id === taskId);
+  if (!t) {
+    const { data } = await sb.from('tasks').select('*').eq('id', taskId).single();
+    t = data;
+  }
+  if (!t) return;
+
+  // Reuse taskModal for CEO too
+  currentTaskRow = t;
+  const locked = t.work_status === 'Completed';
+
+  document.getElementById('taskModalContent').innerHTML =
+    '<div style="margin-bottom:16px;padding:14px;background:#f8f9fc;border-radius:10px;border:1px solid var(--border)">'
+    + '<div style="font-size:13px;font-weight:700;color:var(--navy)">' + esc(t.project) + '</div>'
+    + '<div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">' + esc(t.task_detail) + '</div>'
+    + '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">'
+    + statusBadge(t.work_status)
+    + '<span style="font-size:11px;color:var(--muted)">Assigned by: ' + esc(t.assigned_by_name || '—') + '</span>'
+    + '<span style="font-size:11px;color:var(--muted)">End: ' + fmtDate(t.end_date) + '</span>'
+    + '</div>'
+    + '</div>'
+    + (locked ? '<div class="badge b-green" style="margin-bottom:12px">✅ Task Completed</div>' :
+      '<div class="field" style="margin-bottom:14px">'
+      + '<label>Update Status</label>'
+      + '<select id="modal-status" onchange="handleStatusChange(this.value)">'
+      + ['Not Started','In Progress','Sent for Review','Completed'].map(s => '<option' + (s === t.work_status ? ' selected' : '') + '>' + s + '</option>').join('')
+      + '</select>'
+      + '</div>'
+      + '<div id="approval-field" style="margin-bottom:14px;display:none">'
+      + '<label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:5px">Approval Type</label>'
+      + '<select id="modal-approval" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:DM Sans,sans-serif;outline:none">'
+      + '<option value="">— Select Approval —</option>'
+      + '<option value="Approval for SG">Approval for SG</option>'
+      + '<option value="Approval for YG">Approval for YG</option>'
+      + '</select>'
+      + '</div>'
+    )
+    + '<div class="field" style="margin-bottom:14px">'
+    + '<label>Comments / Notes</label>'
+    + '<textarea id="modal-comments"' + (locked ? ' disabled' : '') + '>' + esc(t.comments || '') + '</textarea>'
+    + '</div>'
+    + '<div class="field">'
+    + '<label>Upload File (Optional)</label>'
+    + '<div class="upload-zone" onclick="document.getElementById(&quot;modal-file&quot;).click()" ondragover="event.preventDefault();this.classList.add(&quot;drag&quot;)" ondragleave="this.classList.remove(&quot;drag&quot;)" ondrop="event.preventDefault();this.classList.remove(&quot;drag&quot;);handleFileDrop(event)">'
+    + '<input type="file" id="modal-file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.dwg,.zip" onchange="previewFile(this)"/>'
+    + '<div class="upload-zone-icon">📎</div>'
+    + '<div class="upload-zone-text">Click or drag file here</div>'
+    + '</div>'
+    + '<div id="file-preview" style="margin-top:8px"></div>'
+    + '</div>'
+    + '<div id="modalMsg" style="font-size:12px;font-weight:600;margin-top:8px"></div>';
+
+  // Load employees for send-to dropdown (hidden for CEO tasks, but needed by saveTaskUpdate)
+  const sendToHtml = '<div id="send-to-field" style="display:none"><select id="modal-send-to"><option value="">—</option></select></div>';
+  document.getElementById('taskModalContent').innerHTML += sendToHtml;
+
+  document.getElementById('taskModal').classList.add('open');
+}
 
 async function deleteTask(taskId, reload=false) {
   if (!confirm('Delete this task?')) return;
