@@ -3363,14 +3363,16 @@ async function loadCeoActivityFeed() {
 
   const empMap = {};
   tasks.forEach(t => {
-    if (!empMap[t.assigned_to_name]) empMap[t.assigned_to_name] = [];
-    empMap[t.assigned_to_name].push(t);
+    const key = t.assigned_to_email || t.assigned_to_name;
+    if (!empMap[key]) empMap[key] = [];
+    empMap[key].push(t);
   });
 
   let html = '<div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">';
 
-  Object.keys(empMap).forEach(empName => {
-    const empTasks = empMap[empName];
+  Object.keys(empMap).forEach(empKey => {
+    const empTasks = empMap[empKey];
+    const empName = empTasks[0]?.assigned_to_name || empKey;
     const activeTasks = empTasks.filter(t => t.work_status !== 'Completed' && t.work_status !== 'Report Ready');
     const completedCount = empTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
     const delayedCount = activeTasks.filter(t => {
@@ -6470,7 +6472,6 @@ async function loadCeoMyTasks() {
   document.getElementById('cmt-delayed').textContent = delayed;
   document.getElementById('cmt-done').textContent = done;
 
-  // Update nav badge
   const badge = document.getElementById('nb-ceo-tasks');
   if (badge) {
     badge.textContent = active;
@@ -6479,11 +6480,10 @@ async function loadCeoMyTasks() {
 
   const tbody = document.getElementById('ceoMyTasksBody');
   if (!ceoTasks.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No tasks assigned to you yet</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:30px">No tasks assigned to you yet</td></tr>';
     return;
   }
 
-  // Load files
   const fileMap = {};
   await Promise.all(ceoTasks.slice(0,20).map(async t => {
     fileMap[t.id] = await getTaskFiles(t.id);
@@ -6493,16 +6493,21 @@ async function loadCeoMyTasks() {
     const endD = t.end_date ? new Date(t.end_date) : null;
     const isLate = endD && today > endD && t.work_status !== 'Completed';
     const files = fileMap[t.id] || [];
-    return '<tr style="' + (isLate ? 'background:#fdf0ee' : '') + '">'
-      + '<td><span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + esc(t.project) + '</span></td>'
-      + '<td style="font-weight:600;max-width:180px;font-size:12px">' + esc(t.task_detail.substring(0,50)) + (t.task_detail.length>50?'...':'') + '</td>'
-      + '<td style="font-size:12px;color:var(--navy);font-weight:600">' + esc(t.assigned_by_name || '—') + '</td>'
-      + '<td style="font-size:11px">' + fmtDate(t.start_date) + '</td>'
-      + '<td style="font-size:11px;font-weight:' + (isLate?'700':'400') + ';color:' + (isLate?'var(--red)':'var(--text)') + '">' + fmtDate(t.end_date) + (isLate?' ⚠️':'') + '</td>'
-      + '<td>' + statusBadge(t.work_status) + '</td>'
-      + '<td>' + (files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>') + '</td>'
-      + '<td><button class="btn btn-primary btn-sm" onclick=\"openTaskViewModal(\''+t.id+'\')\">👁️ View</button></td>'
-      + '</tr>';
+    const rowStyle = isLate ? 'background:#fdf0ee' : '';
+    const endStyle = isLate ? 'color:var(--red);font-weight:700' : '';
+    return `<tr style="${rowStyle}">
+      <td><span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${esc(t.project)}</span></td>
+      <td style="font-weight:600;max-width:180px;font-size:12px">${esc(t.task_detail.substring(0,50))}${t.task_detail.length>50?'...':''}</td>
+      <td style="font-size:12px;color:var(--navy);font-weight:600">${esc(t.assigned_by_name||'—')}</td>
+      <td style="font-size:11px">${fmtDate(t.start_date)}</td>
+      <td style="font-size:11px;${endStyle}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
+      <td>${statusBadge(t.work_status)}</td>
+      <td>${files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+      <td style="display:flex;gap:5px">
+        <button class="btn btn-outline btn-sm" onclick="openTaskViewModal('${t.id}')">👁️</button>
+        <button class="btn btn-gold btn-sm" onclick="openCeoTaskUpdateModal('${t.id}')">✏️ Update</button>
+      </td>
+    </tr>`;
   }).join('');
 }
 
