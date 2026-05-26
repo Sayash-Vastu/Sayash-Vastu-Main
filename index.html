@@ -897,6 +897,17 @@ vercel-toolbar {
               <div id="ceoActivityFeed" style="padding:0"></div>
             </div>
           </div>
+          <!-- CEO My Tasks Panel -->
+          <div class="panel" style="margin-bottom:16px">
+            <div class="panel-head">
+              <div class="panel-title">📋 My Tasks</div>
+              <span style="font-size:11px;color:var(--muted)">Tasks assigned to you by employees</span>
+            </div>
+            <div id="ceoDashMyTasks" style="padding:4px 0">
+              <div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">Loading...</div>
+            </div>
+          </div>
+
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
             <!-- On Leave Today -->
             <div class="panel" style="margin-bottom:0">
@@ -931,16 +942,6 @@ vercel-toolbar {
                     <button class="btn btn-outline btn-sm" onclick="showView('allTasks')">All Tasks →</button>
                   </div>
                   <div id="ceoActivityFeed" style="padding:0"></div>
-                </div>
-              </div>
-              <!-- CEO My Tasks -->
-              <div class="panel" style="margin-bottom:16px">
-                <div class="panel-head">
-                  <div class="panel-title">📋 My Tasks</div>
-                  <span style="font-size:11px;color:var(--muted)">Tasks assigned to you by employees</span>
-                </div>
-                <div id="ceoDashMyTasks" style="padding:8px 0">
-                  <div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">Loading...</div>
                 </div>
               </div>
             <!-- Today's Log -->
