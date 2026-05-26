@@ -861,6 +861,12 @@ vercel-toolbar {
                 <div class="panel-head"><div class="panel-title">⏰ Today's Log</div></div>
                 <div id="homeAttendance" style="padding:16px"></div>
               </div>
+              <div class="panel" style="margin-bottom:0">
+                <div class="panel-head"><div class="panel-title">👥 Team Today</div></div>
+                <div id="empTeamToday" style="padding:8px 16px">
+                  <div style="text-align:center;color:var(--muted);font-size:12px;padding:12px">Loading...</div>
+                </div>
+              </div>
             </div>
           </div>
           <!-- Hidden task data holder -->
@@ -2878,6 +2884,41 @@ async function loadEmpDashboard() {
 
   // Today's attendance log
   loadTodayAttendanceWidget();
+
+  // Team Today - all members attendance
+  const { data: teamToday } = await sb.from('attendance')
+    .select('*')
+    .eq('date', today)
+    .eq('is_archived', false)
+    .order('check_in', {ascending: true});
+
+  const empTeamEl = document.getElementById('empTeamToday');
+  if (empTeamEl) {
+    if (!teamToday || !teamToday.length) {
+      empTeamEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px">No one checked in yet</div>';
+    } else {
+      empTeamEl.innerHTML = teamToday.map(a => {
+        const isMe = a.employee_email === currentUser.email;
+        const workTypeBadge = a.work_type === 'WFH'
+          ? '<span class="badge b-blue" style="font-size:10px">🏠 WFH</span>'
+          : a.work_type === 'On Site'
+          ? '<span class="badge b-green" style="font-size:10px">📍 On Site</span>'
+          : '<span class="badge b-navy" style="font-size:10px">🏢 Office</span>';
+        const statusColor = a.check_out ? 'var(--muted)' : 'var(--green)';
+        const statusText = a.check_out
+          ? 'Checked out ' + new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})
+          : 'In since ' + new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa;\${isMe?'background:#fdf9ef;margin:0 -16px;padding:8px 16px;border-radius:6px;':''}">
+          <div class="av" style="background:\${isMe?'var(--gold)':'var(--navy)'};width:28px;height:28px;font-size:10px;color:\${isMe?'var(--navy)':'#fff'}">\${esc(a.employee_name).substring(0,2).toUpperCase()}</div>
+          <div style="flex:1">
+            <div style="font-size:12px;font-weight:600;color:var(--navy)">\${esc(a.employee_name)}\${isMe?' (You)':''}</div>
+            <div style="font-size:10px;color:\${statusColor};margin-top:2px">\${statusText}</div>
+          </div>
+          \${workTypeBadge}
+        </div>`;
+      }).join('');
+    }
+  }
 }
 
 async function loadCeoDashboard() {
@@ -3360,6 +3401,7 @@ async function renderMyTasks() {
       <td>
         <span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${esc(t.project)}</span>
         ${isForwarded?'<div style="font-size:10px;color:var(--purple);font-weight:700;margin-top:3px">📌 Forwarded to you by '+esc(t.assigned_to_name)+'</div>':''}
+        ${t.assigned_by_name && t.assigned_by_name !== currentUser.name?'<div style="font-size:10px;color:var(--muted);margin-top:2px">👤 Assigned by: '+esc(t.assigned_by_name)+'</div>':''}
       </td>
       <td style="font-weight:600;max-width:180px">${esc(t.task_detail.substring(0,45))}${t.task_detail.length>45?'...':''}</td>
       <td style="font-size:11px">${fmtDate(t.start_date)}</td>
