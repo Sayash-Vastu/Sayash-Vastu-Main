@@ -636,6 +636,10 @@ vercel-toolbar {
           <span class="ni">📑</span><span>My Reports</span>
           <span class="nav-badge" id="nb-my-reports" style="display:none">0</span>
         </button>
+        <button class="nav-btn" id="nav-followup" onclick="showView('followUp')" style="padding-left:32px">
+          <span class="ni">👁️</span><span>Follow-up</span>
+          <span class="nav-badge" id="nb-followup" style="display:none">0</span>
+        </button>
         <!-- Senior Review removed -->
         <button class="nav-btn" id="nav-assign" onclick="showView('assign')" style="display:none;padding-left:32px">
           <span class="ni">➕</span><span>Assign Task</span>
@@ -929,7 +933,17 @@ vercel-toolbar {
                   <div id="ceoActivityFeed" style="padding:0"></div>
                 </div>
               </div>
-              <!-- Today's Log -->
+              <!-- CEO My Tasks -->
+              <div class="panel" style="margin-bottom:16px">
+                <div class="panel-head">
+                  <div class="panel-title">📋 My Tasks</div>
+                  <span style="font-size:11px;color:var(--muted)">Tasks assigned to you by employees</span>
+                </div>
+                <div id="ceoDashMyTasks" style="padding:8px 0">
+                  <div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">Loading...</div>
+                </div>
+              </div>
+            <!-- Today's Log -->
               <div class="panel">
                 <div class="panel-head"><div class="panel-title">⏰ Today's Attendance Log</div></div>
                 <div id="ceoTodayLog" style="padding:0">
@@ -1104,6 +1118,26 @@ vercel-toolbar {
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- FOLLOW-UP VIEW (Employee) -->
+      <div class="view" id="view-followUp">
+        <div class="page-header">
+          <h2>Follow-up Tasks</h2>
+          <p>Tasks you assigned to others — track their progress</p>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+          <div class="stat-card sc-navy">
+            <div class="stat-icon">📋</div><div class="stat-num" id="fu-total">0</div><div class="stat-lbl">Total Assigned</div>
+          </div>
+          <div class="stat-card sc-blue">
+            <div class="stat-icon">⚡</div><div class="stat-num" id="fu-active">0</div><div class="stat-lbl">In Progress</div>
+          </div>
+          <div class="stat-card sc-green">
+            <div class="stat-icon">✅</div><div class="stat-num" id="fu-done">0</div><div class="stat-lbl">Completed</div>
+          </div>
+        </div>
+        <div id="followUpList"></div>
       </div>
 
       <!-- MY REPORTS VIEW (Employee) -->
@@ -2472,9 +2506,11 @@ function showApp() {
     const navLeavesCeo = document.getElementById('nav-leaves');
     if (navAttCeo) navAttCeo.style.display = 'none';
     if (navLeavesCeo) navLeavesCeo.style.display = 'none';
-    // Hide My Reports for CEO
+    // Hide My Reports + Follow-up for CEO
     const navMyRep = document.getElementById('nav-my-reports');
     if (navMyRep) navMyRep.style.display = 'none';
+    const navFU = document.getElementById('nav-followup');
+    if (navFU) navFU.style.display = 'none';
   } else {
     ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
       document.getElementById(id).style.display = 'none';
@@ -2492,6 +2528,9 @@ function showApp() {
     // Show My Reports for employees
     const navMyReports = document.getElementById('nav-my-reports');
     if (navMyReports) navMyReports.style.display = 'flex';
+    // Show Follow-up for employees
+    const navFollowup = document.getElementById('nav-followup');
+    if (navFollowup) navFollowup.style.display = 'flex';
     // Senior Review removed
   }
 
@@ -2536,6 +2575,7 @@ const viewTitles = {
   leaveApprove: ['Leave Approvals','Approve or reject leave requests'],
   reportsApproval: ['Reports Approval','Pending approvals — SG & YG'],
   myReports: ['My Reports','Reports submitted for approval'],
+  followUp: ['Follow-up Tasks','Tasks you assigned — track progress'],
   seniorReview: ['Senior Review','Approve tasks before CEO review'],
   myProfile: ['My Profile','Update your personal information'],
   tickets: ['Tickets','Raise and track support tickets'],
@@ -2549,7 +2589,7 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   // Auto open parent menus
-  if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval','myReports'].includes(name)) {
+  if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval','myReports','followUp'].includes(name)) {
     document.getElementById('workMenu').style.display = 'block';
     const arr = document.getElementById('work-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
@@ -2594,6 +2634,7 @@ function showView(name) {
   if (name === 'leaveApprove') loadLeaveApprovals();
   if (name === 'reportsApproval') loadReportsApproval();
   if (name === 'myReports') loadMyReports();
+  if (name === 'followUp') loadFollowUp();
   if (name === 'seniorReview') loadSeniorReview();
   if (name === 'myProfile') loadMyProfile();
   if (name === 'performance') loadPerformance();
@@ -3077,6 +3118,38 @@ async function loadCeoDashboard() {
     }
   }
 
+  // CEO My Tasks (tasks assigned to CEO by employees)
+  const { data: ceoTasks } = await sb.from('tasks')
+    .select('*')
+    .eq('assigned_to_email', currentUser.email)
+    .eq('is_archived', false)
+    .neq('work_status', 'Completed')
+    .order('created_at', {ascending: false});
+
+  const ceoTasksEl = document.getElementById('ceoDashMyTasks');
+  if (ceoTasksEl) {
+    if (!ceoTasks || !ceoTasks.length) {
+      ceoTasksEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No tasks assigned to you</div>';
+    } else {
+      const today2 = new Date(); today2.setHours(0,0,0,0);
+      ceoTasksEl.innerHTML = '<div class="tbl-wrap"><table><thead><tr>'
+        + '<th>Project</th><th>Task</th><th>Assigned By</th><th>End Date</th><th>Status</th>'
+        + '</tr></thead><tbody>'
+        + ceoTasks.map(t => {
+          const endD = t.end_date ? new Date(t.end_date) : null;
+          const isLate = endD && today2 > endD;
+          return '<tr style="' + (isLate ? 'background:#fdf0ee' : '') + '">'
+            + '<td><span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + esc(t.project) + '</span></td>'
+            + '<td style="font-size:12px;font-weight:600;max-width:180px">' + esc(t.task_detail.substring(0,45)) + (t.task_detail.length>45?'...':'') + '</td>'
+            + '<td style="font-size:12px">' + esc(t.assigned_by_name || '—') + '</td>'
+            + '<td style="font-size:11px;color:' + (isLate?'var(--red)':'var(--text)') + ';font-weight:' + (isLate?'700':'400') + '">' + fmtDate(t.end_date) + (isLate?' ⚠️':'') + '</td>'
+            + '<td>' + statusBadge(t.work_status) + '</td>'
+            + '</tr>';
+        }).join('')
+        + '</tbody></table></div>';
+    }
+  }
+
   // Today's Attendance Log
   const { data: todayAttAll } = await sb.from('attendance').select('*').eq('date',todayStr).eq('is_archived',false).order('check_in',{ascending:true});
   const todayLogEl = document.getElementById('ceoTodayLog');
@@ -3361,19 +3434,14 @@ async function loadTodayAttendanceWidget() {
 async function loadMyTasks() {
   // 1. Tasks assigned TO me
   const { data: ownTasks } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
-  // 2. Tasks forwarded TO me (pending_with)
+  // 2. Tasks forwarded TO me (pending_with) - excluding own tasks
   const { data: forwardedTasks } = await sb.from('tasks').select('*').eq('pending_with_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
-  // 3. Tasks assigned BY me (follow-up) - only active ones
-  const { data: assignedByMe } = await sb.from('tasks').select('*').eq('assigned_by_email', currentUser.email).eq('is_archived',false).neq('assigned_to_email', currentUser.email).order('created_at',{ascending:false});
 
   // Merge and deduplicate
   const allMyTasksMap = {};
-  (ownTasks||[]).forEach(t => allMyTasksMap[t.id] = {...t, _isForwarded: false, _assignedByMe: false});
+  (ownTasks||[]).forEach(t => allMyTasksMap[t.id] = {...t, _isForwarded: false});
   (forwardedTasks||[]).forEach(t => {
-    if (!allMyTasksMap[t.id]) allMyTasksMap[t.id] = {...t, _isForwarded: true, _assignedByMe: false};
-  });
-  (assignedByMe||[]).forEach(t => {
-    if (!allMyTasksMap[t.id]) allMyTasksMap[t.id] = {...t, _isForwarded: false, _assignedByMe: true};
+    if (!allMyTasksMap[t.id]) allMyTasksMap[t.id] = {...t, _isForwarded: true};
   });
 
   myTasks = Object.values(allMyTasksMap).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
@@ -3382,14 +3450,11 @@ async function loadMyTasks() {
   const ip = myTasks.filter(t=>t.work_status==='In Progress').length;
   const rv = myTasks.filter(t=>t.work_status==='Sent for Review').length;
   const done = myTasks.filter(t=>t.work_status==='Completed').length;
-  const assignedByMeCount = myTasks.filter(t=>t._assignedByMe).length;
-  const myOwnCount = myTasks.filter(t=>!t._assignedByMe).length;
   document.getElementById('taskStats').innerHTML = `
-    <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${myOwnCount}</div><div class="stat-lbl">My Tasks</div></div>
+    <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${myTasks.length}</div><div class="stat-lbl">My Tasks</div></div>
     <div class="stat-card sc-blue"><div class="stat-icon">⚡</div><div class="stat-num">${ip}</div><div class="stat-lbl">In Progress</div></div>
     <div class="stat-card sc-gold"><div class="stat-icon">🔍</div><div class="stat-num">${rv}</div><div class="stat-lbl">In Review</div></div>
     <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num">${done}</div><div class="stat-lbl">Completed</div></div>
-    <div class="stat-card sc-blue" style="border-top-color:var(--blue)"><div class="stat-icon">👁️</div><div class="stat-num">${assignedByMeCount}</div><div class="stat-lbl">Follow-up</div></div>
   `;
   const pendingCount = myTasks.filter(t=>t.work_status!=='Completed'||t._isForwarded).length;
   document.getElementById('nb-tasks').textContent = pendingCount;
@@ -3416,28 +3481,22 @@ async function renderMyTasks() {
     const isLate = endD && today > endD && t.work_status !== 'Completed';
     const files = fileMap[t.id] || [];
     const isForwarded = t._isForwarded;
-    const isAssignedByMe = t._assignedByMe;
-    let rowBg = '';
-    if (isLate) rowBg = 'background:#fdf0ee';
-    else if (isForwarded) rowBg = 'background:#f0ebff';
-    else if (isAssignedByMe) rowBg = 'background:#f0f7ff';
+    const rowBg = isLate ? 'background:#fdf0ee' : isForwarded ? 'background:#f0ebff' : '';
     return `<tr style="${rowBg}">
       <td>
         <span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">${esc(t.project)}</span>
         ${isForwarded?'<div style="font-size:10px;color:var(--purple);font-weight:700;margin-top:3px">📌 Forwarded to you by '+esc(t.assigned_to_name)+'</div>':''}
-        ${isAssignedByMe?'<div style="font-size:10px;color:var(--blue);font-weight:700;margin-top:3px">👁️ Follow-up: Assigned to '+esc(t.assigned_to_name)+'</div>':''}
-        ${!isAssignedByMe && t.assigned_by_name && t.assigned_by_name !== currentUser.name?'<div style="font-size:10px;color:var(--muted);margin-top:2px">👤 Assigned by: '+esc(t.assigned_by_name)+'</div>':''}
+        ${t.assigned_by_name && t.assigned_by_name !== currentUser.name && !isForwarded?'<div style="font-size:10px;color:var(--muted);margin-top:2px">👤 Assigned by: '+esc(t.assigned_by_name)+'</div>':''}
       </td>
       <td style="font-weight:600;max-width:180px">${esc(t.task_detail.substring(0,45))}${t.task_detail.length>45?'...':''}</td>
       <td style="font-size:11px">${fmtDate(t.start_date)}</td>
       <td style="font-size:11px;font-weight:${isLate?'700':'400'};color:${isLate?'var(--red)':'var(--text)'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       <td>${statusBadge(t.work_status)}</td>
-      <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : t.approval_type && t.approval_status==='Pending' ? `<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':isAssignedByMe?'<span style="font-size:11px;color:var(--blue);font-weight:600">👁️ Monitoring</span>':'—'}</td>
+      <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : t.approval_type && t.approval_status==='Pending' ? `<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':'—'}</td>
       <td style="min-width:100px">${files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td style="display:flex;gap:5px">
-        ${!isAssignedByMe?`<button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>`:''}
-        ${!isAssignedByMe?`<button class="btn btn-sm" onclick="deleteTask('${t.id}',false)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>`:''}
-        ${isAssignedByMe?`<span style="font-size:11px;color:var(--blue)">View only</span>`:''}
+        <button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>
+        <button class="btn btn-sm" onclick="deleteTask('${t.id}',false)" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
       </td>
     </tr>`;
   }).join('');
@@ -5988,6 +6047,86 @@ async function exportPerformancePDF() {
   });
   doc.save('SayashVastu_Performance_'+new Date().toISOString().split('T')[0]+'.pdf');
   showToast('✅ Performance PDF exported!','ok');
+}
+
+// ═══════════════════════════════════════════
+//  FOLLOW-UP TASKS (Tasks assigned BY me to others)
+// ═══════════════════════════════════════════
+async function loadFollowUp() {
+  const { data: tasks } = await sb.from('tasks')
+    .select('*')
+    .eq('assigned_by_email', currentUser.email)
+    .neq('assigned_to_email', currentUser.email)
+    .eq('is_archived', false)
+    .order('created_at', {ascending: false});
+
+  const followTasks = tasks || [];
+  const total = followTasks.length;
+  const active = followTasks.filter(t => t.work_status !== 'Completed' && t.work_status !== 'Report Ready').length;
+  const done = followTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
+
+  document.getElementById('fu-total').textContent = total;
+  document.getElementById('fu-active').textContent = active;
+  document.getElementById('fu-done').textContent = done;
+
+  // Update badge
+  const badge = document.getElementById('nb-followup');
+  if (badge) {
+    badge.textContent = active;
+    badge.style.display = active > 0 ? 'inline-block' : 'none';
+  }
+
+  const el = document.getElementById('followUpList');
+  if (!followTasks.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">👁️</div><div class="empty-title">No follow-up tasks</div><p>Tasks you assign to others will appear here</p></div>';
+    return;
+  }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  el.innerHTML = followTasks.map(t => {
+    const endD = t.end_date ? new Date(t.end_date) : null;
+    const isLate = endD && today > endD && t.work_status !== 'Completed';
+    let statusColor = 'var(--blue)';
+    if (t.work_status === 'Completed' || t.work_status === 'Report Ready') statusColor = 'var(--green)';
+    else if (isLate) statusColor = 'var(--red)';
+    else if (t.work_status === 'Sent for Review') statusColor = 'var(--amber)';
+
+    return '<div class="panel" style="margin-bottom:12px;border-left:3px solid ' + statusColor + ';' + (isLate ? 'background:linear-gradient(90deg,#fdf0ee,#fff)' : '') + '">'
+      + '<div class="panel-head">'
+      + '<div style="flex:1">'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">'
+      + '<span style="background:#e8ecf5;color:var(--navy);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700">' + esc(t.project) + '</span>'
+      + statusBadge(t.work_status)
+      + (isLate ? '<span class="badge b-red">⚠️ Delayed</span>' : '')
+      + '</div>'
+      + '<div style="font-size:13px;font-weight:600;color:var(--navy);margin-bottom:6px">' + esc(t.task_detail.substring(0,80)) + (t.task_detail.length > 80 ? '...' : '') + '</div>'
+      + '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted)">'
+      + '<span>👤 Assigned to: <strong style="color:var(--navy)">' + esc(t.assigned_to_name) + '</strong></span>'
+      + '<span>📅 End: <span style="color:' + (isLate ? 'var(--red)' : 'var(--muted)') + ';font-weight:' + (isLate ? '700' : '400') + '">' + fmtDate(t.end_date) + '</span></span>'
+      + (t.pending_with_name ? '<span>📌 With: <strong style="color:var(--purple)">' + esc(t.pending_with_name) + '</strong></span>' : '')
+      + '</div>'
+      + (t.comments ? '<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--muted)">💬 ' + esc(t.comments) + '</div>' : '')
+      + '</div>'
+      + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+async function loadFollowUpBadge() {
+  try {
+    const { count } = await sb.from('tasks').select('*', {count: 'exact'})
+      .eq('assigned_by_email', currentUser.email)
+      .neq('assigned_to_email', currentUser.email)
+      .eq('is_archived', false)
+      .neq('work_status', 'Completed')
+      .neq('work_status', 'Report Ready');
+    const badge = document.getElementById('nb-followup');
+    if (badge) {
+      badge.textContent = count || 0;
+      badge.style.display = (count && count > 0) ? 'inline-block' : 'none';
+    }
+  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════
