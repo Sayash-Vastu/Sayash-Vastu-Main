@@ -2908,14 +2908,19 @@ async function loadEmpDashboard() {
         const statusText = a.check_out
           ? 'Checked out ' + new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})
           : 'In since ' + new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa;\${isMe?'background:#fdf9ef;margin:0 -16px;padding:8px 16px;border-radius:6px;':''}">
-          <div class="av" style="background:\${isMe?'var(--gold)':'var(--navy)'};width:28px;height:28px;font-size:10px;color:\${isMe?'var(--navy)':'#fff'}">\${esc(a.employee_name).substring(0,2).toUpperCase()}</div>
-          <div style="flex:1">
-            <div style="font-size:12px;font-weight:600;color:var(--navy)">\${esc(a.employee_name)}\${isMe?' (You)':''}</div>
-            <div style="font-size:10px;color:\${statusColor};margin-top:2px">\${statusText}</div>
-          </div>
-          \${workTypeBadge}
-        </div>`;
+        const initials = esc(a.employee_name).substring(0,2).toUpperCase();
+        const avBg = isMe ? 'var(--gold)' : 'var(--navy)';
+        const avColor = isMe ? 'var(--navy)' : '#fff';
+        const rowStyle = isMe ? 'background:#fdf9ef;border-radius:6px;' : '';
+        const nameLabel = esc(a.employee_name) + (isMe ? ' (You)' : '');
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa;' + rowStyle + '">'
+          + '<div class="av" style="background:' + avBg + ';width:28px;height:28px;font-size:10px;color:' + avColor + '">' + initials + '</div>'
+          + '<div style="flex:1">'
+          + '<div style="font-size:12px;font-weight:600;color:var(--navy)">' + nameLabel + '</div>'
+          + '<div style="font-size:10px;color:' + statusColor + ';margin-top:2px">' + statusText + '</div>'
+          + '</div>'
+          + workTypeBadge
+          + '</div>';
       }).join('');
     }
   }
