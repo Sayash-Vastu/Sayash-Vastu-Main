@@ -231,9 +231,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   width:36px;height:36px;border-radius:50%;
   background:var(--bg);border:1px solid var(--border);
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;font-size:16px;transition:all 0.15s;
+  cursor:pointer;font-size:16px;transition:all 0.3s;
 }
 .notif-btn:hover{background:var(--navy);border-color:var(--navy)}
+.notif-btn.has-notif{
+  background:var(--gold);border-color:var(--gold);
+  animation:bellShake 0.5s ease;
+}
+@keyframes bellShake{
+  0%,100%{transform:rotate(0)}
+  20%{transform:rotate(-15deg)}
+  40%{transform:rotate(15deg)}
+  60%{transform:rotate(-10deg)}
+  80%{transform:rotate(10deg)}
+}
 .notif-count{
   position:absolute;top:-3px;right:-3px;
   background:var(--gold);color:var(--navy);
@@ -2014,10 +2025,10 @@ window.onload = function() {
 
   document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
-  // Refresh notifications every 30 seconds
+  // Refresh notifications every 60 seconds as backup
   setInterval(function() {
     if (currentUser) loadNotifications();
-  }, 30000);
+  }, 60000);
 
   // Auto logout at 9 PM
   setInterval(async function() {
@@ -2153,79 +2164,121 @@ async function sendDailySummaryEmail(period) {
 // ═══════════════════════════════════════════
 //  NOTIFICATIONS
 // ═══════════════════════════════════════════
-async function loadNotifications() {
-  if (!currentUser) return;
+// ── Notification Realtime Channel ──
+let notifChannel = null;
 
-  // Load from notifications table
-  const { data: dbNotifs } = await sb.from('notifications')
-    .select('*')
-    .eq('to_email', currentUser.email)
-    .eq('is_read', false)
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  notifications = dbNotifs || [];
-
-  const count = notifications.length;
-  const countEl = document.getElementById('notifCount');
-  if (count > 0) {
-    countEl.textContent = count > 9 ? '9+' : count;
-    countEl.classList.add('show');
-  } else {
-    countEl.classList.remove('show');
-  }
-
+function renderNotifList(notifs) {
   const typeIcons = {
-    'task': '📋', 'leave': '🏖️', 'ticket': '🎫',
-    'policy': '📜', 'notice': '📢', 'birthday': '🎂',
-    'forwarded': '📌', 'General': '🔔'
+    'task':'📋','leave':'🏖️','ticket':'🎫','policy':'📜',
+    'notice':'📢','birthday':'🎂','forwarded':'📌',
+    'General':'🔔','default':'🔔'
   };
-
   const listEl = document.getElementById('notifList');
-  if (!notifications.length) {
+  if (!notifs.length) {
     listEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">🎉 All caught up!</div>';
   } else {
-    listEl.innerHTML = notifications.map(n => `
+    listEl.innerHTML = notifs.map(n => `
       <div class="notif-item" onclick="handleNotifClick('${n.id}','${n.link_to||''}')" style="cursor:pointer">
         <div style="display:flex;gap:10px;align-items:flex-start">
-          <div style="font-size:18px;flex-shrink:0">${typeIcons[n.type]||'🔔'}</div>
+          <div style="font-size:20px;flex-shrink:0">${typeIcons[n.type]||'🔔'}</div>
           <div style="flex:1">
             <div class="notif-item-title">${esc(n.title)}</div>
-            <div class="notif-item-sub">${esc((n.message||'').substring(0,70))}${(n.message||'').length>70?'...':''}</div>
+            <div class="notif-item-sub">${esc((n.message||'').substring(0,80))}${(n.message||'').length>80?'...':''}</div>
             <div class="notif-item-time">${new Date(n.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
           </div>
-          <div class="notif-dot-badge" style="margin-top:6px"></div>
+          <div class="notif-dot-badge" style="margin-top:6px;flex-shrink:0"></div>
         </div>
       </div>
     `).join('');
   }
 }
 
+function updateNotifBadge(count) {
+  const countEl = document.getElementById('notifCount');
+  if (!countEl) return;
+  if (count > 0) {
+    countEl.textContent = count > 9 ? '9+' : count;
+    countEl.classList.add('show');
+  } else {
+    countEl.classList.remove('show');
+  }
+}
+
+async function loadNotifications() {
+  if (!currentUser) return;
+  try {
+    const { data: dbNotifs, error } = await sb.from('notifications')
+      .select('*')
+      .eq('to_email', currentUser.email)
+      .eq('is_read', false)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) { console.error('Notif load error:', error.message); return; }
+    notifications = dbNotifs || [];
+    updateNotifBadge(notifications.length);
+    renderNotifList(notifications);
+  } catch(e) { console.error('Notif error:', e); }
+}
+
+function setupNotifRealtime() {
+  if (!currentUser) return;
+  // Remove existing channel
+  if (notifChannel) { sb.removeChannel(notifChannel); notifChannel = null; }
+
+  notifChannel = sb.channel('notifications-' + currentUser.email)
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'notifications',
+      filter: `to_email=eq.${currentUser.email}`
+    }, (payload) => {
+      console.log('New notification received!', payload.new);
+      // Add to top of list
+      notifications.unshift(payload.new);
+      updateNotifBadge(notifications.length);
+      renderNotifList(notifications);
+      // Shake & flash bell
+      const bell = document.querySelector('.notif-btn');
+      if (bell) {
+        bell.classList.add('has-notif');
+        setTimeout(() => bell.classList.remove('has-notif'), 2000);
+      }
+      // Show toast for new notification
+      showToast('🔔 ' + payload.new.title, '');
+    })
+    .subscribe((status) => {
+      console.log('Notif realtime status:', status);
+    });
+}
+
 async function handleNotifClick(notifId, linkTo) {
-  // Mark as read
   await sb.from('notifications').update({is_read: true}).eq('id', notifId);
+  // Remove from local list
+  notifications = notifications.filter(n => n.id !== notifId);
+  updateNotifBadge(notifications.length);
+  renderNotifList(notifications);
   document.getElementById('notifPanel').classList.remove('open');
-  // Navigate
   if (linkTo) showView(linkTo);
-  loadNotifications();
 }
 
 function toggleNotifPanel() {
-  document.getElementById('notifPanel').classList.toggle('open');
-  // Refresh when opening
-  if (document.getElementById('notifPanel').classList.contains('open')) {
+  const panel = document.getElementById('notifPanel');
+  panel.classList.toggle('open');
+  if (panel.classList.contains('open')) {
     loadNotifications();
+    // Reset bell flash
+    const bell = document.querySelector('.notif-btn');
+    if (bell) { bell.style.background = ''; bell.style.borderColor = ''; }
   }
 }
 
 async function markAllRead() {
-  const { error } = await sb.from('notifications').update({is_read: true}).eq('to_email', currentUser.email).eq('is_read', false);
-  if (error) { console.error('Mark read error:', error); }
+  await sb.from('notifications').update({is_read: true}).eq('to_email', currentUser.email).eq('is_read', false);
   notifications = [];
-  document.getElementById('notifCount').classList.remove('show');
+  updateNotifBadge(0);
   document.getElementById('notifList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">🎉 All caught up!</div>';
   document.getElementById('notifPanel').classList.remove('open');
-  loadNotifications();
 }
 
 // Helper to create notification
@@ -2443,8 +2496,11 @@ function showApp() {
   loadEmployeeAutocomplete();
   loadHome();
   showView('home');
-  // Load notifications with small delay
-  setTimeout(() => loadNotifications(), 500);
+  // Load notifications and setup realtime
+  setTimeout(() => {
+    loadNotifications();
+    setupNotifRealtime();
+  }, 500);
 
   // Greeting handled in loadHome now
 
