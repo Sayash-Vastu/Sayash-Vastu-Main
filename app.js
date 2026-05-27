@@ -70,6 +70,7 @@ window.onload = function() {
         }
       }
     }
+    
   }, 60000); // Check every minute
 
   // Auto summary emails + birthday check
@@ -1204,6 +1205,25 @@ async function markEmpLogin(workType) {
   const today = now.toISOString().split('T')[0];
   const wrap = document.getElementById('loginTypeWrap');
   if (wrap) wrap.style.display = 'none';
+
+  // Get GPS location
+  let latitude = null, longitude = null, location_address = null;
+  try {
+    const pos = await new Promise((resolve, reject) => 
+      navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 8000}));
+    latitude = pos.coords.latitude;
+    longitude = pos.coords.longitude;
+    location_address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    // Reverse geocode
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+      const geo = await res.json();
+      if (geo.display_name) location_address = geo.display_name.split(',').slice(0,3).join(',');
+    } catch(e) {}
+  } catch(e) {
+    console.log('Location not available:', e.message);
+  }
+
   const { data: emp } = await sb.from('employees').select('id').eq('email', currentUser.email).single();
   const { error } = await sb.from('attendance').insert({
     employee_id: emp?.id,
@@ -1212,14 +1232,14 @@ async function markEmpLogin(workType) {
     date: today,
     check_in: now.toISOString(),
     status: 'Present',
-    work_type: workType || 'Office'
+    work_type: workType || 'Office',
+    latitude, longitude, location_address
   });
   if (error) { showToast('❌ '+error.message, 'err'); return; }
   const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
   showToast(`✅ Logged in (${typeLabel}) at `+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), 'ok');
   loadEmpDashboard();
 }
-
 async function markEmpLogout() {
   const now = new Date();
   const today = now.toISOString().split('T')[0];
