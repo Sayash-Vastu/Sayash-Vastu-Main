@@ -1277,6 +1277,40 @@
               </div>
             </div>
 
+            <!-- ID Proof Documents -->
+<div class="panel" style="margin-bottom:16px">
+  <div class="panel-head"><div class="panel-title">🪪 My Documents</div></div>
+  <div class="panel-body">
+    <div class="form-grid cols-2">
+      <div class="field">
+        <label>Document Type</label>
+        <select id="doc-type">
+          <option value="Aadhar Card">Aadhar Card</option>
+          <option value="PAN Card">PAN Card</option>
+          <option value="Passport">Passport</option>
+          <option value="Driving License">Driving License</option>
+          <option value="Voter ID">Voter ID</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Upload Document</label>
+        <div class="upload-zone" onclick="document.getElementById('doc-file').click()" style="padding:10px">
+          <input type="file" id="doc-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="previewDocFile(this)"/>
+          <div id="doc-preview">
+            <div class="upload-zone-text">Click to upload</div>
+            <div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+      <button class="btn btn-gold" onclick="uploadDocument()">📤 Upload Document</button>
+      <span id="docMsg" style="font-size:12px;font-weight:600"></span>
+    </div>
+    <div id="myDocsList" style="margin-top:16px"></div>
+  </div>
+</div>
             <!-- Change Password -->
             <div class="panel">
               <div class="panel-head"><div class="panel-title">🔑 Change Password</div></div>
