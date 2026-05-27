@@ -2068,6 +2068,26 @@ async function loadNotices() {
     </div>`;
   }).join('');
 }
+async function toggleReaction(noticeId, emoji) {
+  const { data: existing } = await sb.from('notice_reactions')
+    .select('*')
+    .eq('notice_id', noticeId)
+    .eq('employee_email', currentUser.email)
+    .eq('reaction', emoji)
+    .maybeSingle();
+
+  if (existing) {
+    await sb.from('notice_reactions').delete().eq('id', existing.id);
+  } else {
+    await sb.from('notice_reactions').insert({
+      notice_id: noticeId,
+      employee_email: currentUser.email,
+      employee_name: currentUser.name,
+      reaction: emoji
+    });
+  }
+  loadNotices();
+}
 async function postNotice() {
   const title=document.getElementById('nt-title').value.trim();
   const content=document.getElementById('nt-content').value.trim();
