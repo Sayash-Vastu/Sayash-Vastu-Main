@@ -4775,4 +4775,168 @@ function hideVercelBadge() {
 setTimeout(hideVercelBadge, 500);
 setTimeout(hideVercelBadge, 2000);
 new MutationObserver(hideVercelBadge).observe(document.body, {childList:true, subtree:true});
+// ═══════════════════════════════════════════
+//  ATTENDANCE REGULARIZATION
+// ═══════════════════════════════════════════
+async function submitRegularization() {
+  const date = document.getElementById('reg-date').value;
+  const reason = document.getElementById('reg-reason').value.trim();
+  const checkin = document.getElementById('reg-checkin').value;
+  const checkout = document.getElementById('reg-checkout').value;
+  const workType = document.getElementById('reg-work-type').value;
+  const msgEl = document.getElementById('regMsg');
+
+  if (!date || !reason || !checkin) {
+    msgEl.textContent = '⚠️ Date, Check In time and Reason are required';
+    msgEl.style.color = 'var(--red)'; return;
+  }
+
+  const { error } = await sb.from('attendance_regularization').insert({
+    employee_email: currentUser.email,
+    employee_name: currentUser.name,
+    date, reason,
+    requested_check_in: checkin,
+    requested_check_out: checkout || null,
+    work_type: workType,
+    status: 'Pending'
+  });
+
+  if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
+
+  msgEl.textContent = '✅ Request submitted!'; msgEl.style.color = 'var(--green)';
+  showToast('✅ Regularization request submitted!', 'ok');
+
+  // Notify CEO
+  await createNotification(
+    CEO_EMAIL,
+    `📋 Attendance Regularization — ${currentUser.name}`,
+    `${currentUser.name} requested attendance regularization for ${date}. Reason: ${reason}`,
+    'attendance', 'leaveApprove'
+  );
+
+  document.getElementById('reg-date').value = '';
+  document.getElementById('reg-reason').value = '';
+  document.getElementById('reg-checkin').value = '';
+  document.getElementById('reg-checkout').value = '';
+  loadMyRegularizations();
+  setTimeout(() => msgEl.textContent = '', 4000);
+}
+
+async function loadMyRegularizations() {
+  const { data } = await sb.from('attendance_regularization')
+    .select('*').eq('employee_email', currentUser.email)
+    .order('created_at', {ascending: false}).limit(10);
+
+  const el = document.getElementById('myRegList');
+  if (!el) return;
+
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No requests submitted yet</div>';
+    return;
+  }
+
+  el.innerHTML = data.map(r => {
+    const statusClass = r.status==='Approved'?'b-green':r.status==='Rejected'?'b-red':'b-amber';
+    const statusIcon = r.status==='Approved'?'✅':r.status==='Rejected'?'❌':'⏳';
+    return `<div style="padding:12px;background:var(--bg);border-radius:10px;margin-bottom:10px;border-left:3px solid ${r.status==='Approved'?'var(--green)':r.status==='Rejected'?'var(--red)':'var(--amber)'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--navy)">📅 ${fmtDate(r.date)} — ${esc(r.work_type)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">⏰ ${r.requested_check_in||'—'} → ${r.requested_check_out||'—'}</div>
+          <div style="font-size:12px;color:var(--text);margin-top:4px">💬 ${esc(r.reason)}</div>
+          ${r.status!=='Pending'?`<div style="font-size:11px;color:var(--muted);margin-top:4px">By: ${esc(r.approved_by||'—')}</div>`:''}
+        </div>
+        <span class="badge ${statusClass}">${statusIcon} ${r.status}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// CEO — Load all regularization requests
+async function loadAllRegularizations() {
+  const { data } = await sb.from('attendance_regularization')
+    .select('*').eq('status','Pending')
+    .order('created_at', {ascending: false});
+
+  const el = document.getElementById('regularizationApproveList');
+  if (!el) return;
+
+  if (!data || !data.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No pending requests</div></div>';
+    return;
+  }
+
+  el.innerHTML = data.map(r => `
+    <div class="leave-action-card" style="margin-bottom:12px">
+      <div class="leave-action-head">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--navy)">${esc(r.employee_name)}</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:3px">
+            📅 ${fmtDate(r.date)} &nbsp;|&nbsp; ⏰ ${r.requested_check_in} → ${r.requested_check_out||'—'} &nbsp;|&nbsp; ${esc(r.work_type)}
+          </div>
+          <div style="font-size:12px;color:var(--text);margin-top:6px">💬 ${esc(r.reason)}</div>
+        </div>
+        <span class="badge b-amber">⏳ Pending</span>
+      </div>
+      <div class="leave-action-actions">
+        <button class="btn btn-green btn-sm" onclick="approveRegularization('${r.id}','${esc(r.employee_email)}','${esc(r.employee_name)}','${r.date}','${r.requested_check_in}','${r.requested_check_out||''}','${esc(r.work_type)}')">✅ Approve</button>
+        <button class="btn btn-red btn-sm" onclick="rejectRegularization('${r.id}','${esc(r.employee_email)}','${esc(r.employee_name)}')">❌ Reject</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function approveRegularization(id, empEmail, empName, date, checkIn, checkOut, workType) {
+  // Create attendance record
+  const { data: emp } = await sb.from('employees').select('id').eq('email', empEmail).single();
+  const checkInDT = new Date(`${date}T${checkIn}`);
+  const checkOutDT = checkOut ? new Date(`${date}T${checkOut}`) : null;
+  const hrs = checkOutDT ? ((checkOutDT - checkInDT)/3600000).toFixed(2) : null;
+  const status = hrs ? (parseFloat(hrs) >= 5 ? 'Present' : 'Half Day') : 'Present';
+
+  await sb.from('attendance').insert({
+    employee_id: emp?.id,
+    employee_email: empEmail,
+    employee_name: empName,
+    date, check_in: checkInDT.toISOString(),
+    check_out: checkOutDT ? checkOutDT.toISOString() : null,
+    working_hours: hrs, status, work_type: workType,
+    is_archived: false
+  });
+
+  await sb.from('attendance_regularization').update({
+    status: 'Approved',
+    approved_by: currentUser.name,
+    approved_at: new Date().toISOString()
+  }).eq('id', id);
+
+  await createNotification(empEmail,
+    '✅ Attendance Regularization Approved',
+    `Your attendance for ${date} has been approved by ${currentUser.name}.`,
+    'attendance', 'attendance'
+  );
+
+  showToast('✅ Regularization approved!', 'ok');
+  loadAllRegularizations();
+}
+
+async function rejectRegularization(id, empEmail, empName) {
+  const reason = prompt('Reason for rejection:');
+  if (reason === null) return;
+
+  await sb.from('attendance_regularization').update({
+    status: 'Rejected',
+    approved_by: currentUser.name,
+    approved_at: new Date().toISOString()
+  }).eq('id', id);
+
+  await createNotification(empEmail,
+    '❌ Attendance Regularization Rejected',
+    `Your regularization request was rejected. Reason: ${reason}`,
+    'attendance', 'attendance'
+  );
+
+  showToast('↩️ Request rejected!', 'ok');
+  loadAllRegularizations();
+}
 
