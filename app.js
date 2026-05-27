@@ -622,6 +622,7 @@ function showView(name) {
   if (name === 'regularization') loadAllRegularizations();
   if (name === 'documents') loadAllDocuments();
   if (name === 'calendar') loadCalendar();
+  if (name === 'expenses') loadExpenses();
   if (name === 'attendance') loadMyRegularizations();
 }
 
@@ -5230,4 +5231,222 @@ async function deleteCalEvent(id) {
   showToast('✅ Event deleted!','ok');
   renderCalendar();
   loadUpcomingEvents();
+}
+// ═══════════════════════════════════════════
+//  EXPENSE CLAIMS
+// ═══════════════════════════════════════════
+async function loadExpenses() {
+  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
+  const formPanel = document.getElementById('expense-form-panel');
+  const allPanel = document.getElementById('allExpensesPanel');
+  if (isCEO) {
+    if (allPanel) allPanel.style.display = 'block';
+    loadAllExpenses();
+  } else {
+    if (allPanel) allPanel.style.display = 'none';
+  }
+  loadMyExpenses();
+}
+
+async function loadMyExpenses() {
+  const { data } = await sb.from('expense_claims')
+    .select('*').eq('employee_email', currentUser.email)
+    .order('created_at', {ascending: false});
+  const el = document.getElementById('myExpenseList');
+  if (!el) return;
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No expense claims submitted yet</div>';
+    return;
+  }
+  el.innerHTML = data.map(e => {
+    const statusClass = e.status==='Approved'?'b-green':e.status==='Rejected'?'b-red':'b-amber';
+    const statusIcon = e.status==='Approved'?'✅':e.status==='Rejected'?'❌':'⏳';
+    const expDate = new Date(e.expense_date);
+    const created = new Date(e.created_at);
+    const daysDiff = Math.floor((new Date() - created) / 86400000);
+    const typeIcons = {'Travel':'✈️','Food':'🍽️','Accommodation':'🏨','Fuel':'⛽','Other':'📦'};
+    return `<div style="padding:14px;background:var(--bg);border-radius:10px;margin-bottom:12px;border-left:3px solid ${e.status==='Approved'?'var(--green)':e.status==='Rejected'?'var(--red)':'var(--amber)'}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+            <span style="font-size:18px">${typeIcons[e.expense_type]||'📦'}</span>
+            <span style="font-size:14px;font-weight:700;color:var(--navy)">${esc(e.expense_type)}</span>
+            <span class="badge ${statusClass}">${statusIcon} ${e.status}</span>
+            ${e.is_paid?'<span class="badge b-green">💰 Paid</span>':''}
+          </div>
+          <div style="font-size:13px;color:var(--text);margin-bottom:4px">💬 ${esc(e.description||'—')}</div>
+          <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+            <span>📅 ${fmtDate(e.expense_date)}</span>
+            <span>🕐 Submitted: ${fmtDate(e.created_at)}</span>
+            ${e.approved_by?`<span>✅ Approved by: <strong>${esc(e.approved_by)}</strong></span>`:''}
+            ${e.paid_by?`<span>💰 Paid by: <strong>${esc(e.paid_by)}</strong></span>`:''}
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:20px;font-weight:800;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</div>
+          ${e.receipt_url?`<a href="${e.receipt_url}" target="_blank" class="btn btn-outline btn-sm" style="margin-top:6px">📄 Receipt</a>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadAllExpenses() {
+  const filterVal = document.getElementById('exp-status-filter')?.value || 'all';
+  let query = sb.from('expense_claims').select('*').order('created_at', {ascending: false});
+  if (filterVal !== 'all') query = query.eq('status', filterVal);
+  const { data } = await query;
+  const el = document.getElementById('allExpenseList');
+  if (!el) return;
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No claims found</div>';
+    return;
+  }
+  const typeIcons = {'Travel':'✈️','Food':'🍽️','Accommodation':'🏨','Fuel':'⛽','Other':'📦'};
+  el.innerHTML = data.map(e => {
+    const statusClass = e.status==='Approved'?'b-green':e.status==='Rejected'?'b-red':'b-amber';
+    return `<div class="leave-action-card" style="margin-bottom:12px">
+      <div class="leave-action-head">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+            <span style="font-size:18px">${typeIcons[e.expense_type]||'📦'}</span>
+            <span style="font-size:14px;font-weight:700;color:var(--navy)">${esc(e.employee_name)}</span>
+            <span class="badge b-blue">${esc(e.expense_type)}</span>
+            <span class="badge ${statusClass}">${e.status}</span>
+            ${e.is_paid?'<span class="badge b-green">💰 Paid</span>':''}
+          </div>
+          <div style="font-size:12px;color:var(--text);margin-bottom:4px">💬 ${esc(e.description||'—')}</div>
+          <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+            <span>📅 ${fmtDate(e.expense_date)}</span>
+            <span>🕐 ${fmtDate(e.created_at)}</span>
+            ${e.receipt_url?`<a href="${e.receipt_url}" target="_blank" style="color:var(--blue)">📄 View Receipt</a>`:''}
+          </div>
+        </div>
+        <div style="font-size:20px;font-weight:800;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</div>
+      </div>
+      <div class="leave-action-actions">
+        ${e.status==='Pending'?`
+          <button class="btn btn-green btn-sm" onclick="approveExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">✅ Approve</button>
+          <button class="btn btn-red btn-sm" onclick="rejectExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">❌ Reject</button>
+        `:''}
+        ${e.status==='Approved' && !e.is_paid?`
+          <button class="btn btn-gold btn-sm" onclick="markExpensePaid('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">💰 Mark as Paid</button>
+        `:''}
+        ${e.status==='Approved' && e.is_paid?'<span class="badge b-green">💰 Payment Done</span>':''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function previewExpFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('exp-preview').innerHTML = `
+    <div style="font-size:12px;font-weight:600;color:var(--navy)">${file.name}</div>
+    <div style="font-size:11px;color:var(--muted)">${(file.size/1024).toFixed(0)} KB</div>`;
+}
+
+async function submitExpense() {
+  const type = document.getElementById('exp-type').value;
+  const amount = document.getElementById('exp-amount').value;
+  const date = document.getElementById('exp-date').value;
+  const desc = document.getElementById('exp-desc').value.trim();
+  const file = document.getElementById('exp-file').files[0];
+  const msgEl = document.getElementById('expMsg');
+
+  if (!amount || !date) { msgEl.textContent='⚠️ Amount aur Date required'; msgEl.style.color='var(--red)'; return; }
+
+  // 1 week limit check
+  const expDate = new Date(date);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diffDays = Math.floor((today - expDate) / 86400000);
+  if (diffDays > 7) { msgEl.textContent='❌ 1 week se purani expense claim nahi kar sakte!'; msgEl.style.color='var(--red)'; return; }
+
+  let receiptUrl = null, receiptName = null;
+  if (file) {
+    if (file.size > 5*1024*1024) { msgEl.textContent='❌ Max 5MB allowed'; msgEl.style.color='var(--red)'; return; }
+    msgEl.textContent='⏳ Uploading receipt...'; msgEl.style.color='var(--muted)';
+    const path = `expenses/${currentUser.id}/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
+    const { error: uploadErr } = await sb.storage.from('task-files').upload(path, file, {upsert: false});
+    if (!uploadErr) {
+      const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+      receiptUrl = urlData.publicUrl;
+      receiptName = file.name;
+    }
+  }
+
+  const { error } = await sb.from('expense_claims').insert({
+    employee_email: currentUser.email,
+    employee_name: currentUser.name,
+    expense_type: type, amount: parseFloat(amount),
+    expense_date: date, description: desc,
+    receipt_url: receiptUrl, receipt_name: receiptName
+  });
+
+  if (error) { msgEl.textContent='❌ '+error.message; msgEl.style.color='var(--red)'; return; }
+
+  msgEl.textContent='✅ Claim submitted!'; msgEl.style.color='var(--green)';
+  showToast('✅ Expense claim submitted!','ok');
+
+  // Notify CEO
+  await createNotification(CEO_EMAIL,
+    `💰 Expense Claim — ${currentUser.name}`,
+    `${currentUser.name} submitted a ${type} expense claim of ₹${amount}.`,
+    'info', 'expenses'
+  );
+
+  document.getElementById('exp-amount').value='';
+  document.getElementById('exp-date').value='';
+  document.getElementById('exp-desc').value='';
+  document.getElementById('exp-file').value='';
+  document.getElementById('exp-preview').innerHTML='<div class="upload-zone-text">Click to upload receipt</div><div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>';
+  loadMyExpenses();
+  setTimeout(()=>msgEl.textContent='',4000);
+}
+
+async function approveExpense(id, empEmail, empName) {
+  await sb.from('expense_claims').update({
+    status: 'Approved',
+    approved_by: currentUser.name,
+    approved_at: new Date().toISOString()
+  }).eq('id', id);
+  await createNotification(empEmail,
+    '✅ Expense Claim Approved',
+    `Your expense claim has been approved by ${currentUser.name}.`,
+    'info', 'expenses'
+  );
+  showToast('✅ Expense approved!','ok');
+  loadAllExpenses();
+}
+
+async function rejectExpense(id, empEmail, empName) {
+  const reason = prompt('Reason for rejection:');
+  if (reason === null) return;
+  await sb.from('expense_claims').update({
+    status: 'Rejected',
+    approved_by: currentUser.name,
+    approved_at: new Date().toISOString()
+  }).eq('id', id);
+  await createNotification(empEmail,
+    '❌ Expense Claim Rejected',
+    `Your expense claim was rejected by ${currentUser.name}. Reason: ${reason}`,
+    'info', 'expenses'
+  );
+  showToast('↩️ Expense rejected!','ok');
+  loadAllExpenses();
+}
+
+async function markExpensePaid(id, empEmail, empName) {
+  await sb.from('expense_claims').update({
+    is_paid: true,
+    paid_by: currentUser.name,
+    paid_at: new Date().toISOString()
+  }).eq('id', id);
+  await createNotification(empEmail,
+    '💰 Expense Payment Done',
+    `Your approved expense has been paid by ${currentUser.name}.`,
+    'info', 'expenses'
+  );
+  showToast('💰 Marked as paid!','ok');
+  loadAllExpenses();
 }
