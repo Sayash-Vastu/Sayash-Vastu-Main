@@ -570,6 +570,51 @@
       </div>
 
       <!-- FOLLOW-UP VIEW (Employee) -->
+      <!-- ATTENDANCE REGULARIZATION -->
+<div class="panel" style="margin-top:20px" id="regularization-panel">
+  <div class="panel-head">
+    <div class="panel-title">📋 Attendance Regularization</div>
+  </div>
+  <div class="panel-body">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:14px">Forgot to check in? Submit a regularization request.</div>
+    <div class="form-grid cols-2">
+      <div class="field">
+        <label>Date</label>
+        <input type="date" id="reg-date"/>
+      </div>
+      <div class="field">
+        <label>Work Type</label>
+        <select id="reg-work-type">
+          <option value="Office">Office</option>
+          <option value="WFH">WFH</option>
+          <option value="On Site">On Site</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Check In Time</label>
+        <input type="time" id="reg-checkin"/>
+      </div>
+      <div class="field">
+        <label>Check Out Time</label>
+        <input type="time" id="reg-checkout"/>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Reason</label>
+        <textarea id="reg-reason" placeholder="e.g. Was in client meeting, forgot to check in..."></textarea>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+      <button class="btn btn-gold" onclick="submitRegularization()">📋 Submit Request</button>
+      <span id="regMsg" style="font-size:12px;font-weight:600"></span>
+    </div>
+  </div>
+</div>
+
+<!-- REGULARIZATION LIST -->
+<div class="panel" style="margin-top:14px" id="my-regularization-list">
+  <div class="panel-head"><div class="panel-title">📜 My Regularization Requests</div></div>
+  <div id="myRegList" style="padding:12px 16px"></div>
+</div>
       <div class="view" id="view-followUp">
         <div class="page-header">
           <h2>Follow-up Tasks</h2>
