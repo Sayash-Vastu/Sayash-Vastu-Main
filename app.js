@@ -2021,12 +2021,34 @@ async function applyLeave() {
 // ═══════════════════════════════════════════
 async function loadNotices() {
   const { data } = await sb.from('notices').select('*').eq('is_active',true).order('created_at',{ascending:false});
+  const { data: myReactions } = await sb.from('notice_reactions').select('*').eq('employee_email', currentUser.email);
+  const myReactionMap = {};
+  (myReactions||[]).forEach(r => {
+    if (!myReactionMap[r.notice_id]) myReactionMap[r.notice_id] = [];
+    myReactionMap[r.notice_id].push(r.reaction);
+  });
+  const { data: allReactions } = await sb.from('notice_reactions').select('*');
+  const reactionCountMap = {};
+  (allReactions||[]).forEach(r => {
+    if (!reactionCountMap[r.notice_id]) reactionCountMap[r.notice_id] = {};
+    reactionCountMap[r.notice_id][r.reaction] = (reactionCountMap[r.notice_id][r.reaction]||0) + 1;
+  });
   const el = document.getElementById('noticesList');
   if (!data||!data.length) {
     el.innerHTML='<div class="empty-state"><div class="empty-icon">📢</div><div class="empty-title">No notices yet</div></div>'; return;
   }
-  el.innerHTML = data.map(n=>`
-    <div class="notice-card ${n.priority.toLowerCase()}">
+  el.innerHTML = data.map(n=>{
+    const myR = myReactionMap[n.id]||[];
+    const counts = reactionCountMap[n.id]||{};
+    const emojis = ['👍','❤️','😂','😮','🙏'];
+    const reactHtml = emojis.map(e=>{
+      const count = counts[e]||0;
+      const active = myR.includes(e);
+      return `<button onclick="toggleReaction('${n.id}','${e}')" style="background:${active?'var(--gold)':'#f1f3f7'};border:1.5px solid ${active?'var(--gold)':'var(--border)'};border-radius:20px;padding:4px 10px;cursor:pointer;font-size:13px;font-family:'DM Sans',sans-serif;font-weight:600;color:${active?'var(--navy)':'var(--muted)'};transition:all 0.15s">
+        ${e}${count>0?` <span style="font-size:11px">${count}</span>`:''}
+      </button>`;
+    }).join('');
+    return `<div class="notice-card ${n.priority.toLowerCase()}">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
         <div class="notice-title">${esc(n.title)}</div>
         <span class="badge ${n.priority==='Urgent'?'b-red':n.priority==='High'?'b-gold':'b-blue'}">${n.priority}</span>
@@ -2040,10 +2062,12 @@ async function loadNotices() {
         </div>
         ${currentUser.role==='ceo'||currentUser.role==='manager'?`<button onclick="deleteNotice('${n.id}')" style="background:#fdf0ee;color:var(--red);border:1px solid var(--red-bg);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">🗑️ Delete</button>`:''}
       </div>
-    </div>
-  `).join('');
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap">
+        ${reactHtml}
+      </div>
+    </div>`;
+  }).join('');
 }
-
 async function postNotice() {
   const title=document.getElementById('nt-title').value.trim();
   const content=document.getElementById('nt-content').value.trim();
