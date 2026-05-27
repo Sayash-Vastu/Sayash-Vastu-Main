@@ -126,6 +126,11 @@
         </button>
       </div>
 
+      <div class="sidebar-section">Finance</div>
+<button class="nav-btn" onclick="showView('expenses')" id="nav-expenses">
+  <span class="ni">💰</span><span>Expense Claims</span>
+  <span class="nav-badge" id="nb-expenses" style="display:none">0</span>
+</button>
       <div class="sidebar-section">Account</div>
       <button class="nav-btn" id="nav-profile" onclick="showView('myProfile')"><span class="ni">⚙️</span><span>My Profile</span></button>
 
@@ -1288,6 +1293,80 @@
         </div>
       </div>
 
+      <!-- EXPENSE CLAIMS VIEW -->
+<div class="view" id="view-expenses">
+  <div class="page-header">
+    <h2>Expense Claims</h2>
+    <p>Submit and track your expense reimbursements</p>
+  </div>
+
+  <!-- Submit Form -->
+  <div class="panel" style="margin-bottom:20px" id="expense-form-panel">
+    <div class="panel-head"><div class="panel-title">➕ Submit Expense Claim</div></div>
+    <div class="panel-body">
+      <div class="form-grid cols-2">
+        <div class="field">
+          <label>Expense Type</label>
+          <select id="exp-type">
+            <option value="Travel">✈️ Travel</option>
+            <option value="Food">🍽️ Food</option>
+            <option value="Accommodation">🏨 Accommodation</option>
+            <option value="Fuel">⛽ Fuel</option>
+            <option value="Other">📦 Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Amount (₹)</label>
+          <input type="number" id="exp-amount" placeholder="e.g. 500"/>
+        </div>
+        <div class="field">
+          <label>Expense Date</label>
+          <input type="date" id="exp-date"/>
+        </div>
+        <div class="field">
+          <label>Description</label>
+          <input type="text" id="exp-desc" placeholder="e.g. Cab to client site"/>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Upload Receipt (PDF/Image)</label>
+          <div class="upload-zone" onclick="document.getElementById('exp-file').click()" style="padding:12px">
+            <input type="file" id="exp-file" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="previewExpFile(this)"/>
+            <div id="exp-preview">
+              <div class="upload-zone-text">Click to upload receipt</div>
+              <div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+        <button class="btn btn-gold" onclick="submitExpense()">💰 Submit Claim</button>
+        <span id="expMsg" style="font-size:12px;font-weight:600"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- My Claims List -->
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">📋 My Expense Claims</div>
+    </div>
+    <div id="myExpenseList" style="padding:14px 16px"></div>
+  </div>
+
+  <!-- CEO All Claims -->
+  <div class="panel" id="allExpensesPanel" style="display:none;margin-top:16px">
+    <div class="panel-head">
+      <div class="panel-title">👑 All Employee Claims</div>
+      <select id="exp-status-filter" onchange="loadAllExpenses()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;outline:none">
+        <option value="all">All Status</option>
+        <option value="Pending">Pending</option>
+        <option value="Approved">Approved</option>
+        <option value="Rejected">Rejected</option>
+      </select>
+    </div>
+    <div id="allExpenseList" style="padding:14px 16px"></div>
+  </div>
+</div>
       <!-- MY PROFILE VIEW -->
       <div class="view" id="view-myProfile">
         <div class="page-header">
