@@ -783,6 +783,22 @@
       </div>
 
       <!-- EMPLOYEES CEO -->
+      <!-- EMPLOYEE DOCUMENTS VIEW (CEO) -->
+<div class="view" id="view-documents">
+  <div class="page-header">
+    <h2>Employee Documents</h2>
+    <p>ID proofs and documents submitted by employees</p>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">🪪 All Employee Documents</div>
+      <select id="doc-emp-filter" onchange="loadAllDocuments()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;outline:none">
+        <option value="all">All Employees</option>
+      </select>
+    </div>
+    <div id="allDocsList" style="padding:14px 16px"></div>
+  </div>
+</div>
       <div class="view" id="view-employees">
         <div class="page-header">
           <h2>Employees</h2>
