@@ -3673,7 +3673,73 @@ async function loadMyProfile() {
   document.getElementById('pi-gender').value = emp.gender || '';
   document.getElementById('pi-address').value = emp.address || '';
 }
+async function loadMyDocs() {
+  const { data } = await sb.from('employee_documents')
+    .select('*').eq('employee_email', currentUser.email)
+    .order('uploaded_at', {ascending: false});
+  const el = document.getElementById('myDocsList');
+  if (!el) return;
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No documents uploaded yet</div>';
+    return;
+  }
+  el.innerHTML = data.map(d => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f5f6fa">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">🪪</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--navy)">${esc(d.document_type)}</div>
+          <div style="font-size:11px;color:var(--muted)">${esc(d.file_name||'—')} · ${new Date(d.uploaded_at).toLocaleDateString('en-IN')}</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <a href="${d.file_url}" target="_blank" class="btn btn-outline btn-sm">👁️ View</a>
+        <button class="btn btn-sm" onclick="deleteDoc('${d.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
+      </div>
+    </div>
+  `).join('');
+}
 
+function previewDocFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('doc-preview').innerHTML = `
+    <div style="font-size:12px;font-weight:600;color:var(--navy)">${file.name}</div>
+    <div style="font-size:11px;color:var(--muted)">${(file.size/1024).toFixed(0)} KB</div>`;
+}
+
+async function uploadDocument() {
+  const type = document.getElementById('doc-type').value;
+  const file = document.getElementById('doc-file').files[0];
+  const msgEl = document.getElementById('docMsg');
+  if (!file) { msgEl.textContent='⚠️ Please select a file'; msgEl.style.color='var(--red)'; return; }
+  if (file.size > 5*1024*1024) { msgEl.textContent='❌ Max 5MB allowed'; msgEl.style.color='var(--red)'; return; }
+  msgEl.textContent='⏳ Uploading...'; msgEl.style.color='var(--muted)';
+  const path = `documents/${currentUser.id}/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
+  const { error: uploadErr } = await sb.storage.from('task-files').upload(path, file, {upsert: false});
+  if (uploadErr) { msgEl.textContent='❌ '+uploadErr.message; msgEl.style.color='var(--red)'; return; }
+  const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+  const { error } = await sb.from('employee_documents').insert({
+    employee_email: currentUser.email,
+    employee_name: currentUser.name,
+    document_type: type,
+    file_url: urlData.publicUrl,
+    file_name: file.name
+  });
+  if (error) { msgEl.textContent='❌ '+error.message; msgEl.style.color='var(--red)'; return; }
+  msgEl.textContent='✅ Document uploaded!'; msgEl.style.color='var(--green)';
+  document.getElementById('doc-file').value='';
+  document.getElementById('doc-preview').innerHTML='<div class="upload-zone-text">Click to upload</div><div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>';
+  loadMyDocs();
+  setTimeout(()=>msgEl.textContent='',4000);
+}
+
+async function deleteDoc(docId) {
+  if (!confirm('Delete this document?')) return;
+  await sb.from('employee_documents').delete().eq('id', docId);
+  showToast('✅ Document deleted!','ok');
+  loadMyDocs();
+}
 async function saveProfile() {
   const name = document.getElementById('pi-name').value.trim();
   const phone = document.getElementById('pi-phone').value.trim();
