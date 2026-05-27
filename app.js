@@ -1141,6 +1141,7 @@ async function loadCeoDashboard() {
           <th style="padding:8px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Check Out</th>
           <th style="padding:8px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Hours</th>
           <th style="padding:8px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Type</th>
+          <th style="padding:8px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Location</th>
           <th style="padding:8px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Status</th>
         </tr></thead>
         <tbody>${todayAttAll.map(a=>`<tr style="border-bottom:1px solid #f5f6fa">
@@ -1149,6 +1150,13 @@ async function loadCeoDashboard() {
           <td style="padding:9px 14px">${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
           <td style="padding:9px 14px;font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+'h':'—'}</td>
           <td style="padding:9px 14px"><span class="badge ${a.work_type==='WFH'?'b-blue':'b-navy'}" style="font-size:10px">${a.work_type||'Office'}</span></td>
+          <td style="padding:9px 14px;font-size:11px;color:var(--muted)">
+            ${a.latitude && a.longitude ? 
+              `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:11px">
+                📍 ${a.location_address ? esc(a.location_address.substring(0,25))+'...' : 'View Map'}
+              </a>` 
+              : '—'}
+          </td>
           <td style="padding:9px 14px">${attBadge(a.status)}</td>
         </tr>`).join('')}</tbody>
       </table>`;
