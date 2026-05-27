@@ -475,7 +475,7 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization'].forEach(id => {
+['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization','nav-documents'].forEach(id => {
     const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
     });
@@ -620,6 +620,7 @@ function showView(name) {
   if (name === 'projects') loadProjects();
   if (name === 'helpRequest') loadHelpRequests();
   if (name === 'regularization') loadAllRegularizations();
+  if (name === 'documents') loadAllDocuments();
   if (name === 'attendance') loadMyRegularizations();
 }
 
@@ -4888,6 +4889,59 @@ function hideVercelBadge() {
 setTimeout(hideVercelBadge, 500);
 setTimeout(hideVercelBadge, 2000);
 new MutationObserver(hideVercelBadge).observe(document.body, {childList:true, subtree:true});
+async function loadAllDocuments() {
+  const { data: docs } = await sb.from('employee_documents')
+    .select('*').order('uploaded_at', {ascending: false});
+  const { data: emps } = await sb.from('employees')
+    .select('name,email').eq('is_active', true);
+
+  // Populate filter dropdown
+  const filterEl = document.getElementById('doc-emp-filter');
+  if (filterEl && emps) {
+    const currentVal = filterEl.value;
+    filterEl.innerHTML = '<option value="all">All Employees</option>' +
+      emps.map(e => `<option value="${esc(e.email)}" ${currentVal===e.email?'selected':''}>${esc(e.name)}</option>`).join('');
+  }
+
+  const filterVal = filterEl ? filterEl.value : 'all';
+  const filtered = filterVal === 'all' ? (docs||[]) : (docs||[]).filter(d => d.employee_email === filterVal);
+
+  const el = document.getElementById('allDocsList');
+  if (!el) return;
+
+  if (!filtered.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:24px">No documents uploaded yet</div>';
+    return;
+  }
+
+  // Group by employee
+  const grouped = {};
+  filtered.forEach(d => {
+    if (!grouped[d.employee_email]) grouped[d.employee_email] = { name: d.employee_name, docs: [] };
+    grouped[d.employee_email].docs.push(d);
+  });
+
+  el.innerHTML = Object.values(grouped).map(emp => `
+    <div style="margin-bottom:20px;padding:14px;background:var(--bg);border-radius:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px">
+        👤 ${esc(emp.name)}
+        <span class="badge b-navy" style="margin-left:8px">${emp.docs.length} document${emp.docs.length>1?'s':''}</span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        ${emp.docs.map(d => `
+          <div style="background:#fff;border:1px solid var(--border);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:10px;min-width:200px">
+            <span style="font-size:20px">🪪</span>
+            <div style="flex:1">
+              <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(d.document_type)}</div>
+              <div style="font-size:10px;color:var(--muted)">${new Date(d.uploaded_at).toLocaleDateString('en-IN')}</div>
+            </div>
+            <a href="${d.file_url}" target="_blank" class="btn btn-outline btn-sm">👁️ View</a>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `).join('');
+}
 // ═══════════════════════════════════════════
 //  ATTENDANCE REGULARIZATION
 // ═══════════════════════════════════════════
