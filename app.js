@@ -3718,9 +3718,9 @@ async function uploadDocument() {
   if (file.size > 5*1024*1024) { msgEl.textContent='❌ Max 5MB allowed'; msgEl.style.color='var(--red)'; return; }
   msgEl.textContent='⏳ Uploading...'; msgEl.style.color='var(--muted)';
   const path = `documents/${currentUser.id}/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
-  const { error: uploadErr } = await sb.storage.from('task-files').upload(path, file, {upsert: false});
+const { error: uploadErr } = await sb.storage.from('employee-docs').upload(path, file, {upsert: false});
   if (uploadErr) { msgEl.textContent='❌ '+uploadErr.message; msgEl.style.color='var(--red)'; return; }
-  const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+const { data: urlData } = sb.storage.from('employee-docs').getPublicUrl(path);
   const { error } = await sb.from('employee_documents').insert({
     employee_email: currentUser.email,
     employee_name: currentUser.name,
