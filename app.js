@@ -3664,6 +3664,7 @@ async function loadMyProfile() {
   document.getElementById('pi-dept').textContent = emp.department || '—';
   document.getElementById('pi-desig').textContent = emp.designation || '—';
   document.getElementById('pi-joining').textContent = emp.joining_date ? fmtDate(emp.joining_date) : '—';
+  loadMyDocs();
 
   // Editable fields
   document.getElementById('pi-name').value = emp.name || '';
