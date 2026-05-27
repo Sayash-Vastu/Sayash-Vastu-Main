@@ -475,7 +475,7 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization','nav-documents'].forEach(id => {
+['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization','nav-documents','nav-calendar'].forEach(id => {
     const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
     });
@@ -621,6 +621,7 @@ function showView(name) {
   if (name === 'helpRequest') loadHelpRequests();
   if (name === 'regularization') loadAllRegularizations();
   if (name === 'documents') loadAllDocuments();
+  if (name === 'calendar') loadCalendar();
   if (name === 'attendance') loadMyRegularizations();
 }
 
@@ -5106,4 +5107,127 @@ async function rejectRegularization(id, empEmail, empName) {
   showToast('↩️ Request rejected!', 'ok');
   loadAllRegularizations();
 }
+// ═══════════════════════════════════════════
+//  CEO CALENDAR
+// ═══════════════════════════════════════════
+let calCurrentDate = new Date();
 
+async function loadCalendar() {
+  renderCalendar();
+  loadUpcomingEvents();
+}
+
+async function renderCalendar() {
+  const year = calCurrentDate.getFullYear();
+  const month = calCurrentDate.getMonth();
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('calMonthLabel').textContent = months[month] + ' ' + year;
+
+  const { data: events } = await sb.from('ceo_events').select('*')
+    .gte('event_date', new Date(year, month, 1).toISOString().split('T')[0])
+    .lte('event_date', new Date(year, month+1, 0).toISOString().split('T')[0]);
+
+  const eventMap = {};
+  (events||[]).forEach(e => {
+    if (!eventMap[e.event_date]) eventMap[e.event_date] = [];
+    eventMap[e.event_date].push(e);
+  });
+
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const today = new Date().toISOString().split('T')[0];
+  const typeColors = {'Meeting':'var(--blue)','Deadline':'var(--red)','Site Visit':'var(--green)','Call':'var(--amber)','Other':'var(--muted)'};
+
+  let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:8px">
+    ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:4px">${d}</div>`).join('')}
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px">`;
+
+  for (let i=0; i<firstDay; i++) html += `<div></div>`;
+
+  for (let d=1; d<=daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === today;
+    const dayEvents = eventMap[dateStr] || [];
+    html += `<div onclick="openCalDay('${dateStr}')" style="min-height:60px;border:1px solid ${isToday?'var(--gold)':'var(--border)'};border-radius:8px;padding:6px;cursor:pointer;background:${isToday?'#fdf9ef':'#fff'};transition:all 0.15s" onmouseover="this.style.background='#f8f9fc'" onmouseout="this.style.background='${isToday?'#fdf9ef':'#fff'}'">
+      <div style="font-size:12px;font-weight:${isToday?'800':'600'};color:${isToday?'var(--gold)':'var(--navy)'};margin-bottom:4px">${d}</div>
+      ${dayEvents.slice(0,2).map(e=>`<div style="font-size:9px;background:${typeColors[e.event_type]||'var(--muted)'};color:#fff;border-radius:4px;padding:1px 5px;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.title)}</div>`).join('')}
+      ${dayEvents.length>2?`<div style="font-size:9px;color:var(--muted)">+${dayEvents.length-2} more</div>`:''}
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('calGrid').innerHTML = html;
+}
+
+async function loadUpcomingEvents() {
+  const today = new Date().toISOString().split('T')[0];
+  const { data: events } = await sb.from('ceo_events').select('*')
+    .gte('event_date', today).order('event_date',{ascending:true}).limit(10);
+  const el = document.getElementById('upcomingEvents');
+  if (!el) return;
+  if (!events||!events.length) {
+    el.innerHTML='<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No upcoming events</div>';
+    return;
+  }
+  const typeColors = {'Meeting':'var(--blue)','Deadline':'var(--red)','Site Visit':'var(--green)','Call':'var(--amber)','Other':'var(--muted)'};
+  const typeIcons = {'Meeting':'🔵','Deadline':'🔴','Site Visit':'🟢','Call':'🟡','Other':'⚪'};
+  el.innerHTML = events.map(e=>`
+    <div style="padding:10px 0;border-bottom:1px solid #f5f6fa;display:flex;gap:10px;align-items:flex-start">
+      <div style="width:36px;height:36px;border-radius:8px;background:${typeColors[e.event_type]||'var(--muted)'};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">${typeIcons[e.event_type]||'⚪'}</div>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.title)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">${fmtDate(e.event_date)}${e.event_time?' · '+e.event_time.substring(0,5):''}</div>
+        ${e.description?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(e.description.substring(0,40))}...</div>`:''}
+      </div>
+      <button onclick="deleteCalEvent('${e.id}')" style="background:#fdf0ee;color:var(--red);border:1px solid var(--red-bg);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer">🗑️</button>
+    </div>
+  `).join('');
+}
+
+function calPrevMonth() {
+  calCurrentDate = new Date(calCurrentDate.getFullYear(), calCurrentDate.getMonth()-1, 1);
+  renderCalendar();
+}
+
+function calNextMonth() {
+  calCurrentDate = new Date(calCurrentDate.getFullYear(), calCurrentDate.getMonth()+1, 1);
+  renderCalendar();
+}
+
+function openCalDay(dateStr) {
+  document.getElementById('cal-date').value = dateStr;
+  document.getElementById('cal-title').focus();
+  showToast('📅 Date selected: ' + dateStr, '');
+}
+
+async function addCalEvent() {
+  const title = document.getElementById('cal-title').value.trim();
+  const type = document.getElementById('cal-type').value;
+  const date = document.getElementById('cal-date').value;
+  const time = document.getElementById('cal-time').value;
+  const desc = document.getElementById('cal-desc').value.trim();
+  const msgEl = document.getElementById('calMsg');
+  if (!title||!date) { msgEl.textContent='⚠️ Title aur Date required'; msgEl.style.color='var(--red)'; return; }
+  const { error } = await sb.from('ceo_events').insert({
+    title, event_type: type, event_date: date,
+    event_time: time||null, description: desc||null
+  });
+  if (error) { msgEl.textContent='❌ '+error.message; msgEl.style.color='var(--red)'; return; }
+  msgEl.textContent='✅ Event added!'; msgEl.style.color='var(--green)';
+  document.getElementById('cal-title').value='';
+  document.getElementById('cal-date').value='';
+  document.getElementById('cal-time').value='';
+  document.getElementById('cal-desc').value='';
+  showToast('✅ Event added!','ok');
+  renderCalendar();
+  loadUpcomingEvents();
+  setTimeout(()=>msgEl.textContent='',3000);
+}
+
+async function deleteCalEvent(id) {
+  if (!confirm('Delete this event?')) return;
+  await sb.from('ceo_events').delete().eq('id',id);
+  showToast('✅ Event deleted!','ok');
+  renderCalendar();
+  loadUpcomingEvents();
+}
