@@ -494,7 +494,7 @@ function showApp() {
     const navFU = document.getElementById('nav-followup');
     if (navFU) navFU.style.display = 'none';
   } else {
-    ['nav-all-tasks','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
+    ['nav-all-tasks-work','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
     document.getElementById('ceo-section').style.display = 'none';
@@ -516,16 +516,7 @@ function showApp() {
     // Senior Review removed
   }
 
-  if (currentUser.role === 'employee') {
-    document.getElementById('at-name').value = currentUser.name;
-    document.getElementById('at-email').value = currentUser.email;
-    document.getElementById('at-name').readOnly = true;
-    document.getElementById('at-email').readOnly = true;
-    document.getElementById('at-name').style.background = '#f8f9fc';
-    document.getElementById('at-email').style.background = '#f8f9fc';
-  }
-
-  loadEmployeeAutocomplete();
+    loadEmployeeAutocomplete();
   loadHome();
   showView('home');
   // Load notifications and setup realtime
