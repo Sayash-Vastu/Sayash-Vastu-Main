@@ -137,6 +137,7 @@
       <div id="ceoMenu" style="display:none">
         <button class="nav-btn" id="nav-employees" onclick="showView('employees')" style="display:none;padding-left:32px"><span class="ni">👥</span><span>Employees</span></button>
         <button class="nav-btn" id="nav-documents" onclick="showView('documents')" style="display:none;padding-left:32px"><span class="ni">🪪</span><span>Documents</span></button>
+        <button class="nav-btn" id="nav-calendar" onclick="showView('calendar')" style="display:none;padding-left:32px"><span class="ni">📅</span><span>My Calendar</span></button>
         <button class="nav-btn" id="nav-att-report" onclick="showView('attReport')" style="display:none;padding-left:32px"><span class="ni">📅</span><span>Att. Report</span></button>
         <button class="nav-btn" id="nav-leave-approve" onclick="showView('leaveApprove')" style="display:none;padding-left:32px">
   <span class="ni">✅</span><span>Leave Approvals</span>
@@ -818,6 +819,73 @@
         </div>
       </div>
 
+      <!-- CEO CALENDAR VIEW -->
+<div class="view" id="view-calendar">
+  <div class="page-header">
+    <h2>My Calendar</h2>
+    <p>Schedule and track your meetings and events</p>
+  </div>
+
+  <!-- Add Event Form -->
+  <div class="panel" style="margin-bottom:20px">
+    <div class="panel-head"><div class="panel-title">➕ Add New Event</div></div>
+    <div class="panel-body">
+      <div class="form-grid cols-2">
+        <div class="field">
+          <label>Event Title</label>
+          <input type="text" id="cal-title" placeholder="e.g. Client Meeting"/>
+        </div>
+        <div class="field">
+          <label>Event Type</label>
+          <select id="cal-type">
+            <option value="Meeting">🔵 Meeting</option>
+            <option value="Deadline">🔴 Deadline</option>
+            <option value="Site Visit">🟢 Site Visit</option>
+            <option value="Call">🟡 Call</option>
+            <option value="Other">⚪ Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="cal-date"/>
+        </div>
+        <div class="field">
+          <label>Time</label>
+          <input type="time" id="cal-time"/>
+        </div>
+        <div class="field" style="grid-column:1/-1">
+          <label>Description</label>
+          <textarea id="cal-desc" placeholder="Event details..." style="min-height:60px"></textarea>
+        </div>
+      </div>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+        <button class="btn btn-gold" onclick="addCalEvent()">📅 Add Event</button>
+        <span id="calMsg" style="font-size:12px;font-weight:600"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar + Upcoming Events -->
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:16px">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">📅 Calendar</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-outline btn-sm" onclick="calPrevMonth()">◀</button>
+          <span id="calMonthLabel" style="font-size:13px;font-weight:700;color:var(--navy)"></span>
+          <button class="btn btn-outline btn-sm" onclick="calNextMonth()">▶</button>
+        </div>
+      </div>
+      <div id="calGrid" style="padding:14px"></div>
+    </div>
+
+    <!-- Upcoming Events -->
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">🗓️ Upcoming Events</div></div>
+      <div id="upcomingEvents" style="padding:12px 16px"></div>
+    </div>
+  </div>
+</div>
       <!-- ATT REPORT CEO -->
       <div class="view" id="view-attReport">
         <div class="page-header">
