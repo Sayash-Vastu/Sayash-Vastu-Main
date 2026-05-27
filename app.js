@@ -475,8 +475,8 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    ['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks'].forEach(id => {
-      const el = document.getElementById(id);
+['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization'].forEach(id => {
+    const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
     });
     document.getElementById('ceo-section').style.display = 'block';
