@@ -619,6 +619,8 @@ function showView(name) {
   if (name === 'hrPolicy') loadHRPolicies();
   if (name === 'projects') loadProjects();
   if (name === 'helpRequest') loadHelpRequests();
+  if (name === 'regularization') loadAllRegularizations();
+  if (name === 'attendance') loadMyRegularizations();
 }
 
 // ═══════════════════════════════════════════
