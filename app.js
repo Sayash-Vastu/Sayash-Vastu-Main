@@ -1755,6 +1755,16 @@ function toggleAssignEmp(checkbox) {
 async function assignTask() {
   window._selectedAssignEmps = window._selectedAssignEmps || [];
   const empsToAssign = window._selectedAssignEmps;
+  // ── Mandatory attendance check ──
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { data: todayAtt } = await sb.from('attendance')
+    .select('id').eq('employee_email', currentUser.email)
+    .eq('date', todayStr).eq('is_archived', false).maybeSingle();
+  if (!todayAtt) {
+    showToast('⚠️ Please mark your attendance before assigning tasks!', 'warn');
+    showView('home');
+    return;
+  }
   const project = document.getElementById('at-project').value.trim();
   const detail = document.getElementById('at-detail').value.trim();
   const start = document.getElementById('at-start').value;
