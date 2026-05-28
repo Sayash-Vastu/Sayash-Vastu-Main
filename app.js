@@ -5261,6 +5261,7 @@ async function loadExpenses() {
 async function loadMyExpenses() {
   const { data } = await sb.from('expense_claims')
     .select('*').eq('employee_email', currentUser.email)
+    .eq('is_archived', false)
     .order('created_at', {ascending: false});
   const el = document.getElementById('myExpenseList');
   if (!el) return;
