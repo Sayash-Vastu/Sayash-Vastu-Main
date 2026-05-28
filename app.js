@@ -5318,7 +5318,7 @@ async function loadMyExpenses() {
 }
 async function loadAllExpenses() {
   const filterVal = document.getElementById('exp-status-filter')?.value || 'all';
-  let query = sb.from('expense_claims').select('*').order('created_at', {ascending: false});
+let query = sb.from('expense_claims').select('*').eq('is_archived', false).order('created_at', {ascending: false});
   if (filterVal !== 'all') query = query.eq('status', filterVal);
   const { data } = await query;
   const el = document.getElementById('allExpenseList');
