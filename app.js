@@ -5309,7 +5309,7 @@ async function loadMyExpenses() {
         </div>
         <div style="text-align:right">
           <div style="font-size:22px;font-weight:800;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</div>
-          ${e.receipt_url?`<a href="${e.receipt_url}" target="_blank" class="btn btn-outline btn-sm" style="margin-top:6px">📄 Receipt</a>`:''}
+${e.status==='Pending'?`<button onclick="deleteExpense('${e.id}')" class="btn btn-sm" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-top:6px">🗑️ Delete</button>`:''}
         </div>
       </div>
     </div>`;
