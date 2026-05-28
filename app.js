@@ -5436,8 +5436,13 @@ async function submitExpense() {
     if (file.size > 5*1024*1024) { msgEl.textContent='❌ Max 5MB allowed'; msgEl.style.color='var(--red)'; return; }
     msgEl.textContent='⏳ Uploading receipt...'; msgEl.style.color='var(--muted)';
 const path = `expenses/${currentUser.email}/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
-        const { error: uploadErr } = await sb.storage.from('task-files').upload(path, file, {upsert: false});
-    if (!uploadErr) {
+        const { error: uploadErr } = await sb.storage.from('task-files').upload(path, file, {upsert: true});
+    if (uploadErr) {
+      console.error('Upload error:', uploadErr.message);
+      msgEl.textContent='❌ Upload failed: '+uploadErr.message;
+      msgEl.style.color='var(--red)';
+      return;
+    } else {
       const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
       receiptUrl = urlData.publicUrl;
       receiptName = file.name;
