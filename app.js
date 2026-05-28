@@ -1729,8 +1729,8 @@ Sayash Vastu Portal`,
   }
   closeModal('taskModal');
   // Reload appropriate task list
-  if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
-    loadCeoMyTasks();
+if (currentUser.role === 'ceo') {
+  loadCeoMyTasks();
   } else {
     loadMyTasks();
   }
