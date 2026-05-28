@@ -5533,3 +5533,34 @@ async function deleteExpense(id) {
   showToast('✅ Expense archived!','ok');
   loadAllExpenses();
 }
+// ═══════════════════════════════════════════
+//  MOBILE SIDEBAR TOGGLE
+// ═══════════════════════════════════════════
+function toggleMobileSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  sidebar.classList.toggle('open');
+}
+
+// Close sidebar when nav item clicked on mobile
+document.addEventListener('DOMContentLoaded', function() {
+  if (window.innerWidth <= 600) {
+    document.getElementById('hamburgerBtn').style.display = 'inline-block';
+  }
+});
+
+window.addEventListener('resize', function() {
+  const btn = document.getElementById('hamburgerBtn');
+  if (btn) btn.style.display = window.innerWidth <= 600 ? 'inline-block' : 'none';
+  if (window.innerWidth > 600) {
+    document.querySelector('.sidebar').classList.remove('open');
+  }
+});
+
+// Close sidebar on nav click (mobile)
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', function() {
+    if (window.innerWidth <= 600) {
+      document.querySelector('.sidebar').classList.remove('open');
+    }
+  });
+});
