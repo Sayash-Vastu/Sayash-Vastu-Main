@@ -5369,7 +5369,7 @@ async function loadAllExpenses() {
             <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Approved By</th>
             <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Paid By</th>
             <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Receipt</th>
-            ${isManager?'<th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Action</th>':''}
+<th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Action</th>
           </tr>
         </thead>
         <tbody>
