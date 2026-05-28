@@ -474,7 +474,7 @@ function showApp() {
 
   document.getElementById('nav-assign').style.display = 'flex';
 
-  if (currentUser.role === 'ceo' || currentUser.role === 'manager') {
+  if (currentUser.role === 'ceo') {
 ['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization','nav-documents','nav-calendar'].forEach(id => {
     const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
@@ -630,8 +630,7 @@ function showView(name) {
 //  HOME
 // ═══════════════════════════════════════════
 async function loadHome() {
-  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
-
+const isCEO = currentUser.role === 'ceo';
   if (isCEO) {
     document.getElementById('empDashboard').style.display = 'none';
     document.getElementById('ceoDashboard').style.display = 'block';
