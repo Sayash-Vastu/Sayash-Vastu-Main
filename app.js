@@ -5246,10 +5246,11 @@ async function deleteCalEvent(id) {
 //  EXPENSE CLAIMS
 // ═══════════════════════════════════════════
 async function loadExpenses() {
-  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
+  const isCEO = currentUser.role === 'ceo';
+  const isManager = currentUser.role === 'manager';
   const formPanel = document.getElementById('expense-form-panel');
   const allPanel = document.getElementById('allExpensesPanel');
-  if (isCEO) {
+  if (isCEO || isManager) {
     if (allPanel) allPanel.style.display = 'block';
     loadAllExpenses();
   } else {
