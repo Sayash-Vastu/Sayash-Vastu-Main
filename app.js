@@ -32,7 +32,7 @@ window.onload = function() {
   setInterval(updateClock, 1000);
   updateDateHeader();
 
-  const saved = sessionStorage.getItem('sv_user');
+  const saved = localStorage.getItem('sv_user');
   if (saved) { currentUser = JSON.parse(saved); showApp(); }
 
   document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
@@ -429,7 +429,7 @@ async function doLogin() {
       btn.disabled = false; btn.textContent = 'Sign In to Portal'; return;
     }
     currentUser = data;
-    sessionStorage.setItem('sv_user', JSON.stringify(data));
+    localStorage.setItem('sv_user', JSON.stringify(data));
     await sb.from('user_sessions').insert({ employee_email: data.email, employee_name: data.name, role: data.role, login_at: new Date().toISOString() });
     btn.disabled = false; btn.textContent = 'Sign In to Portal';
     showApp();
@@ -445,7 +445,7 @@ function showLoginError(msg) {
 }
 
 function doLogout() {
-  sessionStorage.removeItem('sv_user'); currentUser = null;
+  localStorage.removeItem('sv_user'); currentUser = null;
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('appPage').style.display = 'none';
   document.getElementById('loginEmail').value = '';
@@ -672,7 +672,7 @@ async function loadEmpDashboard() {
   const photoUrl = (freshEmp && freshEmp.photo_url) ? freshEmp.photo_url : currentUser.photo_url;
   if (freshEmp && freshEmp.photo_url && freshEmp.photo_url !== currentUser.photo_url) {
     currentUser.photo_url = freshEmp.photo_url;
-    sessionStorage.setItem('sv_user', JSON.stringify(currentUser));
+    localStorage.setItem('sv_user', JSON.stringify(currentUser));
   }
   const avEl = document.getElementById('empPhotoAv');
   if (photoUrl) {
@@ -2442,7 +2442,7 @@ async function saveEmpPhoto() {
   // Update current user if own photo
   if (currentUser && currentUser.id === currentPhotoEmpId) {
     currentUser.photo_url = urlData.publicUrl;
-    sessionStorage.setItem('sv_user', JSON.stringify(currentUser));
+    localStorage.setItem('sv_user', JSON.stringify(currentUser));
     // Update sidebar photo
     const sidebarAvEl2 = document.getElementById('sidebarAv');
     if (sidebarAvEl2) {
@@ -3774,7 +3774,7 @@ async function saveProfile() {
   // Update session
   currentUser.name = name;
   currentUser.phone = phone;
-  sessionStorage.setItem('sv_user', JSON.stringify(currentUser));
+  localStorage.setItem('sv_user', JSON.stringify(currentUser));
 
   msgEl.textContent = '✅ Profile saved!'; msgEl.style.color = 'var(--green)';
   showToast('✅ Profile updated!', 'ok');
@@ -3835,7 +3835,7 @@ async function uploadProfilePhoto(input) {
   const { error: updateErr } = await sb.from('employees').update({photo_url: urlData.publicUrl}).eq('email', currentUser.email);
   if (updateErr) { showToast('❌ '+updateErr.message, 'err'); return; }
   currentUser.photo_url = urlData.publicUrl;
-  sessionStorage.setItem('sv_user', JSON.stringify(currentUser));
+  localStorage.setItem('sv_user', JSON.stringify(currentUser));
   showToast('✅ Photo updated!', 'ok');
 
   // Update sidebar photo
