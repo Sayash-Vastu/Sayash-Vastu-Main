@@ -1219,6 +1219,15 @@ async function markEmpLogin(workType) {
   const wrap = document.getElementById('loginTypeWrap');
   if (wrap) wrap.style.display = 'none';
 
+  // Get IP Address
+  let ip_address = null;
+  try {
+    const ipRes = await fetch('https://api.ipify.org?format=json');
+    const ipData = await ipRes.json();
+    ip_address = ipData.ip;
+  } catch(e) {
+    console.log('IP fetch failed:', e.message);
+  }
   // Get GPS location
   let latitude = null, longitude = null, location_address = null;
   try {
@@ -1246,7 +1255,7 @@ async function markEmpLogin(workType) {
     check_in: now.toISOString(),
     status: 'Present',
     work_type: workType || 'Office',
-    latitude, longitude, location_address
+latitude, longitude, location_address, ip_address
   });
   if (error) { showToast('❌ '+error.message, 'err'); return; }
   const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
