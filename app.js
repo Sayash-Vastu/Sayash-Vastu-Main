@@ -5564,3 +5564,17 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     }
   });
 });
+// ═══════════════════════════════════════════
+//  PWA SERVICE WORKER
+// ═══════════════════════════════════════════
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/sw.js')
+      .then(function(reg) {
+        console.log('✅ Service Worker registered!', reg.scope);
+      })
+      .catch(function(err) {
+        console.log('❌ Service Worker failed:', err);
+      });
+  });
+}
