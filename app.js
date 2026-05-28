@@ -5326,42 +5326,85 @@ async function loadAllExpenses() {
     el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No claims found</div>';
     return;
   }
+  const isCEO = currentUser.role === 'ceo';
+  const isManager = currentUser.role === 'manager';
   const typeIcons = {'Travel':'✈️','Food':'🍽️','Accommodation':'🏨','Fuel':'⛽','Other':'📦'};
-  el.innerHTML = data.map(e => {
-    const statusClass = e.status==='Approved'?'b-green':e.status==='Rejected'?'b-red':'b-amber';
-    return `<div class="leave-action-card" style="margin-bottom:12px">
-      <div class="leave-action-head">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
-            <span style="font-size:18px">${typeIcons[e.expense_type]||'📦'}</span>
-            <span style="font-size:14px;font-weight:700;color:var(--navy)">${esc(e.employee_name)}</span>
-            <span class="badge b-blue">${esc(e.expense_type)}</span>
-            <span class="badge ${statusClass}">${e.status}</span>
-            ${e.is_paid?'<span class="badge b-green">💰 Paid</span>':''}
-          </div>
-          <div style="font-size:12px;color:var(--text);margin-bottom:4px">💬 ${esc(e.description||'—')}</div>
-          <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap">
-            <span>📅 ${fmtDate(e.expense_date)}</span>
-            <span>🕐 ${fmtDate(e.created_at)}</span>
-            ${e.receipt_url?`<a href="${e.receipt_url}" target="_blank" style="color:var(--blue)">📄 View Receipt</a>`:''}
-          </div>
-        </div>
-        <div style="font-size:20px;font-weight:800;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</div>
-      </div>
-      <div class="leave-action-actions">
-        ${e.status==='Pending'?`
-          <button class="btn btn-green btn-sm" onclick="approveExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">✅ Approve</button>
-          <button class="btn btn-red btn-sm" onclick="rejectExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">❌ Reject</button>
-        `:''}
-        ${e.status==='Approved' && !e.is_paid?`
-          <button class="btn btn-gold btn-sm" onclick="markExpensePaid('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">💰 Mark as Paid</button>
-        `:''}
-        ${e.status==='Approved' && e.is_paid?'<span class="badge b-green">💰 Payment Done</span>':''}
-      </div>
-    </div>`;
-  }).join('');
-}
 
+  // Total summary
+  const totalPending = data.filter(e=>e.status==='Pending').length;
+  const totalApproved = data.filter(e=>e.status==='Approved').length;
+  const totalAmount = data.filter(e=>e.status==='Approved').reduce((s,e)=>s+parseFloat(e.amount||0),0);
+  const totalPaid = data.filter(e=>e.is_paid).reduce((s,e)=>s+parseFloat(e.amount||0),0);
+
+  let html = `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+      <div style="background:#fdf6e3;border-radius:8px;padding:12px;text-align:center;border-top:3px solid var(--amber)">
+        <div style="font-size:18px;font-weight:800;color:var(--amber)">${totalPending}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:3px">Pending</div>
+      </div>
+      <div style="background:var(--green-bg);border-radius:8px;padding:12px;text-align:center;border-top:3px solid var(--green)">
+        <div style="font-size:18px;font-weight:800;color:var(--green)">${totalApproved}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:3px">Approved</div>
+      </div>
+      <div style="background:var(--blue-bg);border-radius:8px;padding:12px;text-align:center;border-top:3px solid var(--blue)">
+        <div style="font-size:18px;font-weight:800;color:var(--blue)">₹${totalAmount.toLocaleString('en-IN')}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:3px">Total Approved</div>
+      </div>
+      <div style="background:var(--green-bg);border-radius:8px;padding:12px;text-align:center;border-top:3px solid var(--green)">
+        <div style="font-size:18px;font-weight:800;color:var(--green)">₹${totalPaid.toLocaleString('en-IN')}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:3px">Total Paid</div>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr style="background:#f8f9fc">
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Employee</th>
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Type</th>
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Amount</th>
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Date</th>
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Description</th>
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Status</th>
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Approved By</th>
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Paid By</th>
+            <th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Receipt</th>
+            ${isManager?'<th style="padding:10px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Action</th>':''}
+          </tr>
+        </thead>
+        <tbody>
+          ${data.map(e=>`<tr style="border-bottom:1px solid #f5f6fa">
+            <td style="padding:10px 14px;font-weight:600;color:var(--navy)">${esc(e.employee_name)}</td>
+            <td style="padding:10px 14px">${typeIcons[e.expense_type]||'📦'} ${esc(e.expense_type)}</td>
+            <td style="padding:10px 14px;font-weight:700;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</td>
+            <td style="padding:10px 14px;font-size:12px">${fmtDate(e.expense_date)}</td>
+            <td style="padding:10px 14px;font-size:12px;color:var(--muted);max-width:150px">${esc((e.description||'—').substring(0,40))}</td>
+            <td style="padding:10px 14px">
+              <span class="badge ${e.status==='Approved'?'b-green':e.status==='Rejected'?'b-red':'b-amber'}">
+                ${e.status==='Approved'?'✅':e.status==='Rejected'?'❌':'⏳'} ${e.status}
+              </span>
+              ${e.is_paid?'<span class="badge b-green" style="margin-left:4px">💰 Paid</span>':''}
+            </td>
+            <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--green)">${e.approved_by?esc(e.approved_by):'—'}</td>
+            <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--blue)">${e.paid_by?esc(e.paid_by):'—'}</td>
+            <td style="padding:10px 14px">${e.receipt_url?`<a href="${e.receipt_url}" target="_blank" class="btn btn-outline btn-sm">📄 View</a>`:'—'}</td>
+            ${isManager?`<td style="padding:10px 14px">
+              <div style="display:flex;gap:6px;flex-wrap:wrap">
+                ${e.status==='Pending'?`
+                  <button class="btn btn-green btn-sm" onclick="approveExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">✅ Approve</button>
+                  <button class="btn btn-red btn-sm" onclick="rejectExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">❌ Reject</button>
+                `:''}
+                ${e.status==='Approved' && !e.is_paid?`
+                  <button class="btn btn-gold btn-sm" onclick="markExpensePaid('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">💰 Mark Paid</button>
+                `:''}
+                ${e.status==='Approved' && e.is_paid?'<span class="badge b-green">Done ✅</span>':''}
+              </div>
+            </td>`:''}
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  el.innerHTML = html;
+}
 function previewExpFile(input) {
   const file = input.files[0];
   if (!file) return;
