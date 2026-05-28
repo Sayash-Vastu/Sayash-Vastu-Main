@@ -5474,20 +5474,23 @@ async function submitExpense() {
 }
 
 async function approveExpense(id, empEmail, empName) {
+  const approver = prompt('Approved by:\n1. Neha\n2. Yash\n\nType name:');
+  if (!approver) return;
+  const approverName = approver.toLowerCase().includes('neha') ? 'Neha' : 
+                       approver.toLowerCase().includes('yash') ? 'Yash' : approver;
   await sb.from('expense_claims').update({
     status: 'Approved',
-    approved_by: currentUser.name,
+    approved_by: approverName,
     approved_at: new Date().toISOString()
   }).eq('id', id);
   await createNotification(empEmail,
     '✅ Expense Claim Approved',
-    `Your expense claim has been approved by ${currentUser.name}.`,
+    `Your expense claim has been approved by ${approverName}.`,
     'info', 'expenses'
   );
-  showToast('✅ Expense approved!','ok');
+  showToast('✅ Expense approved by '+approverName+'!','ok');
   loadAllExpenses();
 }
-
 async function rejectExpense(id, empEmail, empName) {
   const reason = prompt('Reason for rejection:');
   if (reason === null) return;
