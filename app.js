@@ -5388,18 +5388,19 @@ async function loadAllExpenses() {
             <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--green)">${e.approved_by?esc(e.approved_by):'—'}</td>
             <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--blue)">${e.paid_by?esc(e.paid_by):'—'}</td>
             <td style="padding:10px 14px">${e.receipt_url?`<a href="${e.receipt_url}" target="_blank" class="btn btn-outline btn-sm">📄 View</a>`:'—'}</td>
-            ${isManager?`<td style="padding:10px 14px">
-              <div style="display:flex;gap:6px;flex-wrap:wrap">
-                ${e.status==='Pending'?`
-                  <button class="btn btn-green btn-sm" onclick="approveExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">✅ Approve</button>
-                  <button class="btn btn-red btn-sm" onclick="rejectExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">❌ Reject</button>
-                `:''}
-                ${e.status==='Approved' && !e.is_paid?`
-                  <button class="btn btn-gold btn-sm" onclick="markExpensePaid('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">💰 Mark Paid</button>
-                `:''}
-                ${e.status==='Approved' && e.is_paid?'<span class="badge b-green">Done ✅</span>':''}
-              </div>
-            </td>`:''}
+<td style="padding:10px 14px">
+  <div style="display:flex;gap:6px;flex-wrap:wrap">
+    ${isManager && e.status==='Pending'?`
+      <button class="btn btn-green btn-sm" onclick="approveExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">✅ Approve</button>
+      <button class="btn btn-red btn-sm" onclick="rejectExpense('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">❌ Reject</button>
+    `:''}
+    ${isManager && e.status==='Approved' && !e.is_paid?`
+      <button class="btn btn-gold btn-sm" onclick="markExpensePaid('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">💰 Mark Paid</button>
+    `:''}
+    ${e.status==='Approved' && e.is_paid?'<span class="badge b-green">Done ✅</span>':''}
+    ${isCEO && e.status==='Pending'?'<span style="font-size:11px;color:var(--muted)">Pending approval</span>':''}
+  </div>
+</td>
           </tr>`).join('')}
         </tbody>
       </table>
