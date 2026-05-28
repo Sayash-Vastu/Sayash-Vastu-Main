@@ -1,9 +1,10 @@
-const CACHE_NAME = 'sayash-vastu-v1';
+const CACHE_NAME = 'sayash-vastu-v2';
 const urlsToCache = [
   '/',
   '/index.html',
   '/style.css',
-  '/app.js'
+  '/app.js',
+  '/manifest.json'
 ];
 
 self.addEventListener('install', function(event) {
@@ -12,13 +13,25 @@ self.addEventListener('install', function(event) {
       return cache.addAll(urlsToCache);
     })
   );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', function(event) {
+  event.waitUntil(
+    caches.keys().then(function(keys) {
+      return Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)));
+    })
+  );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', function(event) {
+  if (event.request.url.includes('supabase')) {
+    return fetch(event.request);
+  }
   event.respondWith(
     caches.match(event.request).then(function(response) {
-      if (response) return response;
-      return fetch(event.request);
+      return response || fetch(event.request);
     })
   );
 });
