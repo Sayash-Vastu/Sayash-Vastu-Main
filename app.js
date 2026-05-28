@@ -5398,7 +5398,7 @@ async function loadAllExpenses() {
       <button class="btn btn-gold btn-sm" onclick="markExpensePaid('${e.id}','${esc(e.employee_email)}','${esc(e.employee_name)}')">💰 Mark Paid</button>
     `:''}
     ${e.status==='Approved' && e.is_paid?'<span class="badge b-green">Done ✅</span>':''}
-    ${isCEO && e.status==='Pending'?'<span style="font-size:11px;color:var(--muted)">Pending approval</span>':''}
+<button class="btn btn-sm" onclick="deleteExpense('${e.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
   </div>
 </td>
           </tr>`).join('')}
@@ -5520,5 +5520,11 @@ async function markExpensePaid(id, empEmail, empName) {
     'info', 'expenses'
   );
   showToast('💰 Marked as paid!','ok');
+  loadAllExpenses();
+}
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense claim?')) return;
+  await sb.from('expense_claims').update({is_archived: true}).eq('id', id);
+  showToast('✅ Expense archived!','ok');
   loadAllExpenses();
 }
