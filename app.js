@@ -5268,39 +5268,53 @@ async function loadMyExpenses() {
     el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No expense claims submitted yet</div>';
     return;
   }
+  const today = new Date(); today.setHours(0,0,0,0);
   el.innerHTML = data.map(e => {
     const statusClass = e.status==='Approved'?'b-green':e.status==='Rejected'?'b-red':'b-amber';
     const statusIcon = e.status==='Approved'?'✅':e.status==='Rejected'?'❌':'⏳';
-    const expDate = new Date(e.expense_date);
-    const created = new Date(e.created_at);
-    const daysDiff = Math.floor((new Date() - created) / 86400000);
     const typeIcons = {'Travel':'✈️','Food':'🍽️','Accommodation':'🏨','Fuel':'⛽','Other':'📦'};
+    const expDate = new Date(e.expense_date);
+    const daysDiff = Math.floor((today - expDate) / 86400000);
+    const daysLeft = 7 - daysDiff;
     return `<div style="padding:14px;background:var(--bg);border-radius:10px;margin-bottom:12px;border-left:3px solid ${e.status==='Approved'?'var(--green)':e.status==='Rejected'?'var(--red)':'var(--amber)'}">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
             <span style="font-size:18px">${typeIcons[e.expense_type]||'📦'}</span>
             <span style="font-size:14px;font-weight:700;color:var(--navy)">${esc(e.expense_type)}</span>
             <span class="badge ${statusClass}">${statusIcon} ${e.status}</span>
             ${e.is_paid?'<span class="badge b-green">💰 Paid</span>':''}
           </div>
-          <div style="font-size:13px;color:var(--text);margin-bottom:4px">💬 ${esc(e.description||'—')}</div>
-          <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap">
-            <span>📅 ${fmtDate(e.expense_date)}</span>
+          <div style="font-size:13px;color:var(--text);margin-bottom:6px">💬 ${esc(e.description||'—')}</div>
+          <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap;margin-bottom:6px">
+            <span>📅 Expense Date: <strong>${fmtDate(e.expense_date)}</strong></span>
             <span>🕐 Submitted: ${fmtDate(e.created_at)}</span>
-            ${e.approved_by?`<span>✅ Approved by: <strong>${esc(e.approved_by)}</strong></span>`:''}
-            ${e.paid_by?`<span>💰 Paid by: <strong>${esc(e.paid_by)}</strong></span>`:''}
           </div>
+          ${e.status==='Approved'?`
+            <div style="background:var(--green-bg);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--green);font-weight:600">
+              ✅ Approved by: <strong>${esc(e.approved_by||'—')}</strong>
+              ${e.is_paid?`&nbsp;|&nbsp; 💰 Paid by: <strong>${esc(e.paid_by||'—')}</strong>`:'<span style="color:var(--amber)"> &nbsp;|&nbsp; ⏳ Payment Pending</span>'}
+            </div>
+          `:''}
+          ${e.status==='Rejected'?`
+            <div style="background:var(--red-bg);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--red);font-weight:600">
+              ❌ Rejected by: <strong>${esc(e.approved_by||'—')}</strong>
+            </div>
+          `:''}
+          ${e.status==='Pending' && daysLeft > 0?`
+            <div style="font-size:11px;color:var(--amber);font-weight:600;margin-top:4px">
+              ⏰ ${daysLeft} day${daysLeft>1?'s':''} left to process
+            </div>
+          `:''}
         </div>
         <div style="text-align:right">
-          <div style="font-size:20px;font-weight:800;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</div>
+          <div style="font-size:22px;font-weight:800;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</div>
           ${e.receipt_url?`<a href="${e.receipt_url}" target="_blank" class="btn btn-outline btn-sm" style="margin-top:6px">📄 Receipt</a>`:''}
         </div>
       </div>
     </div>`;
   }).join('');
 }
-
 async function loadAllExpenses() {
   const filterVal = document.getElementById('exp-status-filter')?.value || 'all';
   let query = sb.from('expense_claims').select('*').order('created_at', {ascending: false});
