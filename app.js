@@ -1161,6 +1161,7 @@ async function loadCeoDashboard() {
                 📍 ${a.location_address ? esc(a.location_address.substring(0,25))+'...' : 'View Map'}
               </a>` 
               : '—'}
+              ${a.ip_address ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">🌐 IP: ${esc(a.ip_address)}</div>` : ''}
           </td>
           <td style="padding:9px 14px">${attBadge(a.status)}</td>
         </tr>`).join('')}</tbody>
