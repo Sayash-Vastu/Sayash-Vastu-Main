@@ -3704,7 +3704,7 @@ async function exportMyAttPDF() {
   setFill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
 
   try {
-    const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/public/task-files/sayash-logo.png';
+const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/public/Task-Files/Sayash%20logo.png';
     const logoRes = await fetch(logoUrl);
     if (logoRes.ok) {
       const logoBlob = await logoRes.blob();
