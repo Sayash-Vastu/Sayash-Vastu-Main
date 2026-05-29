@@ -918,6 +918,11 @@ async function loadEmpDashboard() {
     .eq('is_archived', false)
     .order('check_in', {ascending: true});
 
+  // Fetch employee photos
+  const { data: empPhotos } = await sb.from('employees').select('email,photo_url').eq('is_active', true);
+  const photoMap = {};
+  (empPhotos||[]).forEach(e => { if(e.photo_url) photoMap[e.email] = e.photo_url; });
+
   const empTeamEl = document.getElementById('empTeamToday');
   if (empTeamEl) {
     if (!teamToday || !teamToday.length) {
