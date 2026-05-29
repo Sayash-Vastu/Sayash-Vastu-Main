@@ -3661,7 +3661,7 @@ async function exportMyAttPDF() {
   const late    = rows.filter(a => {
     if (!a.check_in) return false;
     const t = new Date(a.check_in);
-    return t.getHours() > 9 || (t.getHours() === 9 && t.getMinutes() > 15);
+return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
   }).length;
   const attPct = (totalDays - weekOff) > 0 ? ((present / (totalDays - weekOff)) * 100).toFixed(2) + '%' : '0%';
 
@@ -3682,7 +3682,7 @@ async function exportMyAttPDF() {
       const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
-      const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 9 || (t.getHours()===9 && t.getMinutes()>15); })();
+const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>15); })();
       dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
     } else if (isWeekend) {
       dailyRows.push([dispDate, dayName, 'Week Off', '—', '—', '—', '—', 'Week Off']);
