@@ -3738,7 +3738,8 @@ const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/publ
   setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
   doc.roundedRect(10, y, W-20, boxH, 2, 2, 'FD');
 
-  const leftInfo  = [['Employee ID', currentUser.employee_code || '—'],['Employee Name', currentUser.name],['Designation', currentUser.designation || '—'],['Department', currentUser.department || '—']];
+const { data: empFresh } = await sb.from('employees').select('*').eq('email', currentUser.email).single();
+const leftInfo  = [['Employee ID', empFresh?.employee_code || currentUser.employee_code || '—'],['Employee Name', empFresh?.name || currentUser.name],['Designation', empFresh?.designation || currentUser.designation || '—'],['Department', empFresh?.department || currentUser.department || '—']];
   const rightInfo = [['Report For', monthName + ' ' + yr],['From Date', fromDate],['To Date', toDate],['Total Working Days', String(totalDays)]];
   const rowH = 4.8; const sy = y + 4;
   leftInfo.forEach(([lbl, val], i) => {
