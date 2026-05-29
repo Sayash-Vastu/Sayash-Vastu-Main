@@ -1142,6 +1142,9 @@ async function loadCeoDashboard() {
 
   // Today's Attendance Log
   const { data: todayAttAll } = await sb.from('attendance').select('*').eq('date',todayStr).eq('is_archived',false).order('check_in',{ascending:true});
+  const { data: ceoEmpPhotos } = await sb.from('employees').select('email,photo_url').eq('is_active', true);
+  const ceoPhotoMap = {};
+  (ceoEmpPhotos||[]).forEach(e => { if(e.photo_url) ceoPhotoMap[e.email] = e.photo_url; });
   const todayLogEl = document.getElementById('ceoTodayLog');
   if (todayLogEl) {
     if (!todayAttAll||!todayAttAll.length) {
@@ -1158,7 +1161,15 @@ async function loadCeoDashboard() {
           <th style="padding:8px 14px;text-align:left;color:var(--muted);font-size:10px;font-weight:700;text-transform:uppercase">Status</th>
         </tr></thead>
         <tbody>${todayAttAll.map(a=>`<tr style="border-bottom:1px solid #f5f6fa">
-          <td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(a.employee_name)}</td>
+<td style="padding:9px 14px">
+  <div style="display:flex;align-items:center;gap:8px">
+    ${ceoPhotoMap[a.employee_email] 
+      ? `<img src="${ceoPhotoMap[a.employee_email]}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid var(--border)"/>`
+      : `<div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px">${esc(a.employee_name).substring(0,2).toUpperCase()}</div>`
+    }
+    <span style="font-weight:600;color:var(--navy)">${esc(a.employee_name)}</span>
+  </div>
+</td>
           <td style="padding:9px 14px">${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
           <td style="padding:9px 14px">${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
           <td style="padding:9px 14px;font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+'h':'—'}</td>
