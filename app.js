@@ -1289,7 +1289,14 @@ async function markEmpLogout() {
   const today = now.toISOString().split('T')[0];
   const btn = document.getElementById('empLogoutBtn');
   btn.disabled = true; btn.textContent = 'Logging out...';
-  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('date', today).eq('is_archived',false).maybeSingle();
+const { data: todayAtt } = await sb.from('attendance').select('*')
+    .eq('employee_email', currentUser.email)
+    .eq('date', today)
+    .eq('is_archived',false)
+    .is('check_out', null)
+    .order('check_in', {ascending: false})
+    .limit(1)
+    .maybeSingle();
   if (!todayAtt) { showToast('❌ No login found!', 'err'); btn.disabled=false; btn.textContent='🚪 Log Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
   const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
