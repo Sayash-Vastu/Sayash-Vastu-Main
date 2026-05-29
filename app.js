@@ -376,38 +376,241 @@ function exportTasksPDF() {
   showToast('✅ PDF exported!', 'ok');
 }
 
-function exportAttPDF() {
+async function exportAttPDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210; const H = 297;
+
   const monthVal = document.getElementById('att-month-filter').value;
-  doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('Sayash Vastu — Attendance Report', 14, 18);
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text('Month: ' + monthVal + '  |  Generated: ' + new Date().toLocaleDateString('en-IN'), 14, 26);
-  const rows = document.querySelectorAll('#attReportBody tr');
-  let y = 40;
-  doc.setFontSize(9); doc.setFont('helvetica','bold');
-  doc.text('Employee             Present  Absent  Half  Leave  Days  Att%', 14, y);
-  y += 4; doc.line(14, y, 196, y); y += 5;
-  doc.setFont('helvetica','normal');
-  rows.forEach(row => {
-    if (y > 270) { doc.addPage(); y = 20; }
-    const cells = row.querySelectorAll('td');
-    if (cells.length >= 7) {
-      const line = [
-        cells[0].textContent.padEnd(20),
-        cells[1].textContent.padEnd(8),
-        cells[2].textContent.padEnd(7),
-        cells[3].textContent.padEnd(5),
-        cells[4].textContent.padEnd(6),
-        cells[5].textContent.padEnd(5),
-        cells[6].textContent.trim()
-      ].join(' ');
-      doc.text(line, 14, y);
-      y += 6;
+  if (!monthVal) { showToast('⚠️ Please select a month', 'err'); return; }
+  const [yr, mo] = monthVal.split('-').map(Number);
+  const monthName = new Date(yr, mo - 1, 1).toLocaleString('en', { month: 'long' });
+  const lastDay = new Date(yr, mo, 0).getDate();
+  const totalDays = lastDay;
+
+  // Fetch all employees
+  const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).order('employee_code', { ascending: true });
+  const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
+  const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+  const { data: attData } = await sb.from('attendance').select('*').eq('is_archived', false).gte('date', start).lte('date', end);
+
+  const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
+  const MUTED  = [85,85,85];  const BORDER= [200,213,229]; const LIGHT = [245,248,252];
+  const GREEN  = [26,110,60]; const RED   = [163,45,45];  const AMBER = [133,79,11];
+  const PURPLE = [83,58,183]; const BLUE  = [24,95,165];
+
+  const setFill   = (rgb) => doc.setFillColor(rgb[0], rgb[1], rgb[2]);
+  const setStroke = (rgb) => doc.setDrawColor(rgb[0], rgb[1], rgb[2]);
+  const setFont   = (c)   => doc.setTextColor(c[0], c[1], c[2]);
+
+  const days3   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const months3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const generateEmpPage = async (emp, isFirst) => {
+    if (!isFirst) doc.addPage();
+
+    const empRows = (attData || []).filter(a => a.employee_email === emp.email);
+    const attMap = {};
+    empRows.forEach(a => { attMap[a.date] = a; });
+
+    const present = empRows.filter(a => a.status === 'Present').length;
+    const absent  = empRows.filter(a => a.status === 'Absent').length;
+    const leave   = empRows.filter(a => a.status === 'Leave').length;
+    const weekOff = empRows.filter(a => a.status === 'Week Off').length;
+    const late    = empRows.filter(a => {
+      if (!a.check_in) return false;
+      const t = new Date(a.check_in);
+      return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
+    }).length;
+    const attPct = (totalDays - weekOff) > 0 ? ((present / (totalDays - weekOff)) * 100).toFixed(2) + '%' : '0%';
+
+    const dailyRows = [];
+    for (let d = 1; d <= lastDay; d++) {
+      const dateObj   = new Date(yr, mo - 1, d);
+      const dateStr   = `${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dayName   = days3[dateObj.getDay()];
+      const dispDate  = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
+      const a         = attMap[dateStr];
+      const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+      if (a) {
+        const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
+        const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
+        const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
+        const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>15); })();
+        dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
+      } else if (isWeekend) {
+        dailyRows.push([dispDate, dayName, 'Week Off', '—', '—', '—', '—', 'Week Off']);
+      } else {
+        dailyRows.push([dispDate, dayName, 'Absent', '—', '—', '—', '—', '']);
+      }
     }
-  });
-  doc.save('SayashVastu_Attendance_' + monthVal + '.pdf');
+
+    // HEADER
+    setFill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
+    try {
+      const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/public/Task-Files/Sayash%20logo.png';
+      const logoRes = await fetch(logoUrl);
+      if (logoRes.ok) {
+        const logoBlob = await logoRes.blob();
+        const logoBase64 = await new Promise(res => {
+          const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(logoBlob);
+        });
+        doc.addImage(logoBase64, 'PNG', 10, 3, 32, 22);
+      }
+    } catch(e) {}
+
+    doc.setFontSize(13); doc.setFont('helvetica','bold'); setFont(ORANGE);
+    doc.text('SAYASH VASTU', W/2, 11, { align: 'center' });
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(DARK);
+    doc.text('Vastu Shastra Consultancy Services', W/2, 16, { align: 'center' });
+    doc.text('Netaji Subhash Place, New Delhi', W/2, 20.5, { align: 'center' });
+    setStroke(ORANGE); doc.setLineWidth(0.5);
+    doc.line(0, 28, W, 28);
+
+    // TITLE
+    let y = 35;
+    doc.setFontSize(17); doc.setFont('helvetica','bold'); setFont(NAVY);
+    doc.text('ATTENDANCE REPORT', W/2, y, { align: 'center' });
+    y += 3.5;
+    setStroke(ORANGE); doc.setLineWidth(0.4);
+    doc.line(10, y, W-10, y);
+
+    // EMP INFO BOX
+    y += 3;
+    const boxH = 22;
+    setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+    doc.roundedRect(10, y, W-20, boxH, 2, 2, 'FD');
+    const fromDate = `01-${String(mo).padStart(2,'0')}-${yr}`;
+    const toDate   = `${lastDay}-${String(mo).padStart(2,'0')}-${yr}`;
+    const leftInfo  = [['Employee ID', emp.employee_code || '—'],['Employee Name', emp.name],['Designation', emp.designation || '—'],['Department', emp.department || '—']];
+    const rightInfo = [['Report For', monthName + ' ' + yr],['From Date', fromDate],['To Date', toDate],['Total Working Days', String(totalDays)]];
+    const rowH = 4.8; const sy = y + 4;
+    leftInfo.forEach(([lbl, val], i) => {
+      const iy = sy + i * rowH;
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl + ':', 13, iy);
+      doc.setFont('helvetica','normal'); setFont(DARK); doc.text(String(val), 46, iy);
+    });
+    rightInfo.forEach(([lbl, val], i) => {
+      const iy = sy + i * rowH;
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl + ':', W/2 + 3, iy);
+      doc.setFont('helvetica','normal'); setFont(DARK); doc.text(String(val), W/2 + 38, iy);
+    });
+    y += boxH + 5;
+
+    // SUMMARY
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
+    doc.text('SUMMARY', W/2, y, { align: 'center' });
+    y += 4;
+    const sumCols = ['PRESENT DAYS','ABSENT DAYS','LEAVE DAYS','WEEK OFF','LATE MARKS','ATTENDANCE %'];
+    const sumVals = [String(present), String(absent), String(leave), String(weekOff), String(late), attPct];
+    const sumClrs = [GREEN, RED, PURPLE, BLUE, AMBER, GREEN];
+    const cw = (W - 20) / 6;
+    const hdrH = 6; const valH = 10;
+    setFill(NAVY); doc.rect(10, y, W-20, hdrH, 'F');
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
+    sumCols.forEach((col, i) => doc.text(col, 10 + i*cw + cw/2, y + 4, { align: 'center' }));
+    y += hdrH;
+    setFill([235,242,251]); setStroke(BORDER); doc.setLineWidth(0.3);
+    doc.rect(10, y, W-20, valH, 'FD');
+    for (let i=1; i<6; i++) doc.line(10+i*cw, y, 10+i*cw, y+valH);
+    doc.setFontSize(15); doc.setFont('helvetica','bold');
+    sumVals.forEach((v, i) => { setFont(sumClrs[i]); doc.text(v, 10+i*cw+cw/2, y+7, { align: 'center' }); });
+    y += valH + 6;
+
+    // DAILY TABLE
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
+    doc.text('DAILY ATTENDANCE DETAILS', W/2, y, { align: 'center' });
+    y += 4;
+    const halfW   = (W - 24) / 2;
+    const gap     = 4;
+    const tCols   = ['Date','Day','Status','Check In','Check Out','Hours','Late','Remarks'];
+    const rawW    = [23, 9, 15, 20, 20, 14, 8, 21];
+    const totalW  = rawW.reduce((s,x) => s+x, 0);
+    const tWidths = rawW.map(x => (x / totalW) * halfW);
+    const trh     = 5;
+    const sColors = { 'Present':GREEN,'Absent':RED,'Leave':PURPLE,'Week Off':BLUE,'Half Day':AMBER };
+
+    const drawHalfHeader = (cx, ty) => {
+      setFill(NAVY); doc.rect(cx, ty, halfW, trh, 'F');
+      doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont([255,255,255]);
+      let tx = cx;
+      tCols.forEach((col) => { doc.text(col, tx + 0.8, ty + 3.5); tx += tWidths[tCols.indexOf(col)]; });
+      return ty + trh;
+    };
+
+    const drawHalfRows = (cx, startY, rowsData) => {
+      let cy = startY;
+      rowsData.forEach((row, idx) => {
+        const [date,day,status,ci,co,hrs,lateVal,rem] = row;
+        const isWO = status === 'Week Off';
+        const bg = isWO ? [238,234,248] : (idx%2===0 ? [248,249,252] : [255,255,255]);
+        setFill(bg); setStroke([221,229,239]); doc.setLineWidth(0.15);
+        doc.rect(cx, cy, halfW, trh, 'FD');
+        const vals = [date,day,status,ci,co,hrs,lateVal,rem];
+        let tx = cx;
+        vals.forEach((val, ci2) => {
+          if (ci2 === 2) { doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont(sColors[val] || DARK); }
+          else if (ci2 === 6 && val === 'Yes') { doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont(RED); }
+          else { doc.setFontSize(6); doc.setFont('helvetica','normal'); setFont(isWO ? MUTED : [51,51,51]); }
+          doc.text(String(val || ''), tx + 0.8, cy + 3.5);
+          tx += tWidths[ci2];
+        });
+        cy += trh;
+      });
+      return cy;
+    };
+
+    const half      = Math.ceil(dailyRows.length / 2);
+    const leftRows  = dailyRows.slice(0, half);
+    const rightRows = dailyRows.slice(half);
+    const lx = 10; const rx = 10 + halfW + gap;
+    let yl  = drawHalfHeader(lx, y);
+    let yr2 = drawHalfHeader(rx, y);
+    yl  = drawHalfRows(lx, yl, leftRows);
+    yr2 = drawHalfRows(rx, yr2, rightRows);
+    y = Math.max(yl, yr2) + 5;
+
+    // LEGEND
+    doc.setFontSize(7); doc.setFont('helvetica','bold'); setFont(MUTED);
+    doc.text('LEGEND:', 10, y);
+    const legs = [['P','Present',GREEN],['A','Absent',RED],['L','Late',AMBER],['CL','Casual Leave',PURPLE],['WO','Week Off',BLUE]];
+    let lx2 = 27;
+    legs.forEach(([code, label, color]) => {
+      doc.setFontSize(7); doc.setFont('helvetica','bold'); setFont(color); doc.text(code, lx2, y);
+      doc.setFont('helvetica','normal'); setFont(DARK); doc.text('= ' + label, lx2 + code.length * 2.5 + 0.5, y);
+      lx2 += 33;
+    });
+    y += 6;
+
+    // SIGNATURE
+    const sigH = 20;
+    setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+    doc.rect(10, y, W-20, sigH, 'FD');
+    const sw = (W-20)/2;
+    const lsx = 10 + sw/2;
+    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setFont(NAVY);
+    doc.text('HR Manager Signature', lsx, y + 5, { align: 'center' });
+    setStroke(NAVY); doc.setLineWidth(0.4);
+    doc.line(lsx - 25, y + 14, lsx + 25, y + 14);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setFont(MUTED);
+    doc.text('Sayash Vastu — HR Department', lsx, y + 17.5, { align: 'center' });
+    setStroke(BORDER); doc.setLineWidth(0.3);
+    doc.line(10 + sw, y + 2, 10 + sw, y + sigH - 2);
+    const rsx = 10 + sw + sw/2;
+    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setFont(NAVY);
+    doc.text('Authorized Signatory', rsx, y + 5, { align: 'center' });
+    setStroke(NAVY); doc.setLineWidth(0.4);
+    doc.line(rsx - 25, y + 14, rsx + 25, y + 14);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setFont(MUTED);
+    doc.text('Sayash Vastu — Management', rsx, y + 17.5, { align: 'center' });
+  };
+
+  // Generate page for each employee
+  for (let i = 0; i < (emps || []).length; i++) {
+    await generateEmpPage(emps[i], i === 0);
+  }
+
+  doc.save(`SayashVastu_Attendance_All_${monthName}_${yr}.pdf`);
   showToast('✅ Attendance PDF exported!', 'ok');
 }
 
