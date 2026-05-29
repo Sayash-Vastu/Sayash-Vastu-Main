@@ -1160,7 +1160,6 @@ async function loadCeoDashboard() {
                 📍 ${a.location_address ? esc(a.location_address.substring(0,25))+'...' : 'View Map'}
               </a>` 
               : '—'}
-              ${a.ip_address ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">🌐 IP: ${esc(a.ip_address)}</div>` : ''}
           </td>
           <td style="padding:9px 14px">${attBadge(a.status)}</td>
         </tr>`).join('')}</tbody>
@@ -1228,22 +1227,25 @@ async function markEmpLogin(workType) {
   } catch(e) {
     console.log('IP fetch failed:', e.message);
   }
-  // Get GPS location
+  // Get location based on work type
   let latitude = null, longitude = null, location_address = null;
-  try {
-    const pos = await new Promise((resolve, reject) => 
-      navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 8000}));
-    latitude = pos.coords.latitude;
-    longitude = pos.coords.longitude;
-    location_address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-    // Reverse geocode
+  if (workType === 'Office') {
+    location_address = '3rd Floor, Big Jos Tower, Netaji Subhash Place, New Delhi';
+  } else {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
-      const geo = await res.json();
-      if (geo.display_name) location_address = geo.display_name.split(',').slice(0,3).join(',');
-    } catch(e) {}
-  } catch(e) {
-    console.log('Location not available:', e.message);
+      const pos = await new Promise((resolve, reject) => 
+        navigator.geolocation.getCurrentPosition(resolve, reject, {timeout: 8000}));
+      latitude = pos.coords.latitude;
+      longitude = pos.coords.longitude;
+      location_address = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`);
+        const geo = await res.json();
+        if (geo.display_name) location_address = geo.display_name.split(',').slice(0,3).join(',');
+      } catch(e) {}
+    } catch(e) {
+      console.log('Location not available:', e.message);
+    }
   }
 
   const { data: emp } = await sb.from('employees').select('id').eq('email', currentUser.email).single();
