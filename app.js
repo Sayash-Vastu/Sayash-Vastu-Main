@@ -944,8 +944,12 @@ async function loadEmpDashboard() {
         const avColor = isMe ? 'var(--navy)' : '#fff';
         const rowStyle = isMe ? 'background:#fdf9ef;border-radius:6px;' : '';
         const nameLabel = esc(a.employee_name) + (isMe ? ' (You)' : '');
+        const photoUrl = photoMap[a.employee_email];
+        const avHtml = photoUrl
+          ? `<img src="${photoUrl}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid ${isMe?'var(--gold)':'var(--border)'}"/>`
+          : `<div class="av" style="background:${avBg};width:28px;height:28px;font-size:10px;color:${avColor}">${initials}</div>`;
         return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa;' + rowStyle + '">'
-          + '<div class="av" style="background:' + avBg + ';width:28px;height:28px;font-size:10px;color:' + avColor + '">' + initials + '</div>'
+          + avHtml
           + '<div style="flex:1">'
           + '<div style="font-size:12px;font-weight:600;color:var(--navy)">' + nameLabel + '</div>'
           + '<div style="font-size:10px;color:' + statusColor + ';margin-top:2px">' + statusText + '</div>'
