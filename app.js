@@ -1451,7 +1451,9 @@ async function markEmpLogin(workType) {
   }
   // Get location based on work type
   let latitude = null, longitude = null, location_address = null;
-  if (workType === 'Office') {
+ if (workType === 'Office') {
+    latitude = 28.6917;
+    longitude = 77.1520;
     location_address = '3rd Floor, Big Jos Tower, Netaji Subhash Place, New Delhi';
   } else {
     try {
