@@ -2507,6 +2507,49 @@ async function loadAttReport() {
   const tbody=document.getElementById('attReportBody');
   if (!emps) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px">No data</td></tr>'; return; }
   const totalDays=new Date(yr,mo,0).getDate();
+  // Summary cards
+  const totalPresent = (attData||[]).filter(a=>a.status==='Present').length;
+  const totalAbsent = (attData||[]).filter(a=>a.status==='Absent').length;
+  const totalHalf = (attData||[]).filter(a=>a.status==='Half Day').length;
+  const totalLeave = (attData||[]).filter(a=>a.status==='Leave').length;
+  const totalLate = (attData||[]).filter(a=>{
+    if (!a.check_in) return false;
+    const t = new Date(a.check_in);
+    return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
+  }).length;
+  const avgAtt = emps.length > 0 ? Math.round((totalPresent / (emps.length * totalDays)) * 100) : 0;
+
+  const summaryEl = document.getElementById('att-report-summary');
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px">
+        <div style="background:#fff;border-radius:10px;border:1px solid var(--border);border-top:3px solid var(--green);padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--green)">${totalPresent}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:700;text-transform:uppercase">Total Present</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid var(--border);border-top:3px solid var(--red);padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--red)">${totalAbsent}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:700;text-transform:uppercase">Total Absent</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid var(--border);border-top:3px solid var(--amber);padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--amber)">${totalHalf}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:700;text-transform:uppercase">Half Day</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid var(--border);border-top:3px solid var(--blue);padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--blue)">${totalLeave}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:700;text-transform:uppercase">Total Leave</div>
+        </div>
+        <div style="background:#fff;border-radius:10px;border:1px solid var(--border);border-top:3px solid var(--red);padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:var(--red)">${totalLate}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;font-weight:700;text-transform:uppercase">Late Marks</div>
+        </div>
+        <div style="background:var(--navy);border-radius:10px;padding:14px;text-align:center">
+          <div style="font-size:22px;font-weight:800;color:#fff">${avgAtt}%</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.5);margin-top:4px;font-weight:700;text-transform:uppercase">Avg Attendance</div>
+        </div>
+      </div>
+    `;
+  }
   tbody.innerHTML=emps.map(e=>{
     const empAtt=(attData||[]).filter(a=>a.employee_email===e.email);
     const present=empAtt.filter(a=>a.status==='Present').length;
