@@ -1148,8 +1148,8 @@ async function loadEmpDashboard() {
         const rowStyle = isMe ? 'background:#fdf9ef;border-radius:6px;' : '';
         const nameLabel = esc(a.employee_name) + (isMe ? ' (You)' : '');
         const photoUrl = photoMap[a.employee_email];
-        const avHtml = photoUrl
-          ? `<img src="${photoUrl}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid ${isMe?'var(--gold)':'var(--border)'}"/>`
+        const avHtml = (photoUrl && photoUrl !== 'null' && photoUrl !== '')
+          ? `<img src="${photoUrl}?t=${Date.now()}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid ${isMe?'var(--gold)':'var(--border)'}" onerror="this.parentNode.innerHTML='<div class=av style=background:${avBg};width:28px;height:28px;font-size:10px;color:${avColor}>${initials}</div>'">`
           : `<div class="av" style="background:${avBg};width:28px;height:28px;font-size:10px;color:${avColor}">${initials}</div>`;
         return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa;' + rowStyle + '">'
           + avHtml
@@ -1379,10 +1379,8 @@ async function loadCeoDashboard() {
           <td style="padding:9px 14px"><span class="badge ${a.work_type==='WFH'?'b-blue':'b-navy'}" style="font-size:10px">${a.work_type||'Office'}</span></td>
           <td style="padding:9px 14px;font-size:11px;color:var(--muted)">
             ${a.latitude && a.longitude ? 
-              `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:11px">
-                📍 ${a.location_address ? esc(a.location_address.substring(0,25))+'...' : 'View Map'}
-              </a>` 
-              : '—'}
+              `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:11px">📍 View Map</a><br><span style="font-size:10px;color:var(--muted)">${a.location_address ? esc(a.location_address.substring(0,30)) : ''}</span>` 
+              : (a.ip_address ? `<span style="font-size:10px;color:var(--muted)">🖥️ ${esc(a.ip_address)}</span>` : '—')}
           </td>
           <td style="padding:9px 14px">${attBadge(a.status)}</td>
         </tr>`).join('')}</tbody>
@@ -1690,8 +1688,7 @@ async function loadMyTasks() {
   // 1. Tasks assigned TO me
   const { data: ownTasks } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
   // 2. Tasks forwarded TO me (pending_with) - excluding own tasks
-  const { data: forwardedTasks } = await sb.from('tasks').select('*').eq('pending_with_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
-
+const { data: forwardedTasks } = await sb.from('tasks').select('*').eq('pending_with_email', currentUser.email).neq('assigned_to_email', currentUser.email).eq('is_archived',false).order('created_at',{ascending:false});
   // Merge and deduplicate
   const allMyTasksMap = {};
   (ownTasks||[]).forEach(t => allMyTasksMap[t.id] = {...t, _isForwarded: false});
