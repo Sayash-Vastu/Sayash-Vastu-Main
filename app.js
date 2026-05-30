@@ -501,8 +501,8 @@ const { data: emps } = await sb.from('employees').select('*').eq('is_active', tr
     doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
     doc.text('SUMMARY', W/2, y, { align: 'center' });
     y += 4;
-    const halfDay = rows ? rows.filter(a => a.status === 'Half Day').length : empRows.filter(a => a.status === 'Half Day').length;
-const sumCols = ['PRESENT','HALF DAY','ABSENT','LEAVE','LATE MARKS','ATTENDANCE %'];
+const halfDay = rows.filter(a => a.status === 'Half Day').length;
+    const sumCols = ['PRESENT','HALF DAY','ABSENT','LEAVE','LATE MARKS','ATTENDANCE %'];
 const sumVals = [String(present), String(halfDay), String(absent), String(leave), String(late), attPct];
 const sumClrs = [GREEN, AMBER, RED, PURPLE, RED, GREEN];
     const cw = (W - 20) / 6;
@@ -4013,8 +4013,7 @@ const leftInfo  = [['Employee ID', empFresh?.employee_code || currentUser.employ
   doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
   doc.text('SUMMARY', W/2, y, { align: 'center' });
   y += 4;
-
-  const halfDay = rows ? rows.filter(a => a.status === 'Half Day').length : empRows.filter(a => a.status === 'Half Day').length;
+const halfDay = empRows.filter(a => a.status === 'Half Day').length;
 const sumCols = ['PRESENT','HALF DAY','ABSENT','LEAVE','LATE MARKS','ATTENDANCE %'];
 const sumVals = [String(present), String(halfDay), String(absent), String(leave), String(late), attPct];
 const sumClrs = [GREEN, AMBER, RED, PURPLE, RED, GREEN];
