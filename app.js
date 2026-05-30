@@ -389,7 +389,7 @@ async function exportAttPDF() {
   const totalDays = lastDay;
 
   // Fetch all employees
-  const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).order('employee_code', { ascending: true });
+const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived', false).gte('date', start).lte('date', end);
