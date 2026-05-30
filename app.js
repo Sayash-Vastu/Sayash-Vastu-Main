@@ -2502,7 +2502,7 @@ async function loadAttReport() {
   const [yr,mo]=monthVal.split('-');
   const start=`${yr}-${mo}-01`;
   const end=new Date(yr,mo,0).toISOString().split('T')[0];
-  const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true);
+const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true).neq('role','ceo');
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
   const tbody=document.getElementById('attReportBody');
   if (!emps) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px">No data</td></tr>'; return; }
@@ -2561,7 +2561,7 @@ async function loadAttReport() {
       <td style="font-weight:600">${esc(e.name)}</td>
       <td><span class="badge b-green">${present}</span></td>
       <td><span class="badge b-red">${absent}</span></td>
-      <td><span class="badge b-amber">${half}</span></td>
+<td>${half > 0 ? `<span class="badge b-amber" title="${empAtt.filter(a=>a.status==='Half Day').map(a=>a.date).join(', ')}" style="cursor:help">${half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${leave}</span></td>
       <td style="font-weight:700">${totalDays}</td>
       <td>
