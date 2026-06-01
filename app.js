@@ -1473,7 +1473,7 @@ async function markEmpLogin(workType) {
   }
 
   const { data: emp } = await sb.from('employees').select('id').eq('email', currentUser.email).single();
-  const { error } = await sb.from('attendance').insert({
+ const { error } = await sb.from('attendance').insert({
     employee_id: emp?.id,
     employee_email: currentUser.email,
     employee_name: currentUser.name,
@@ -1481,7 +1481,10 @@ async function markEmpLogin(workType) {
     check_in: now.toISOString(),
     status: 'Present',
     work_type: workType || 'Office',
-latitude, longitude, location_address, ip_address
+    latitude: latitude,
+    longitude: longitude,
+    location_address: location_address,
+    ip_address: ip_address
   });
   if (error) { showToast('❌ '+error.message, 'err'); return; }
   const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
