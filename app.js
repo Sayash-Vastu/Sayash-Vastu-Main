@@ -679,7 +679,7 @@ function showApp() {
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo') {
-['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization','nav-documents','nav-calendar'].forEach(id => {
+['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization'].forEach(id => {
     const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
     });
@@ -731,6 +731,13 @@ function showApp() {
   }, 500);
 
   // Greeting handled in loadHome now
+  // Documents aur Calendar employee ko dikhao
+    const navDocs = document.getElementById('nav-documents');
+    const navCal = document.getElementById('nav-calendar');
+    if (navDocs) navDocs.style.display = 'flex';
+    if (navCal) navCal.style.display = 'flex';
+
+    const today = new Date().toISOString().split('T')[0];
 
   const today = new Date().toISOString().split('T')[0];
   const atStart = document.getElementById('at-start');
