@@ -854,6 +854,14 @@ function showApp() {
 
   // Greeting handled in loadHome now
   // Documents aur Calendar employee ko dikhao
+  const navCompliance = document.getElementById('nav-compliance');
+if (navCompliance) {
+  if (currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') {
+    navCompliance.style.display = 'flex';
+  } else {
+    navCompliance.style.display = 'none';
+  }
+}
     const navDocs = document.getElementById('nav-documents');
     const navCal = document.getElementById('nav-calendar');
     if (navDocs) navDocs.style.display = 'flex';
