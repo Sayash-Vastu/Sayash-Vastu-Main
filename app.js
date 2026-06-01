@@ -5910,7 +5910,7 @@ async function deleteCalEvent(id) {
 // ═══════════════════════════════════════════
 let currentComplianceId = null;
 
-async function loadCompliance() {
+aync function loadCompliance() {
   const now = new Date();
   const defaultMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
   const monthEl = document.getElementById('comp-month-filter');
@@ -5921,7 +5921,7 @@ monthEl.value = defaultMonth;
   // Alisha sirf apni tasks dekhe
   const isAlisha = currentUser.email === 'alisha@sayashvastu.com';
   const isCEO = currentUser.role === 'ceo';
-
+as
   let query = sb.from('compliance_tasks').select('*').order('assigned_to_name').order('category');
   if (monthVal) query = query.eq('month_year', monthVal);
   if (isAlisha) query = query.eq('assigned_to_name', 'Alisha');
