@@ -1302,69 +1302,56 @@
           </div>
         </div>
       </div>
+      <!-- COMPLIANCE VIEW -->
+      <div class="view" id="view-compliance">
+        <div class="page-header">
+          <h2>Compliance Checklist</h2>
+          <p>Monthly finance and compliance tasks</p>
+        </div>
+        <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+          <label style="font-size:13px;font-weight:600;color:var(--navy)">Month:</label>
+          <input type="month" id="comp-month-filter" onchange="loadCompliance()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none"/>
+          <select id="comp-person-filter" onchange="loadCompliance()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none">
+            <option value="all">All</option>
+            <option value="Alisha">Alisha</option>
+            <option value="Pradeep">Pradeep</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+          <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num" id="comp-done">0</div><div class="stat-lbl">Done</div></div>
+          <div class="stat-card sc-red"><div class="stat-icon">⏳</div><div class="stat-num" id="comp-pending">0</div><div class="stat-lbl">Pending</div></div>
+          <div class="stat-card sc-gold"><div class="stat-icon">📋</div><div class="stat-num" id="comp-total">0</div><div class="stat-lbl">Total</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">📋 Compliance Tasks</div></div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>#</th><th>Particulars</th><th>Freq</th><th>Last Date</th><th>Assigned To</th><th>Category</th><th>Status</th><th>Done By</th><th>Remarks</th><th>Action</th></tr></thead>
+              <tbody id="complianceBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- COMPLIANCE DONE MODAL -->
+      <div class="modal-overlay" id="complianceModal">
+        <div class="modal" style="width:440px">
+          <div class="modal-title">✅ Mark Task Done</div>
+          <div id="compModalContent"></div>
+          <div class="modal-actions">
+            <button class="btn btn-outline" onclick="closeModal('complianceModal')">Cancel</button>
+            <button class="btn btn-gold" onclick="saveComplianceDone()">✅ Mark Done</button>
+          </div>
+        </div>
+      </div>
 
       <!-- EXPENSE CLAIMS VIEW -->
-<div class="view" id="view-expenses">
-  <div class="page-header">
-    <h2>Expense Claims</h2>
-    <p>Submit and track your expense reimbursements</p>
-  </div>
-
-  <!-- COMPLIANCE VIEW -->
-<div class="view" id="view-compliance">
-  <div class="page-header">
-    <h2>Compliance Checklist</h2>
-    <p>Monthly finance and compliance tasks</p>
-  </div>
-  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-    <label style="font-size:13px;font-weight:600;color:var(--navy)">Month:</label>
-    <input type="month" id="comp-month-filter" onchange="loadCompliance()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none"/>
-    <select id="comp-person-filter" onchange="loadCompliance()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none">
-      <option value="all">All</option>
-      <option value="Alisha">Alisha</option>
-      <option value="Pradeep">Pradeep</option>
-    </select>
-  </div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
-    <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num" id="comp-done">0</div><div class="stat-lbl">Done</div></div>
-    <div class="stat-card sc-red"><div class="stat-icon">⏳</div><div class="stat-num" id="comp-pending">0</div><div class="stat-lbl">Pending</div></div>
-    <div class="stat-card sc-gold"><div class="stat-icon">📋</div><div class="stat-num" id="comp-total">0</div><div class="stat-lbl">Total</div></div>
-  </div>
-  <div class="panel">
-    <div class="panel-head"><div class="panel-title">📋 Compliance Tasks</div></div>
-    <div class="tbl-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Particulars</th>
-            <th>Freq</th>
-            <th>Last Date</th>
-            <th>Assigned To</th>
-            <th>Category</th>
-            <th>Status</th>
-            <th>Done By</th>
-            <th>Remarks</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody id="complianceBody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- COMPLIANCE DONE MODAL -->
-<div class="modal-overlay" id="complianceModal">
-  <div class="modal" style="width:440px">
-    <div class="modal-title">✅ Mark Task Done</div>
-    <div id="compModalContent"></div>
-    <div class="modal-actions">
-      <button class="btn btn-outline" onclick="closeModal('complianceModal')">Cancel</button>
-      <button class="btn btn-gold" onclick="saveComplianceDone()">✅ Mark Done</button>
-    </div>
-  </div>
-</div>
+      <div class="view" id="view-expenses">
+        <div class="page-header">
+          <h2>Expense Claims</h2>
+          <p>Submit and track your expense reimbursements</p>
+        </div>
+                
   <!-- Submit Form -->
   <!-- Warning Banner -->
 <div style="background:#fdf6e3;border:1px solid var(--gold);border-radius:10px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px">
@@ -1440,6 +1427,7 @@
     <div id="allExpenseList" style="padding:14px 16px"></div>
   </div>
 </div>
+      </div>
       <!-- MY PROFILE VIEW -->
       <div class="view" id="view-myProfile">
         <div class="page-header">
