@@ -698,8 +698,8 @@ function showApp() {
     if (navMyRep) navMyRep.style.display = 'none';
     const navFU = document.getElementById('nav-followup');
     if (navFU) navFU.style.display = 'none';
-  } else {
-    ['nav-all-tasks-work','nav-employees','nav-att-report','nav-leave-approve'].forEach(id => {
+ } else {
+    ['nav-all-tasks-work','nav-employees','nav-att-report','nav-leave-approve','nav-regularization'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
     document.getElementById('ceo-section').style.display = 'none';
