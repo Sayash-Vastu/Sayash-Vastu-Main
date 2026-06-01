@@ -5910,8 +5910,8 @@ async function deleteCalEvent(id) {
 // ═══════════════════════════════════════════
 let currentComplianceId = null;
 
-aync function loadCompliance() {
-  const now = new Date();
+async function loadCompliance() {
+const now = new Date();
   const defaultMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
   const monthEl = document.getElementById('comp-month-filter');
 monthEl.value = defaultMonth;
