@@ -2197,7 +2197,10 @@ async function assignTask() {
     }
   }
   let successCount = 0;
-  for (const emp of empsToAssign) {
+  const assignedEmails = new Set();
+    for (const emp of empsToAssign) {
+            if (assignedEmails.has(emp.email)) continue;
+      assignedEmails.add(emp.email); 
     const { error } = await sb.from('tasks').insert({
       project, task_detail: detail,
       assigned_to_email: emp.email.toLowerCase(), assigned_to_name: emp.name,
