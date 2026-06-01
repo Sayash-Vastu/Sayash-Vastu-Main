@@ -5926,7 +5926,7 @@ if (!personEl.value) personEl.value = 'all';
   let query = sb.from('compliance_tasks').select('*').order('assigned_to_name').order('category');
   if (monthVal) query = query.eq('month_year', monthVal);
 // if (isAlisha) query = query.eq('assigned_to_name', 'Alisha');
-  else if (personVal !== 'all') query = query.eq('assigned_to_name', personVal);
+  if (personVal !== 'all') query = query.eq('assigned_to_name', personVal);
 
   const { data: tasks } = await query;
   const allTasks = tasks || [];
