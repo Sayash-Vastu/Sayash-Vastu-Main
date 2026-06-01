@@ -38,8 +38,8 @@ window.onload = function() {
   document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
   // Refresh notifications every 10 seconds
-  setInterval(function() {
-    if (currentUser) loadNotifications();
+setInterval(async function() {
+  if (currentUser) loadNotifications();
   }, 10000);
 
   // Auto logout at 9 PM
@@ -74,8 +74,8 @@ window.onload = function() {
   }, 60000); // Check every minute
 
   // Auto summary emails + birthday check
-  setInterval(function() {
-    if (!currentUser) return;
+setInterval(async function() {
+  if (!currentUser) return;
     const now = new Date();
     const hr = now.getHours(); const min = now.getMinutes();
     const today = now.toDateString();
