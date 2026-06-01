@@ -5952,7 +5952,7 @@ if (!personEl.value) personEl.value = 'all';
   tbody.innerHTML = allTasks.map((t, i) => {
     const isDone = t.status === 'Done';
     const rowBg = isDone ? 'background:#f0faf5' : '';
-const canUpdate = true;
+const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.role === 'ceo';
     return `<tr style="${rowBg}">
       <td style="font-size:11px;color:var(--muted)">${i+1}</td>
       <td style="font-weight:600;font-size:12px;max-width:200px">${esc(t.particulars)}</td>
@@ -5968,11 +5968,11 @@ const canUpdate = true;
       <td style="font-size:11px;color:var(--muted)">${esc(t.done_by_name||'—')}</td>
       <td style="font-size:11px;color:var(--muted);max-width:120px">${esc((t.remarks||'').substring(0,30))}${(t.remarks||'').length>30?'...':''}</td>
       <td>
-        ${!isDone && canUpdate
-          ? `<button class="btn btn-green btn-sm" onclick="openComplianceDone('${t.id}','${esc(t.particulars)}')">✅ Mark Done</button>`
-          : isDone && isCEO
-          ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
-          : '—'}
+        ${!isDone && currentUser.email === 'alisha@sayashvastu.com'
+  ? `<button class="btn btn-green btn-sm" onclick="openComplianceDone('${t.id}','${esc(t.particulars)}')">✅ Mark Done</button>`
+  : isDone && currentUser.role === 'ceo'
+  ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
+  : '—'}
       </td>
     </tr>`;
   }).join('');
