@@ -85,7 +85,19 @@ window.onload = function() {
       loadBirthdaySection();
     }
 
-    if (!currentUser || (currentUser.role !== 'ceo' && currentUser.role !== 'manager')) return;
+    // Monthly compliance reminder - 1st of month at 9am
+if (hr === 9 && min < 5 && new Date().getDate() === 1) {
+  const reminderKey = 'sv_compliance_reminder_' + new Date().toISOString().slice(0,7);
+  if (!localStorage.getItem(reminderKey)) {
+    localStorage.setItem(reminderKey, 'true');
+    await createNotification(
+      'alisha@sayashvastu.com',
+      '📋 Monthly Compliance Tasks Due!',
+      'New month started — please check and complete your compliance tasks for this month.',
+      'General', 'compliance'
+    );
+  }
+}
     if (hr === 8 && min < 5 && localStorage.getItem('sv_last_morning') !== today) {
       localStorage.setItem('sv_last_morning', today);
       sendDailySummaryEmail('Morning');
