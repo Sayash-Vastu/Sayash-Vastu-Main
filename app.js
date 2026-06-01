@@ -5914,10 +5914,8 @@ async function loadCompliance() {
 const now = new Date();
   const defaultMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
   const monthEl = document.getElementById('comp-month-filter');
-monthEl.value = defaultMonth;
-  if (currentUser.role === 'ceo') {
-  document.getElementById('comp-person-filter').value = 'all';
-}
+if (!monthEl.value) monthEl.value = defaultMonth;
+  
   const monthVal = monthEl ? monthEl.value : defaultMonth;
   const personVal = document.getElementById('comp-person-filter')?.value || 'all';
 
