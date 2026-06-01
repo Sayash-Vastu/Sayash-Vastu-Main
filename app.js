@@ -889,6 +889,8 @@ const viewTitles = {
   hrPolicy: ['HR Policies','Company policies — read and acknowledge'],
   projects: ['Projects','Company project overview'],
   helpRequest: ['Help Requests','Request help from colleagues'],
+  expenses: ['Expense Claims','Submit and track your expense reimbursements'],
+  compliance: ['Compliance Checklist','Monthly finance and compliance tasks'],
 };
 
 function showView(name) {
@@ -957,6 +959,7 @@ if (name === 'documents') {
 }
 if (name === 'calendar') loadCalendar();
   if (name === 'expenses') loadExpenses();
+  if (name === 'compliance') loadCompliance();
   if (name === 'attendance') loadMyRegularizations();
 }
 
@@ -5894,6 +5897,124 @@ async function deleteCalEvent(id) {
 // ═══════════════════════════════════════════
 //  EXPENSE CLAIMS
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  COMPLIANCE / FINANCE CHECKLIST
+// ═══════════════════════════════════════════
+let currentComplianceId = null;
+
+async function loadCompliance() {
+  const now = new Date();
+  const defaultMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+  const monthEl = document.getElementById('comp-month-filter');
+  if (monthEl && !monthEl.value) monthEl.value = defaultMonth;
+  const monthVal = monthEl ? monthEl.value : defaultMonth;
+  const personVal = document.getElementById('comp-person-filter')?.value || 'all';
+
+  // Alisha sirf apni tasks dekhe
+  const isAlisha = currentUser.email === 'alisha@sayashvastu.com';
+  const isCEO = currentUser.role === 'ceo';
+
+  let query = sb.from('compliance_tasks').select('*').order('assigned_to_name').order('category');
+  if (monthVal) query = query.eq('month_year', monthVal);
+  if (isAlisha) query = query.eq('assigned_to_name', 'Alisha');
+  else if (personVal !== 'all') query = query.eq('assigned_to_name', personVal);
+
+  const { data: tasks } = await query;
+  const allTasks = tasks || [];
+
+  const done = allTasks.filter(t => t.status === 'Done').length;
+  const pending = allTasks.filter(t => t.status !== 'Done').length;
+  document.getElementById('comp-done').textContent = done;
+  document.getElementById('comp-pending').textContent = pending;
+  document.getElementById('comp-total').textContent = allTasks.length;
+
+  const tbody = document.getElementById('complianceBody');
+  if (!allTasks.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No tasks found for this month</td></tr>';
+    return;
+  }
+
+  const catColors = {
+    'Tax':'b-red','GST':'b-blue','PF':'b-navy','ESI':'b-purple',
+    'Accounts':'b-green','Bank':'b-amber','Invoice':'b-gold','Bills':'b-gray'
+  };
+  const freqLabels = {'M':'Monthly','Q':'Quarterly','Y':'Yearly'};
+
+  tbody.innerHTML = allTasks.map((t, i) => {
+    const isDone = t.status === 'Done';
+    const rowBg = isDone ? 'background:#f0faf5' : '';
+    const canUpdate = isAlisha ? t.assigned_to_name === 'Alisha' : true;
+    return `<tr style="${rowBg}">
+      <td style="font-size:11px;color:var(--muted)">${i+1}</td>
+      <td style="font-weight:600;font-size:12px;max-width:200px">${esc(t.particulars)}</td>
+      <td><span class="badge b-blue" style="font-size:10px">${freqLabels[t.frequency]||t.frequency||'—'}</span></td>
+      <td style="font-size:12px;font-weight:700;color:var(--navy)">${esc(t.last_date||'—')}</td>
+      <td><span style="font-size:11px;font-weight:600;color:var(--navy)">${esc(t.assigned_to_name||'—')}</span></td>
+      <td><span class="badge ${catColors[t.category]||'b-gray'}" style="font-size:10px">${esc(t.category||'—')}</span></td>
+      <td>
+        ${isDone
+          ? '<span class="badge b-green">✅ Done</span>'
+          : '<span class="badge b-amber">⏳ Pending</span>'}
+      </td>
+      <td style="font-size:11px;color:var(--muted)">${esc(t.done_by_name||'—')}</td>
+      <td style="font-size:11px;color:var(--muted);max-width:120px">${esc((t.remarks||'').substring(0,30))}${(t.remarks||'').length>30?'...':''}</td>
+      <td>
+        ${!isDone && canUpdate
+          ? `<button class="btn btn-green btn-sm" onclick="openComplianceDone('${t.id}','${esc(t.particulars)}')">✅ Mark Done</button>`
+          : isDone && isCEO
+          ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
+          : '—'}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function openComplianceDone(taskId, taskName) {
+  currentComplianceId = taskId;
+  document.getElementById('compModalContent').innerHTML = `
+    <div style="padding:12px;background:#f8f9fc;border-radius:8px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(taskName)}</div>
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Remarks (Optional)</label>
+      <textarea id="comp-remarks" placeholder="Any notes or reference number..." style="min-height:80px"></textarea>
+    </div>
+  `;
+  document.getElementById('complianceModal').classList.add('open');
+}
+
+async function saveComplianceDone() {
+  const remarks = document.getElementById('comp-remarks')?.value?.trim() || '';
+  const { error } = await sb.from('compliance_tasks').update({
+    status: 'Done',
+    done_by_name: currentUser.name,
+    done_at: new Date().toISOString(),
+    remarks: remarks || null
+  }).eq('id', currentComplianceId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Task marked as done!', 'ok');
+  closeModal('complianceModal');
+  loadCompliance();
+
+  // CEO ko notify karo
+  if (currentUser.email !== CEO_EMAIL) {
+    await createNotification(
+      CEO_EMAIL,
+      `✅ Compliance task done — ${currentUser.name}`,
+      `${currentUser.name} marked a compliance task as done.`,
+      'General', 'compliance'
+    );
+  }
+}
+
+async function resetCompliance(taskId) {
+  if (!confirm('Reset this task to Pending?')) return;
+  await sb.from('compliance_tasks').update({
+    status: 'Pending', done_by_name: null, done_at: null, remarks: null
+  }).eq('id', taskId);
+  showToast('↩️ Task reset to Pending!', 'ok');
+  loadCompliance();
+}
 async function loadExpenses() {
   const isCEO = currentUser.role === 'ceo';
   const isManager = currentUser.role === 'manager';
