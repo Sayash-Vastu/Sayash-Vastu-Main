@@ -5924,7 +5924,7 @@ if (!monthEl.value) monthEl.value = defaultMonth;
   const isCEO = currentUser.role === 'ceo';
   let query = sb.from('compliance_tasks').select('*').order('assigned_to_name').order('category');
   if (monthVal) query = query.eq('month_year', monthVal);
-  if (isAlisha) query = query.eq('assigned_to_name', 'Alisha');
+// if (isAlisha) query = query.eq('assigned_to_name', 'Alisha');
   else if (personVal !== 'all') query = query.eq('assigned_to_name', personVal);
 
   const { data: tasks } = await query;
