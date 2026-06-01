@@ -737,8 +737,6 @@ function showApp() {
     if (navDocs) navDocs.style.display = 'flex';
     if (navCal) navCal.style.display = 'flex';
 
-    const today = new Date().toISOString().split('T')[0];
-
   const today = new Date().toISOString().split('T')[0];
   const atStart = document.getElementById('at-start');
   if (atStart) atStart.value = today;
