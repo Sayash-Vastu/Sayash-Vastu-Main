@@ -5915,7 +5915,8 @@ const now = new Date();
   const defaultMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
   const monthEl = document.getElementById('comp-month-filter');
 if (!monthEl.value) monthEl.value = defaultMonth;
-  
+const personEl = document.getElementById('comp-person-filter');
+if (!personEl.value) personEl.value = 'all';  
   const monthVal = monthEl ? monthEl.value : defaultMonth;
   const personVal = document.getElementById('comp-person-filter')?.value || 'all';
 
@@ -5951,7 +5952,7 @@ if (!monthEl.value) monthEl.value = defaultMonth;
   tbody.innerHTML = allTasks.map((t, i) => {
     const isDone = t.status === 'Done';
     const rowBg = isDone ? 'background:#f0faf5' : '';
-    const canUpdate = isAlisha ? t.assigned_to_name === 'Alisha' : true;
+const canUpdate = true;
     return `<tr style="${rowBg}">
       <td style="font-size:11px;color:var(--muted)">${i+1}</td>
       <td style="font-weight:600;font-size:12px;max-width:200px">${esc(t.particulars)}</td>
