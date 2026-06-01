@@ -829,8 +829,11 @@ function showView(name) {
   if (name === 'projects') loadProjects();
   if (name === 'helpRequest') loadHelpRequests();
   if (name === 'regularization') loadAllRegularizations();
-  if (name === 'documents') loadAllDocuments();
-  if (name === 'calendar') loadCalendar();
+if (name === 'documents') {
+    if (currentUser.role === 'ceo') loadAllDocuments();
+    else loadMyDocs();
+}
+if (name === 'calendar') loadCalendar();
   if (name === 'expenses') loadExpenses();
   if (name === 'attendance') loadMyRegularizations();
 }
