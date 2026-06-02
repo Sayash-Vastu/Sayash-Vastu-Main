@@ -5931,15 +5931,17 @@ const personEl = document.getElementById('comp-person-filter');
 if (!personEl.value) personEl.value = 'all';  
   const monthVal = monthEl ? monthEl.value : defaultMonth;
   const personVal = document.getElementById('comp-person-filter')?.value || 'all';
-
+  const freqVal = document.getElementById('comp-freq-filter')?.value || 'all';
+const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
+  
   // Alisha sirf apni tasks dekhe
   const isAlisha = currentUser.email === 'alisha@sayashvastu.com';
   const isCEO = currentUser.role === 'ceo';
   let query = sb.from('compliance_tasks').select('*').order('assigned_to_name').order('category');
   if (monthVal) query = query.eq('month_year', monthVal);
-// if (isAlisha) query = query.eq('assigned_to_name', 'Alisha');
   if (personVal !== 'all') query = query.eq('assigned_to_name', personVal);
-
+  if (freqVal !== 'all') query = query.eq('frequency', freqVal);
+  if (catVal !== 'all') query = query.eq('category', catVal);
   const { data: tasks } = await query;
   const allTasks = tasks || [];
 
@@ -5957,7 +5959,8 @@ if (!personEl.value) personEl.value = 'all';
 
   const catColors = {
     'Tax':'b-red','GST':'b-blue','PF':'b-navy','ESI':'b-purple',
-    'Accounts':'b-green','Bank':'b-amber','Invoice':'b-gold','Bills':'b-gray'
+    'Accounts':'b-green','Bank':'b-amber','Invoice':'b-gold','Bills':'b-gray',
+    'Insurance':'b-purple','Other':'b-navy'
   };
   const freqLabels = {'M':'Monthly','Q':'Quarterly','Y':'Yearly'};
 
