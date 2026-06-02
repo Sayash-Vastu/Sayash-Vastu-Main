@@ -2306,6 +2306,7 @@ async function loadAttendance() {
     <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
   </tr>`;
   }).join('');
+}
 
 function initAttMonth() {
   const now = new Date();
