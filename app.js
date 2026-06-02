@@ -2290,17 +2290,22 @@ async function loadAttendance() {
   const { data: allAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('is_archived',false).order('date',{ascending:false}).limit(30);
   const tbody = document.getElementById('attBody');
   if (!allAtt||!allAtt.length) {
-    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No attendance records</td></tr>'; return;
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No attendance records</td></tr>'; return;
   }
-  tbody.innerHTML = allAtt.map(a=>`<tr>
+  const days2 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  tbody.innerHTML = allAtt.map(a=>{
+    const d = new Date(a.date);
+    const isWeekend = d.getDay()===0||d.getDay()===6;
+    return `<tr style="${isWeekend?'background:#f8f9fc':''}">
     <td style="font-weight:600">${fmtDate(a.date)}</td>
+    <td style="font-size:11px;color:${isWeekend?'var(--muted)':'var(--text)'}">${days2[d.getDay()]}</td>
     <td>${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
     <td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
-    <td>${a.working_hours?parseFloat(a.working_hours).toFixed(1)+' hrs':'—'}</td>
+    <td style="font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+' hrs':'—'}</td>
     <td>${attBadge(a.status)}</td>
     <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
-  </tr>`).join('');
-}
+  </tr>`;
+  }).join('');
 
 function initAttMonth() {
   const now = new Date();
@@ -2374,7 +2379,7 @@ async function loadLeaves() {
   }
   const tbody = document.getElementById('leaveBody');
   if (!leaves.length) {
-    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No leave records</td></tr>'; return;
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No leave records</td></tr>'; return;
   }
   tbody.innerHTML = leaves.map(l=>`<tr>
     <td><span class="badge b-blue">${esc(l.leave_type)}</span></td>
@@ -4036,7 +4041,7 @@ async function loadMyAttendance() {
   const days2 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const tbody = document.getElementById('attBody');
   if (!attData || !attData.length) {
-    tbody.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No attendance records this month</td></tr>';
+    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No attendance records this month</td></tr>';
     return;
   }
   tbody.innerHTML = attData.map(a => {
