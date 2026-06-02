@@ -5983,11 +5983,14 @@ const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.
       <td style="font-size:11px;color:var(--muted)">${esc(t.done_by_name||'—')}</td>
       <td style="font-size:11px;color:var(--muted);max-width:120px">${esc((t.remarks||'').substring(0,30))}${(t.remarks||'').length>30?'...':''}</td>
       <td>
-        ${!isDone && currentUser.email === 'alisha@sayashvastu.com'
-  ? `<button class="btn btn-green btn-sm" onclick="openComplianceDone('${t.id}','${esc(t.particulars)}')">✅ Mark Done</button>`
-  : isDone && currentUser.role === 'ceo'
-  ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
-  : '—'}
+        <div style="display:flex;gap:5px">
+  <button class="btn btn-outline btn-sm" onclick="openComplianceView('${t.id}','${esc(t.particulars)}','${esc(t.remarks||'')}','${esc(t.done_by_name||'')}','${t.done_at||''}')">👁️</button>
+  ${!isDone && currentUser.email === 'alisha@sayashvastu.com'
+    ? `<button class="btn btn-green btn-sm" onclick="openComplianceDone('${t.id}','${esc(t.particulars)}')">✅ Mark Done</button>`
+    : isDone && currentUser.role === 'ceo'
+    ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
+    : '—'}
+</div>
       </td>
     </tr>`;
   }).join('');
@@ -6038,6 +6041,19 @@ async function resetCompliance(taskId) {
   }).eq('id', taskId);
   showToast('↩️ Task reset to Pending!', 'ok');
   loadCompliance();
+}
+function openComplianceView(id, particulars, remarks, doneBy, doneAt) {
+  document.getElementById('compModalContent').innerHTML = `
+    <div style="padding:12px;background:#f8f9fc;border-radius:8px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(particulars)}</div>
+    </div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
+      ${doneBy ? `✅ Done by: <strong>${esc(doneBy)}</strong>` : '⏳ Not completed yet'}
+    </div>
+    ${doneAt ? `<div style="font-size:11px;color:var(--muted)">🕐 ${new Date(doneAt).toLocaleString('en-IN')}</div>` : ''}
+    ${remarks ? `<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:8px;font-size:12px">💬 Remarks: ${esc(remarks)}</div>` : ''}
+  `;
+  document.getElementById('complianceModal').classList.add('open');
 }
 async function loadExpenses() {
   const isCEO = currentUser.role === 'ceo';
