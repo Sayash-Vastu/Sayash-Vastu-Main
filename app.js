@@ -796,6 +796,8 @@ function doLogout() {
 function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appPage').style.display = 'block';
+  document.querySelector('.main-content').style.marginLeft = '230px';
+  document.querySelector('.main-content').style.width = 'calc(100% - 230px)';
 
   const av = currentUser.name.substring(0,2).toUpperCase();
   const sidebarAvEl = document.getElementById('sidebarAv');
