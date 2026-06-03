@@ -5038,7 +5038,7 @@ const isCEO = currentUser.role === 'ceo';
           <div style="font-size:11px;color:var(--red);margin-top:4px;text-transform:uppercase;font-weight:700">Delayed</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:14px">
         <div style="background:var(--bg);border-radius:10px;padding:16px">
           <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Task Completion</div>
           <div style="font-size:28px;font-weight:800;color:${completionPct>=75?'var(--green)':completionPct>=50?'var(--amber)':'var(--red)'}">${completionPct}%</div>
