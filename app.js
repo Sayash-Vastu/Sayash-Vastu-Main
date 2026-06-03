@@ -5057,6 +5057,7 @@ const isCEO = currentUser.role === 'ceo';
           <div style="font-size:11px;color:var(--muted);margin-top:8px">Score: ${Math.round(score)}%</div>
         </div>
       </div>
+      </div>
     `;
   }
 }
