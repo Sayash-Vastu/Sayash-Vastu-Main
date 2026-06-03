@@ -579,3 +579,7 @@ vercel-toolbar {
   height: 0 !important;
   pointer-events: none !important;
 }
+.tbl-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
