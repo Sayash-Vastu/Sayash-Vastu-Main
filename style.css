@@ -193,6 +193,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 
 /* MAIN CONTENT */
 .main-content{margin-left:var(--sidebar-w);flex:1;min-height:100vh}
+.main-content{margin-left:230px;flex:1;min-height:100vh}
 
 /* TOPBAR */
 .topbar{
