@@ -582,4 +582,5 @@ vercel-toolbar {
 .tbl-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  width: 100%;
 }
