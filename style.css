@@ -192,7 +192,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .logout-btn:hover{background:rgba(192,57,43,0.22)}
 
 /* MAIN CONTENT */
-.main-content{margin-left:230px;flex:1;min-height:100vh}
+.main-content{margin-left:var(--sidebar-w);flex:1;min-height:100vh}
 
 /* TOPBAR */
 .topbar{
@@ -537,8 +537,7 @@ tbody tr:hover{background:#fafbff}
 .row-gold{background:linear-gradient(90deg,rgba(201,168,76,0.04) 0%,transparent 100%) !important}
 
 @media(max-width:900px){
-  :root{--sidebar-w:60px}
-  .main-content{margin-left:60px}
+    :root{--sidebar-w:230px}
   .sidebar .nav-btn span:not(.ni):not(.nav-badge){display:none}
   .sidebar-logo p,.sidebar-section,.user-info-name,.user-info-role,.sidebar-user .user-av+div{display:none}
   .home-grid{grid-template-columns:1fr}
@@ -550,7 +549,7 @@ tbody tr:hover{background:#fafbff}
   :root{--sidebar-w:230px}
   .sidebar{transform:translateX(-100%);transition:transform 0.3s;width:230px !important}
   .sidebar.open{transform:translateX(0);z-index:999}
-.main-content{margin-left:0 !important}
+.main-content{margin-left:0 !important;width:100% !important}
   .topbar{padding:0 14px}
   .view{padding:14px}
   .form-grid.cols-2,.form-grid.cols-3{grid-template-columns:1fr !important}
