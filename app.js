@@ -5019,7 +5019,8 @@ const isCEO = currentUser.role === 'ceo';
     else if (score >= 75) { status = '🔵 Good'; statusColor = 'var(--blue)'; }
     else if (score >= 60) { status = '🟡 Average'; statusColor = 'var(--amber)'; }
     else { status = '🔴 Needs Improvement'; statusColor = 'var(--red)'; }
-    document.getElementById('myPerfContent').innerHTML = `
+   document.getElementById('myPerfContent').innerHTML = `
+      <div style="padding:16px">
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
         <div style="background:var(--bg);border-radius:10px;padding:16px;text-align:center;border-top:3px solid var(--navy)">
           <div style="font-size:28px;font-weight:800;color:var(--navy)">${total}</div>
