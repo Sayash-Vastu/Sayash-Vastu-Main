@@ -2183,7 +2183,10 @@ function toggleAssignEmp(checkbox) {
 }
 
 async function assignTask() {
-  window._selectedAssignEmps = window._selectedAssignEmps || [];
+  const btn = document.getElementById('assignBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+    window._selectedAssignEmps = window._selectedAssignEmps || [];
   const empsToAssign = window._selectedAssignEmps;
  // ── Mandatory attendance check (sirf employees ke liye) ──
   if (currentUser.role === 'employee') {
@@ -2201,7 +2204,6 @@ async function assignTask() {
   const detail = document.getElementById('at-detail').value.trim();
   const start = document.getElementById('at-start').value;
   const end = document.getElementById('at-end').value;
-  const btn = document.getElementById('assignBtn');
   const msg = document.getElementById('assignMsg');
   if (!empsToAssign.length) { msg.textContent='⚠️ Kam se kam ek employee select karo'; msg.style.color='var(--red)'; return; }
   if (!project||!detail||!start||!end) { msg.textContent='⚠️ Please fill all fields'; msg.style.color='var(--red)'; return; }
