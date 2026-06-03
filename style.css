@@ -550,7 +550,7 @@ tbody tr:hover{background:#fafbff}
   :root{--sidebar-w:230px}
   .sidebar{transform:translateX(-100%);transition:transform 0.3s;width:230px !important}
   .sidebar.open{transform:translateX(0);z-index:999}
-  .main-content{margin-left:0 !important}
+ .main-content{margin-left:230px !important}
   .topbar{padding:0 14px}
   .view{padding:14px}
   .form-grid.cols-2,.form-grid.cols-3{grid-template-columns:1fr !important}
@@ -584,39 +584,4 @@ vercel-toolbar {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   width: 100%;
-}
-#allPerfSection .tbl-wrap table {
-  min-width: 1000px !important;
-}
-
-#view-performance .main-content,
-#myPerfCard,
-#myPerfCard .panel,
-#myPerfContent {
-  width: 100% !important;
-  max-width: 100% !important;
-}
-#view-performance {
-  width: 100%;
-}
-
-#myPerfCard, #allPerfSection {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box;
-}
-
-#myPerfContent {
-  width: 100% !important;
-  box-sizing: border-box;
-}
-
-#allPerfSection .tbl-wrap {
-  overflow-x: auto !important;
-  width: 100% !important;
-}
-
-#allPerfSection .tbl-wrap table {
-  min-width: 1000px !important;
-  width: 100% !important;
 }
