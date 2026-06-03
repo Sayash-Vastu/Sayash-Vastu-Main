@@ -5065,30 +5065,163 @@ const isCEO = currentUser.role === 'ceo';
     `;
   }
 }
-
 async function exportPerformancePDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF('l','mm','a4');
-  doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('Sayash Vastu — Employee Performance Report', 14, 18);
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text('Month: ' + new Date().toLocaleString('default',{month:'long',year:'numeric'}) + '  |  Generated: ' + new Date().toLocaleDateString('en-IN'), 14, 26);
-  const rows = document.querySelectorAll('#perfTableBody tr');
-  let y = 36;
-  doc.setFontSize(8); doc.setFont('helvetica','bold');
-  doc.text('#  Name                 Dept          Total  Done  Pending  Delayed  Done%  Att%  Status', 14, y);
-  y += 4; doc.line(14, y, 280, y); y += 5;
-  doc.setFont('helvetica','normal');
-  rows.forEach((row,i) => {
-    if(y>190){doc.addPage();y=20;}
-    const cells = row.querySelectorAll('td');
-    if(cells.length>=10){
-      doc.text(String(i+1).padEnd(3)+cells[1].textContent.trim().substring(0,20).padEnd(21)+cells[2].textContent.trim().substring(0,13).padEnd(14)+cells[3].textContent.trim().padEnd(7)+cells[4].textContent.trim().padEnd(6)+cells[5].textContent.trim().padEnd(9)+cells[6].textContent.trim().padEnd(9)+cells[7].textContent.trim().padEnd(7)+cells[8].textContent.trim().padEnd(6)+cells[9].textContent.trim(), 14, y);
-      y+=6;
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const W = 297; const H = 210;
+
+  const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
+  const MUTED = [85,85,85]; const BORDER = [200,213,229]; const LIGHT = [245,248,252];
+  const GREEN = [26,110,60]; const RED = [163,45,45]; const AMBER = [133,79,11];
+  const BLUE = [24,95,165];
+
+  const setFill = (rgb) => doc.setFillColor(rgb[0],rgb[1],rgb[2]);
+  const setStroke = (rgb) => doc.setDrawColor(rgb[0],rgb[1],rgb[2]);
+  const setFont = (c) => doc.setTextColor(c[0],c[1],c[2]);
+
+  // HEADER
+  setFill([255,255,255]); doc.rect(0,0,W,28,'F');
+  try {
+    const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/public/Task-Files/Sayash%20logo.png';
+    const logoRes = await fetch(logoUrl);
+    if (logoRes.ok) {
+      const logoBlob = await logoRes.blob();
+      const logoBase64 = await new Promise(res => {
+        const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(logoBlob);
+      });
+      doc.addImage(logoBase64, 'PNG', 10, 3, 32, 22);
     }
+  } catch(e) {}
+
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); setFont(ORANGE);
+  doc.text('SAYASH VASTU', W/2, 11, { align: 'center' });
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(DARK);
+  doc.text('Vastu Shastra Consultancy Services', W/2, 16, { align: 'center' });
+  doc.text('Netaji Subhash Place, New Delhi', W/2, 20.5, { align: 'center' });
+  setStroke(ORANGE); doc.setLineWidth(0.5);
+  doc.line(0, 28, W, 28);
+
+  // TITLE
+  let y = 36;
+  doc.setFontSize(17); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('PERFORMANCE REPORT', W/2, y, { align: 'center' });
+  y += 3.5;
+  setStroke(ORANGE); doc.setLineWidth(0.4);
+  doc.line(10, y, W-10, y);
+  y += 5;
+
+  // INFO
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(MUTED);
+  const monthName = new Date().toLocaleString('en', {month:'long', year:'numeric'});
+  doc.text('Month: ' + monthName, 14, y);
+  doc.text('Generated: ' + new Date().toLocaleDateString('en-IN'), W-14, y, { align: 'right' });
+  y += 8;
+
+  // SUMMARY CARDS
+  const rows = document.querySelectorAll('#perfTableBody tr');
+  const total = rows.length;
+  let excellent = 0, good = 0, average = 0, needsImprovement = 0;
+  rows.forEach(row => {
+    const status = row.querySelector('td:last-child')?.textContent || '';
+    if (status.includes('Excellent')) excellent++;
+    else if (status.includes('Good')) good++;
+    else if (status.includes('Average')) average++;
+    else if (status.includes('Needs')) needsImprovement++;
   });
-  doc.save('SayashVastu_Performance_'+new Date().toISOString().split('T')[0]+'.pdf');
-  showToast('✅ Performance PDF exported!','ok');
+
+  const cw = (W-20)/4;
+  setFill(NAVY); doc.rect(10, y, W-20, 6, 'F');
+  doc.setFontSize(6.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
+  ['TOTAL EMPLOYEES','EXCELLENT','GOOD','NEEDS IMPROVEMENT'].forEach((col,i) => {
+    doc.text(col, 10+i*cw+cw/2, y+4, { align: 'center' });
+  });
+  y += 6;
+  setFill([235,242,251]); setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.rect(10, y, W-20, 10, 'FD');
+  for(let i=1;i<4;i++) doc.line(10+i*cw, y, 10+i*cw, y+10);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  [String(total), String(excellent), String(good), String(needsImprovement)].forEach((v,i) => {
+    const clr = i===0?NAVY:i===1?GREEN:i===2?BLUE:RED;
+    setFont(clr);
+    doc.text(v, 10+i*cw+cw/2, y+7, { align: 'center' });
+  });
+  y += 16;
+
+  // TABLE HEADER
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('EMPLOYEE PERFORMANCE DETAILS', W/2, y, { align: 'center' });
+  y += 4;
+
+  const colW = [8, 40, 30, 18, 18, 18, 18, 22, 22, 35];
+  const cols = ['#','Name','Dept','Total','Done','Pending','Delayed','Done %','Att %','Status'];
+  setFill(NAVY); doc.rect(10, y, W-20, 6, 'F');
+  doc.setFontSize(6.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
+  let cx = 10;
+  cols.forEach((col,i) => { doc.text(col, cx+1, y+4); cx += colW[i]; });
+  y += 6;
+
+  const sColors = {
+    'Excellent': GREEN,
+    'Good': BLUE,
+    'Average': AMBER,
+    'Needs Improvement': RED
+  };
+
+  rows.forEach((row, idx) => {
+    if (y > 185) { doc.addPage(); y = 20; }
+    const cells = row.querySelectorAll('td');
+    if (cells.length < 10) return;
+
+    const bg = idx%2===0 ? [248,249,252] : [255,255,255];
+    setFill(bg); setStroke([221,229,239]); doc.setLineWidth(0.15);
+    doc.rect(10, y, W-20, 6, 'FD');
+
+    const statusText = cells[9].textContent.trim();
+    let statusColor = MUTED;
+    Object.keys(sColors).forEach(key => {
+      if (statusText.includes(key)) statusColor = sColors[key];
+    });
+
+    cx = 10;
+    const vals = [
+      String(idx+1),
+      cells[1].textContent.trim().substring(0,20),
+      cells[2].textContent.trim().substring(0,14),
+      cells[3].textContent.trim(),
+      cells[4].textContent.trim(),
+      cells[5].textContent.trim(),
+      cells[6].textContent.trim(),
+      cells[7].textContent.trim().replace(/[^\d%]/g,''),
+      cells[8].textContent.trim().replace(/[^\d%]/g,''),
+      statusText.substring(0,18)
+    ];
+
+    vals.forEach((val,i) => {
+      if (i===9) {
+        doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont(statusColor);
+      } else if (i===4) {
+        doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont(GREEN);
+      } else if (i===6) {
+        doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont(RED);
+      } else {
+        doc.setFontSize(6); doc.setFont('helvetica','normal'); setFont(DARK);
+      }
+      doc.text(String(val), cx+1, y+4);
+      cx += colW[i];
+    });
+    y += 6;
+  });
+
+  // FOOTER
+  y += 6;
+  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.rect(10, y, W-20, 14, 'FD');
+  doc.setFontSize(7); doc.setFont('helvetica','normal'); setFont(MUTED);
+  doc.text('This report is auto-generated by Sayash Vastu Portal', W/2, y+5, { align: 'center' });
+  doc.text('Confidential — For Internal Use Only', W/2, y+10, { align: 'center' });
+
+  doc.save('SayashVastu_Performance_' + new Date().toISOString().split('T')[0] + '.pdf');
+  showToast('✅ Performance PDF exported!', 'ok');
 }
 
 // ═══════════════════════════════════════════
