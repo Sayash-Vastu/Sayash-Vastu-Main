@@ -4925,7 +4925,7 @@ async function deleteTask(taskId, reload=false) {
 //  PERFORMANCE
 // ═══════════════════════════════════════════
 async function loadPerformance() {
-  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
+const isCEO = currentUser.role === 'ceo';
   const subtitle = document.getElementById('perfSubtitle');
   if (subtitle) subtitle.textContent = isCEO ? 'Team performance overview for this month' : 'Your performance overview for this month';
 
