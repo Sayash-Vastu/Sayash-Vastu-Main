@@ -595,3 +595,27 @@ vercel-toolbar {
   width: 100% !important;
   max-width: 100% !important;
 }
+#view-performance {
+  width: 100%;
+}
+
+#myPerfCard, #allPerfSection {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box;
+}
+
+#myPerfContent {
+  width: 100% !important;
+  box-sizing: border-box;
+}
+
+#allPerfSection .tbl-wrap {
+  overflow-x: auto !important;
+  width: 100% !important;
+}
+
+#allPerfSection .tbl-wrap table {
+  min-width: 1000px !important;
+  width: 100% !important;
+}
