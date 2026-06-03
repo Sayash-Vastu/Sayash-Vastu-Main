@@ -5176,7 +5176,11 @@ async function exportPerformancePDF() {
     setFill(bg); setStroke([221,229,239]); doc.setLineWidth(0.15);
     doc.rect(10, y, W-20, 6, 'FD');
 
-    const statusText = cells[9].textContent.trim();
+const rawStatus = cells[9].textContent.trim();
+const statusText = rawStatus.includes('Excellent') ? 'Excellent' :
+  rawStatus.includes('Good') ? 'Good' :
+  rawStatus.includes('Average') ? 'Average' :
+  rawStatus.includes('Needs') ? 'Needs Improvement' : 'Unknown';
     let statusColor = MUTED;
     Object.keys(sColors).forEach(key => {
       if (statusText.includes(key)) statusColor = sColors[key];
@@ -5193,7 +5197,7 @@ async function exportPerformancePDF() {
       cells[6].textContent.trim(),
       cells[7].textContent.trim().replace(/[^\d%]/g,''),
       cells[8].textContent.trim().replace(/[^\d%]/g,''),
-      statusText.substring(0,18)
+statusText.replace(/[^\x00-\x7F]/g,'').trim().substring(0,18)
     ];
 
     vals.forEach((val,i) => {
