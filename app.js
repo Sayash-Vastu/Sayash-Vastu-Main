@@ -6452,7 +6452,7 @@ async function submitExpense() {
     msgEl.textContent='⏳ Uploading receipt...'; msgEl.style.color='var(--muted)';
 const path = `expenses/${currentUser.email}/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
 const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
-const { error: uploadErr } = await sb.storage.from('task-files').upload(path, file, {upsert: true});
+const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
     if (uploadErr) {
       console.error('Upload error:', uploadErr.message);
       msgEl.textContent='❌ Upload failed: '+uploadErr.message;
