@@ -6106,13 +6106,12 @@ const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
   document.getElementById('comp-done').textContent = done;
   document.getElementById('comp-pending').textContent = pending;
   document.getElementById('comp-total').textContent = allTasks.length;
-
-  const tbody = document.getElementById('complianceBody');
+  
+ const tbody = document.getElementById('complianceBody');
   if (!allTasks.length) {
     tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No tasks found for this month</td></tr>';
     return;
   }
-
   const catColors = {
     'Tax':'b-red','GST':'b-blue','PF':'b-navy','ESI':'b-purple',
     'Accounts':'b-green','Bank':'b-amber','Invoice':'b-gold','Bills':'b-gray',
@@ -6122,13 +6121,22 @@ const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
 
   tbody.innerHTML = allTasks.map((t, i) => {
     const isDone = t.status === 'Done';
-    const rowBg = isDone ? 'background:#f0faf5' : '';
+const today = new Date(); today.setHours(0,0,0,0);
+const dueDate = t.last_date ? new Date(t.last_date) : null;
+const daysLeft = dueDate ? Math.ceil((dueDate - today) / 86400000) : null;
+const isDueSoon = !isDone && daysLeft !== null && daysLeft <= 5 && daysLeft >= 0;
+const isOverdue = !isDone && daysLeft !== null && daysLeft < 0;
+const rowBg = isDone ? 'background:#f0faf5' : isOverdue ? 'background:#fdf0ee' : isDueSoon ? 'background:#fef3e2' : '';
 const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.role === 'ceo';
     return `<tr style="${rowBg}">
       <td style="font-size:11px;color:var(--muted)">${i+1}</td>
       <td style="font-weight:600;font-size:12px;max-width:200px">${esc(t.particulars)}</td>
       <td><span class="badge b-blue" style="font-size:10px">${freqLabels[t.frequency]||t.frequency||'—'}</span></td>
-      <td style="font-size:12px;font-weight:700;color:var(--navy)">${esc(t.last_date||'—')}</td>
+<td style="font-size:12px;font-weight:700;color:${isOverdue?'var(--red)':isDueSoon?'var(--amber)':'var(--navy)'}">
+  ${esc(t.last_date||'—')}
+  ${isOverdue?'<span class="badge b-red" style="font-size:9px;margin-left:4px">Overdue</span>':''}
+  ${isDueSoon?`<span class="badge b-amber" style="font-size:9px;margin-left:4px">${daysLeft}d left</span>`:''}
+</td>
       <td><span style="font-size:11px;font-weight:600;color:var(--navy)">${esc(t.assigned_to_name||'—')}</span></td>
       <td><span class="badge ${catColors[t.category]||'b-gray'}" style="font-size:10px">${esc(t.category||'—')}</span></td>
       <td>
@@ -6150,6 +6158,29 @@ const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.
       </td>
     </tr>`;
   }).join('');
+
+  // Due soon notifications
+  if (currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') {
+    const dueSoonTasks = allTasks.filter(t => {
+      if (t.status === 'Done') return false;
+      const due = t.last_date ? new Date(t.last_date) : null;
+      const today2 = new Date(); today2.setHours(0,0,0,0);
+      const diff = due ? Math.ceil((due - today2) / 86400000) : null;
+      return diff !== null && diff <= 5 && diff >= 0;
+    });
+    if (dueSoonTasks.length > 0) {
+      const notifKey = 'sv_compliance_due_' + new Date().toDateString();
+      if (!localStorage.getItem(notifKey)) {
+        localStorage.setItem(notifKey, 'true');
+        await createNotification(
+          currentUser.email,
+          `⚠️ ${dueSoonTasks.length} Compliance task(s) due soon!`,
+          dueSoonTasks.map(t => `${t.particulars} — ${t.last_date}`).join(', '),
+          'General', 'compliance'
+        );
+      }
+    }
+  }
 }
 
 function openComplianceDone(taskId, taskName) {
