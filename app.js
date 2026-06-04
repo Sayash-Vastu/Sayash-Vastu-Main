@@ -6226,12 +6226,11 @@ async function saveComplianceDone() {
   }
 }
 
-async function resetCompliance(taskId) {
-  if (!confirm('Reset this task to Pending?')) return;
-  await sb.from('compliance_tasks').update({
-    status: 'Pending', done_by_name: null, done_at: null, remarks: null
-  }).eq('id', taskId);
-  showToast('↩️ Task reset to Pending!', 'ok');
+async function deleteComplianceTask(id) {
+  if (!confirm('Delete this compliance task?')) return;
+  const { error } = await sb.from('compliance_tasks').delete().eq('id', id);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Task deleted!', 'ok');
   loadCompliance();
 }
 function openComplianceView(id, particulars, remarks, doneBy, doneAt) {
