@@ -6234,7 +6234,7 @@ async function openEmpQuickView(empEmail) {
       </div>
       <div style="padding:10px;background:var(--bg);border-radius:8px">
         <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">🎂 Birthday</div>
-        <div style="font-size:12px;color:var(--navy);font-weight:600">${emp.date_of_birth?fmtDate(emp.date_of_birth):'—'}</div>
+<div style="font-size:12px;color:var(--navy);font-weight:600">${emp.date_of_birth?new Date(emp.date_of_birth).toLocaleDateString('en-IN',{day:'2-digit',month:'long'}):'—'}</div>
       </div>
     </div>
     <div style="padding:10px;background:${todayAtt?'var(--green-bg)':'var(--red-bg)'};border-radius:8px;margin-bottom:14px">
