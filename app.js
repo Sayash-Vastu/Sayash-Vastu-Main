@@ -1853,8 +1853,10 @@ const { data: forwardedTasks } = await sb.from('tasks').select('*').eq('pending_
   // Merge and deduplicate
   const allMyTasksMap = {};
   (ownTasks||[]).forEach(t => allMyTasksMap[t.id] = {...t, _isForwarded: false});
-  (forwardedTasks||[]).forEach(t => {
-    if (!allMyTasksMap[t.id]) allMyTasksMap[t.id] = {...t, _isForwarded: true};
+ (forwardedTasks||[]).forEach(t => {
+    if (!allMyTasksMap[t.id] && t.assigned_to_email !== currentUser.email) {
+      allMyTasksMap[t.id] = {...t, _isForwarded: true};
+    }
   });
 
   myTasks = Object.values(allMyTasksMap).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
