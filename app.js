@@ -6156,11 +6156,14 @@ const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.
     : isDone && currentUser.role === 'ceo'
     ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
     : '—'}
+      ${(currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? `<button class="btn btn-sm" onclick="deleteComplianceTask('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>` : ''}
 </div>
       </td>
     </tr>`;
   }).join('');
 
+  const compAddPanel = document.getElementById('comp-add-panel');
+  if (compAddPanel) compAddPanel.style.display = (currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? 'block' : 'none';
   // Due soon notifications
   if (currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') {
     const dueSoonTasks = allTasks.filter(t => {
