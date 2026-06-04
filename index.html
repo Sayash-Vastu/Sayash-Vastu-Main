@@ -1308,11 +1308,54 @@
           </div>
         </div>
       </div>
-      <!-- COMPLIANCE VIEW -->
+            <!-- COMPLIANCE VIEW -->
       <div class="view" id="view-compliance">
         <div class="page-header">
           <h2>Compliance Checklist</h2>
           <p>Monthly finance and compliance tasks</p>
+        </div>
+        <div id="comp-add-panel" style="display:none" class="panel" style="margin-bottom:16px">
+          <div class="panel-head"><div class="panel-title">➕ Add Compliance Task</div></div>
+          <div class="panel-body">
+            <div class="form-grid cols-2">
+              <div class="field">
+                <label>Particulars</label>
+                <input type="text" id="comp-add-particulars" placeholder="Task name..."/>
+              </div>
+              <div class="field">
+                <label>Category</label>
+                <select id="comp-add-category">
+                  <option>Tax</option><option>GST</option><option>PF</option>
+                  <option>ESI</option><option>Accounts</option><option>Bank</option>
+                  <option>Invoice</option><option>Bills</option>
+                  <option>Insurance</option><option>Other</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Frequency</label>
+                <select id="comp-add-frequency">
+                  <option value="M">Monthly</option>
+                  <option value="Q">Quarterly</option>
+                  <option value="Y">Yearly</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Due Date</label>
+                <input type="date" id="comp-add-date"/>
+              </div>
+              <div class="field">
+                <label>Assign To</label>
+                <select id="comp-add-person">
+                  <option value="Alisha">Alisha</option>
+                  <option value="Yash">Yash</option>
+                </select>
+              </div>
+            </div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:12px">
+              <button class="btn btn-gold" onclick="addComplianceTask()">➕ Add Task</button>
+              <span id="comp-add-msg" style="font-size:12px;font-weight:600"></span>
+            </div>
+          </div>
         </div>
         <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
           <label style="font-size:13px;font-weight:600;color:var(--navy)">Month:</label>
