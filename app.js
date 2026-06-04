@@ -5072,7 +5072,6 @@ const isCEO = currentUser.role === 'ceo';
     `;
   }
 }
-}
 
 async function openEmpPerfReport(empEmail, empName) {
   const now = new Date();
