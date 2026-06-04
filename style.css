@@ -120,8 +120,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 /* ═══════════════════════════════════════════════
    APP LAYOUT
 ═══════════════════════════════════════════════ */
-#appPage{display:none;min-width:1200px}
-.app-layout{display:flex;min-height:100vh;min-width:1200px}
+#appPage{display:none;}
+.app-layout{display:flex;min-height:100vh;}
 
 /* SIDEBAR */
 .sidebar{
