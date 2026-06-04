@@ -591,3 +591,20 @@ vercel-toolbar {
     font-weight: 700;
   }
 }
+.sidebar-section {
+  font-size: 9px;
+  padding: 8px 12px 2px;
+  color: rgba(255,255,255,0.4);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  display: block;
+}
+
+@media (max-width: 600px) {
+  .sidebar-section {
+    display: block !important;
+    font-size: 9px;
+    padding: 8px 12px 2px;
+  }
+}
