@@ -175,6 +175,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   color:var(--gold);border-left-color:var(--gold);
 }
 .nav-btn .ni{font-size:15px;width:20px;text-align:center;flex-shrink:0}
+.nav-btn span:not(.ni):not(.nav-badge){
+  display:inline !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  width:auto !important;
+  overflow:visible !important;
+}
 .nav-badge{
   margin-left:auto;background:var(--gold);
   color:var(--navy);font-size:9px;font-weight:700;
