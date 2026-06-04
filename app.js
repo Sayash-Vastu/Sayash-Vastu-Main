@@ -6125,7 +6125,9 @@ const today = new Date(); today.setHours(0,0,0,0);
 const dueDate = t.last_date ? new Date(t.last_date) : null;
 const daysLeft = dueDate ? Math.ceil((dueDate - today) / 86400000) : null;
 const isDueSoon = !isDone && daysLeft !== null && daysLeft <= 5 && daysLeft >= 0;
-const isOverdue = !isDone && daysLeft !== null && daysLeft < 0 && t.frequency !== 'Y';
+const freq = (t.frequency||'').toLowerCase();
+const isYearly = freq === 'y' || freq === 'yearly';
+const isOverdue = !isDone && daysLeft !== null && daysLeft < 0 && !isYearly;
     const rowBg = isDone ? 'background:#f0faf5' : isOverdue ? 'background:#fdf0ee' : isDueSoon ? 'background:#fef3e2' : '';
 const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.role === 'ceo';
     return `<tr style="${rowBg}">
