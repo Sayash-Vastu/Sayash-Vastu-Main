@@ -608,3 +608,12 @@ vercel-toolbar {
     padding: 8px 12px 2px;
   }
 }
+.sidebar-section {
+  font-size: 11px;
+  padding: 8px 12px 2px;
+  color: var(--gold) !important;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-weight: 700;
+  display: block !important;
+}
