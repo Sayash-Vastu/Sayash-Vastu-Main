@@ -6449,7 +6449,6 @@ async function submitExpense() {
   if (file) {
     if (file.size > 5*1024*1024) { msgEl.textContent='❌ Max 5MB allowed'; msgEl.style.color='var(--red)'; return; }
     msgEl.textContent='⏳ Uploading receipt...'; msgEl.style.color='var(--muted)';
-const path = `expenses/${currentUser.email}/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
 const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
 const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
     if (uploadErr) {
