@@ -6461,7 +6461,7 @@ const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, fi
       receiptUrl = urlData.publicUrl;
       receiptName = file.name;
     }
-
+} 
   const { error } = await sb.from('expense_claims').insert({
     employee_email: currentUser.email,
     employee_name: currentUser.name,
