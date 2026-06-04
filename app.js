@@ -6450,18 +6450,17 @@ async function submitExpense() {
     if (file.size > 5*1024*1024) { msgEl.textContent='❌ Max 5MB allowed'; msgEl.style.color='var(--red)'; return; }
     msgEl.textContent='⏳ Uploading receipt...'; msgEl.style.color='var(--muted)';
 const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
-const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
+const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
     if (uploadErr) {
       console.error('Upload error:', uploadErr.message);
       msgEl.textContent='❌ Upload failed: '+uploadErr.message;
       msgEl.style.color='var(--red)';
       return;
     } else {
-const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+      const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
       receiptUrl = urlData.publicUrl;
       receiptName = file.name;
     }
-  }
 
   const { error } = await sb.from('expense_claims').insert({
     employee_email: currentUser.email,
