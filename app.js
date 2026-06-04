@@ -1929,6 +1929,10 @@ async function openTaskModal(taskId) {
       <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
         ${statusBadge(t.work_status)}
         <span style="font-size:11px;color:var(--muted)">End: ${fmtDate(t.end_date)}</span>
+        <div class="field" style="margin-bottom:14px">
+  <label>Extend End Date</label>
+  <input type="date" id="modal-end-date" value="${t.end_date||''}" min="${new Date().toISOString().split('T')[0]}"/>
+</div>
         ${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 Pending with: ${esc(t.pending_with_name)}</span>`:''}
       </div>
     </div>
@@ -2053,7 +2057,9 @@ async function saveTaskUpdate() {
     return;
   }
 
-  const updates = { work_status: status, comments, updated_at: new Date().toISOString() };
+  const newEndDate = document.getElementById('modal-end-date')?.value;
+const updates = { work_status: status, comments, updated_at: new Date().toISOString() };
+if (newEndDate) updates.end_date = newEndDate;
   if (status === 'Sent for Review' && approvalVal) {
     updates.ceo_approval = approvalVal;
     updates.approval_type = approvalVal;
