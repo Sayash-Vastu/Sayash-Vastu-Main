@@ -5149,16 +5149,23 @@ async function openEmpPerfReport(empEmail, empName) {
         <div style="font-size:11px;color:var(--muted);margin-top:6px">⏱️ Total: ${totalHrs.toFixed(1)}h</div>
       </div>
     </div>
-    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Active Tasks</div>
-    ${(tasks||[]).filter(t=>t.work_status!=='Completed'&&t.work_status!=='Report Ready').slice(0,5).map(t => {
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">All Tasks (${total})</div>
+    ${(tasks||[]).length ? (tasks||[]).map(t => {
       const isLate = t.end_date && today > new Date(t.end_date);
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f6fa">
-        <span style="background:#e8ecf5;color:var(--navy);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">${esc(t.project)}</span>
-        <span style="font-size:12px;flex:1">${esc(t.task_detail.substring(0,40))}...</span>
-        ${isLate?'<span class="badge b-red" style="font-size:9px">Late</span>':statusBadge(t.work_status)}
+      const isDone = t.work_status==='Completed'||t.work_status==='Report Ready';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f5f6fa;${isDone?'opacity:0.6':''}${isLate?'background:#fdf0ee;padding:10px 8px;border-radius:6px;margin-bottom:4px':''}">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
+            <span style="background:#e8ecf5;color:var(--navy);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">${esc(t.project)}</span>
+            ${statusBadge(t.work_status)}
+            ${isLate?'<span class="badge b-red" style="font-size:9px">⚠️ Late</span>':''}
+          </div>
+          <div style="font-size:12px;color:var(--navy);font-weight:600">${esc(t.task_detail.substring(0,60))}${t.task_detail.length>60?'...':''}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">📅 End: ${fmtDate(t.end_date)}</div>
+        </div>
       </div>`;
-    }).join('')}
-  `;
+    }).join('') : '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">No tasks found</div>'}
+    `;
   document.getElementById('complianceModal').classList.add('open');
 }
 
