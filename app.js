@@ -1307,8 +1307,8 @@ async function loadEmpDashboard() {
         const avHtml = (photoUrl && photoUrl !== 'null' && photoUrl !== '')
           ? `<img src="${photoUrl}?t=${Date.now()}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid ${isMe?'var(--gold)':'var(--border)'}" onerror="this.parentNode.innerHTML='<div class=av style=background:${avBg};width:28px;height:28px;font-size:10px;color:${avColor}>${initials}</div>'">`
           : `<div class="av" style="background:${avBg};width:28px;height:28px;font-size:10px;color:${avColor}">${initials}</div>`;
-        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa;' + rowStyle + '">'
-          + avHtml
+return '<div onclick="openEmpQuickView(\'' + a.employee_email + '\')" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa;cursor:pointer;' + rowStyle + '" onmouseover="this.style.background=\'#f8f9fc\'" onmouseout="this.style.background=\'' + (rowStyle?'#fdf9ef':'') + '\'">'
+        + avHtml
           + '<div style="flex:1">'
           + '<div style="font-size:12px;font-weight:600;color:var(--navy)">' + nameLabel + '</div>'
           + '<div style="font-size:10px;color:' + statusColor + ';margin-top:2px">' + statusText + '</div>'
@@ -6201,6 +6201,59 @@ function openComplianceView(id, particulars, remarks, doneBy, doneAt) {
     </div>
     ${doneAt ? `<div style="font-size:11px;color:var(--muted)">🕐 ${new Date(doneAt).toLocaleString('en-IN')}</div>` : ''}
     ${remarks ? `<div style="margin-top:10px;padding:10px;background:var(--bg);border-radius:8px;font-size:12px">💬 Remarks: ${esc(remarks)}</div>` : ''}
+  `;
+  document.getElementById('complianceModal').classList.add('open');
+}
+async function openEmpQuickView(empEmail) {
+  const { data: emp } = await sb.from('employees').select('*').eq('email', empEmail).single();
+  const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email', empEmail).eq('date', new Date().toISOString().split('T')[0]).eq('is_archived', false).maybeSingle();
+  const { data: tasks } = await sb.from('tasks').select('*').eq('assigned_to_email', empEmail).eq('is_archived', false).neq('work_status', 'Completed');
+  if (!emp) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  document.getElementById('compModalContent').innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding:14px;background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:10px">
+      <div class="av" style="background:var(--gold);width:48px;height:48px;font-size:16px;color:var(--navy)">${esc(emp.name).substring(0,2).toUpperCase()}</div>
+      <div>
+        <div style="font-size:15px;font-weight:700;color:#fff">${esc(emp.name)}</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.6)">${esc(emp.designation||'—')} · ${esc(emp.department||'—')}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:2px">${esc(emp.employee_code||'—')}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div style="padding:10px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📧 Email</div>
+        <div style="font-size:12px;color:var(--navy);font-weight:600">${esc(emp.email)}</div>
+      </div>
+      <div style="padding:10px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📱 Phone</div>
+        <div style="font-size:12px;color:var(--navy);font-weight:600">${esc(emp.phone||'—')}</div>
+      </div>
+      <div style="padding:10px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📅 Joining Date</div>
+        <div style="font-size:12px;color:var(--navy);font-weight:600">${emp.joining_date?fmtDate(emp.joining_date):'—'}</div>
+      </div>
+      <div style="padding:10px;background:var(--bg);border-radius:8px">
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">🎂 Birthday</div>
+        <div style="font-size:12px;color:var(--navy);font-weight:600">${emp.date_of_birth?fmtDate(emp.date_of_birth):'—'}</div>
+      </div>
+    </div>
+    <div style="padding:10px;background:${todayAtt?'var(--green-bg)':'var(--red-bg)'};border-radius:8px;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;color:${todayAtt?'var(--green)':'var(--red)'};margin-bottom:4px">Today's Attendance</div>
+      <div style="font-size:12px;color:var(--text)">
+        ${todayAtt ? `✅ ${todayAtt.status} | In: ${todayAtt.check_in?new Date(todayAtt.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'} | Out: ${todayAtt.check_out?new Date(todayAtt.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'} | ${todayAtt.working_hours?parseFloat(todayAtt.working_hours).toFixed(1)+'h':'—'}` : '❌ Not checked in today'}
+      </div>
+    </div>
+    <div style="padding:10px;background:var(--bg);border-radius:8px">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">Active Tasks (${(tasks||[]).length})</div>
+      ${(tasks||[]).length ? (tasks||[]).slice(0,3).map(t => {
+        const isLate = t.end_date && today > new Date(t.end_date);
+        return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f6fa">
+          <span style="background:#e8ecf5;color:var(--navy);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">${esc(t.project)}</span>
+          <span style="font-size:11px;flex:1">${esc(t.task_detail.substring(0,35))}...</span>
+          ${isLate?'<span class="badge b-red" style="font-size:9px">Late</span>':statusBadge(t.work_status)}
+        </div>`;
+      }).join('') : '<div style="font-size:12px;color:var(--muted)">No active tasks</div>'}
+    </div>
   `;
   document.getElementById('complianceModal').classList.add('open');
 }
