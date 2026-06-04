@@ -4984,7 +4984,7 @@ const isCEO = currentUser.role === 'ceo';
           <div style="display:flex;align-items:center;gap:8px">
             <div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px">${esc(emp.name).substring(0,2).toUpperCase()}</div>
             <div>
-              <div style="font-weight:600;font-size:13px">${esc(emp.name)}</div>
+<div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--blue);text-decoration:underline" onclick="openEmpPerfReport('${emp.email}','${esc(emp.name)}')">${esc(emp.name)}</div>
               <div style="font-size:10px;color:var(--muted)">${esc(emp.designation||'')}</div>
             </div>
           </div>
@@ -5072,6 +5072,96 @@ const isCEO = currentUser.role === 'ceo';
     `;
   }
 }
+}
+
+async function openEmpPerfReport(empEmail, empName) {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+  const monthEnd = new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split('T')[0];
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  const { data: tasks } = await sb.from('tasks').select('*').eq('assigned_to_email', empEmail).eq('is_archived', false).order('created_at', {ascending: false});
+  const { data: attData } = await sb.from('attendance').select('*').eq('employee_email', empEmail).eq('is_archived', false).gte('date', monthStart).lte('date', monthEnd);
+
+  const total = (tasks||[]).length;
+  const completed = (tasks||[]).filter(t => t.work_status==='Completed'||t.work_status==='Report Ready').length;
+  const inProgress = (tasks||[]).filter(t => t.work_status==='In Progress').length;
+  const pending = (tasks||[]).filter(t => t.work_status==='Not Started').length;
+  const delayed = (tasks||[]).filter(t => {
+    const ed = t.end_date ? new Date(t.end_date) : null;
+    return ed && today > ed && t.work_status !== 'Completed';
+  }).length;
+  const completionPct = total > 0 ? Math.round((completed/total)*100) : 0;
+  const presentDays = (attData||[]).filter(a => a.status==='Present').length;
+  const totalDays = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const attPct = totalDays > 0 ? Math.round((presentDays/totalDays)*100) : 0;
+  const totalHrs = (attData||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
+  const score = (completionPct * 0.6) + (attPct * 0.4);
+  let status, statusColor;
+  if (score >= 90) { status = '🟢 Excellent'; statusColor = 'var(--green)'; }
+  else if (score >= 75) { status = '🔵 Good'; statusColor = 'var(--blue)'; }
+  else if (score >= 60) { status = '🟡 Average'; statusColor = 'var(--amber)'; }
+  else { status = '🔴 Needs Improvement'; statusColor = 'var(--red)'; }
+
+  document.getElementById('compModalContent').innerHTML = `
+    <div style="background:linear-gradient(135deg,var(--navy),var(--navy2));border-radius:12px;padding:18px;margin-bottom:16px;color:#fff">
+      <div style="font-size:18px;font-weight:800">${esc(empName)}</div>
+      <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px">Performance Report — ${now.toLocaleString('en',{month:'long',year:'numeric'})}</div>
+      <div style="font-size:22px;font-weight:800;color:var(--gold);margin-top:8px">${status}</div>
+      <div style="font-size:12px;color:rgba(255,255,255,0.5)">Score: ${Math.round(score)}%</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div style="background:var(--bg);border-radius:10px;padding:14px;text-align:center;border-top:3px solid var(--navy)">
+        <div style="font-size:24px;font-weight:800;color:var(--navy)">${total}</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:4px">Total Tasks</div>
+      </div>
+      <div style="background:var(--green-bg);border-radius:10px;padding:14px;text-align:center;border-top:3px solid var(--green)">
+        <div style="font-size:24px;font-weight:800;color:var(--green)">${completed}</div>
+        <div style="font-size:10px;color:var(--green);font-weight:700;text-transform:uppercase;margin-top:4px">Completed</div>
+      </div>
+      <div style="background:var(--red-bg);border-radius:10px;padding:14px;text-align:center;border-top:3px solid var(--red)">
+        <div style="font-size:24px;font-weight:800;color:var(--red)">${delayed}</div>
+        <div style="font-size:10px;color:var(--red);font-weight:700;text-transform:uppercase;margin-top:4px">Delayed</div>
+      </div>
+      <div style="background:var(--blue-bg);border-radius:10px;padding:14px;text-align:center;border-top:3px solid var(--blue)">
+        <div style="font-size:24px;font-weight:800;color:var(--blue)">${inProgress}</div>
+        <div style="font-size:10px;color:var(--blue);font-weight:700;text-transform:uppercase;margin-top:4px">In Progress</div>
+      </div>
+      <div style="background:var(--amber-bg);border-radius:10px;padding:14px;text-align:center;border-top:3px solid var(--amber)">
+        <div style="font-size:24px;font-weight:800;color:var(--amber)">${pending}</div>
+        <div style="font-size:10px;color:var(--amber);font-weight:700;text-transform:uppercase;margin-top:4px">Not Started</div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:14px;text-align:center;border-top:3px solid var(--navy)">
+        <div style="font-size:24px;font-weight:800;color:var(--navy)">${presentDays}d</div>
+        <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:4px">Present Days</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div style="background:var(--bg);border-radius:10px;padding:14px">
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Task Completion</div>
+        <div style="font-size:26px;font-weight:800;color:${completionPct>=75?'var(--green)':completionPct>=50?'var(--amber)':'var(--red)'}">${completionPct}%</div>
+        <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" style="width:${completionPct}%;background:${completionPct>=75?'var(--green)':completionPct>=50?'var(--amber)':'var(--red)'}"></div></div>
+      </div>
+      <div style="background:var(--bg);border-radius:10px;padding:14px">
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:8px">Attendance</div>
+        <div style="font-size:26px;font-weight:800;color:${attPct>=75?'var(--green)':attPct>=50?'var(--amber)':'var(--red)'}">${attPct}%</div>
+        <div class="progress-bar" style="margin-top:8px"><div class="progress-fill" style="width:${attPct}%;background:${attPct>=75?'var(--green)':attPct>=50?'var(--amber)':'var(--red)'}"></div></div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px">⏱️ Total: ${totalHrs.toFixed(1)}h</div>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Active Tasks</div>
+    ${(tasks||[]).filter(t=>t.work_status!=='Completed'&&t.work_status!=='Report Ready').slice(0,5).map(t => {
+      const isLate = t.end_date && today > new Date(t.end_date);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f6fa">
+        <span style="background:#e8ecf5;color:var(--navy);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">${esc(t.project)}</span>
+        <span style="font-size:12px;flex:1">${esc(t.task_detail.substring(0,40))}...</span>
+        ${isLate?'<span class="badge b-red" style="font-size:9px">Late</span>':statusBadge(t.work_status)}
+      </div>`;
+    }).join('')}
+  `;
+  document.getElementById('complianceModal').classList.add('open');
+}
+
 async function exportPerformancePDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
