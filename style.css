@@ -617,3 +617,11 @@ vercel-toolbar {
   font-weight: 700;
   display: block !important;
 }
+@media (max-width: 600px) {
+  .nav-btn span {
+    display: inline !important;
+  }
+  .sidebar-section {
+    display: block !important;
+  }
+}
