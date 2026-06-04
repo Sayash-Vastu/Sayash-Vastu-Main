@@ -11,8 +11,7 @@ const CEO_EMAIL       = 'yash@sayashvastu.com';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVaC0hQXJLb-HN02Tb6nhTNTReFfs6cF4YwJQN8uNBVoao-mh15W_FLMg8anDOp8I_/exec';
 emailjs.init(EJS_PUBLIC_KEY);
 
-const STORAGE_BUCKET = 'task-files';
-
+const STORAGE_BUCKET = 'Task-Files';
 // ═══════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════
