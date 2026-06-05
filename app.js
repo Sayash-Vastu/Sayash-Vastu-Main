@@ -2196,9 +2196,10 @@ async function assignTask() {
   if (btn.disabled) return;
   btn.disabled = true;
   btn.textContent = 'Assigning...';
+
   window._selectedAssignEmps = window._selectedAssignEmps || [];
   const empsToAssign = window._selectedAssignEmps;
- // ── Mandatory attendance check (sirf employees ke liye) ──
+
   if (currentUser.role === 'employee') {
     const todayStr = new Date().toISOString().split('T')[0];
     const { data: todayAtt } = await sb.from('attendance')
@@ -2206,22 +2207,41 @@ async function assignTask() {
       .eq('date', todayStr).eq('is_archived', false).maybeSingle();
     if (!todayAtt) {
       showToast('⚠️ Please mark your attendance before assigning tasks!', 'warn');
+      btn.disabled = false; btn.textContent = '➕ Assign Task';
       showView('home');
       return;
     }
   }
+
   const project = document.getElementById('at-project').value.trim();
   const detail = document.getElementById('at-detail').value.trim();
   const start = document.getElementById('at-start').value;
   const end = document.getElementById('at-end').value;
   const msg = document.getElementById('assignMsg');
-  if (!empsToAssign.length) { msg.textContent='⚠️ Kam se kam ek employee select karo'; msg.style.color='var(--red)'; return; }
-  if (!project||!detail||!start||!end) { msg.textContent='⚠️ Please fill all fields'; msg.style.color='var(--red)'; return; }
+
+  if (!empsToAssign.length) { 
+    msg.textContent='⚠️ Kam se kam ek employee select karo'; 
+    msg.style.color='var(--red)'; 
+    btn.disabled = false; btn.textContent = '➕ Assign Task';
+    return; 
+  }
+  if (!project||!detail||!start||!end) { 
+    msg.textContent='⚠️ Please fill all fields'; 
+    msg.style.color='var(--red)'; 
+    btn.disabled = false; btn.textContent = '➕ Assign Task';
+    return; 
+  }
+
   const atFile = document.getElementById('at-file');
   let atFileUrl = null; let atFileName = null;
   if (atFile && atFile.files[0]) {
     const f = atFile.files[0];
-    if (f.size > 10 * 1024 * 1024) { msg.textContent='❌ File too large (max 10MB)'; msg.style.color='var(--red)'; btn.disabled=false; btn.textContent='➕ Assign Task'; return; }
+    if (f.size > 10 * 1024 * 1024) { 
+      msg.textContent='❌ File too large (max 10MB)'; 
+      msg.style.color='var(--red)'; 
+      btn.disabled = false; btn.textContent = '➕ Assign Task';
+      return; 
+    }
     msg.textContent='⏳ Uploading file...'; msg.style.color='var(--muted)';
     const path = `assign/${Date.now()}_${f.name.replace(/[^a-z0-9.]/gi,'_')}`;
     const { error: uploadErr } = await sb.storage.from('task-files').upload(path, f, {upsert: false});
@@ -2230,15 +2250,19 @@ async function assignTask() {
       atFileUrl = urlData.publicUrl; atFileName = f.name;
     }
   }
-  let successCount = 0;
+
   const assignedEmails = new Set();
-    for (const emp of empsToAssign) {
-            if (assignedEmails.has(emp.email)) continue;
-      assignedEmails.add(emp.email); 
+  let successCount = 0;
+
+  for (const emp of empsToAssign) {
+    if (assignedEmails.has(emp.email)) continue;
+    assignedEmails.add(emp.email);
     const { error } = await sb.from('tasks').insert({
       project, task_detail: detail,
-      assigned_to_email: emp.email.toLowerCase(), assigned_to_name: emp.name,
-      assigned_by_email: currentUser.email, assigned_by_name: currentUser.name,
+      assigned_to_email: emp.email.toLowerCase(), 
+      assigned_to_name: emp.name,
+      assigned_by_email: currentUser.email, 
+      assigned_by_name: currentUser.name,
       start_date: start, end_date: end,
       work_status: 'Not Started', ceo_approval: 'Pending',
       file_url: atFileUrl, file_name: atFileName
@@ -2251,11 +2275,18 @@ async function assignTask() {
         'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
     }
   }
-  btn.disabled=false; btn.textContent='➕ Assign Task';
+
+  btn.disabled = false; btn.textContent = '➕ Assign Task';
+
   if (successCount > 0) {
-    msg.textContent=`✅ Task assigned to ${empsToAssign.map(e=>e.name).join(', ')}!`; msg.style.color='var(--green)';
+    msg.textContent=`✅ Task assigned to ${empsToAssign.map(e=>e.name).join(', ')}!`; 
+    msg.style.color='var(--green)';
     showToast(`✅ Task assigned to ${successCount} employee(s)!`, 'ok');
-  } else { msg.textContent='❌ Assignment failed'; msg.style.color='var(--red)'; }
+  } else { 
+    msg.textContent='❌ Assignment failed'; 
+    msg.style.color='var(--red)'; 
+  }
+
   window._selectedAssignEmps = [];
   document.querySelectorAll('#at-emp-list input[type=checkbox]').forEach(cb => {
     cb.checked = false;
