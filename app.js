@@ -1531,7 +1531,17 @@ async function loadCeoDashboard() {
           <td style="padding:9px 14px">${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
           <td style="padding:9px 14px">${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
           <td style="padding:9px 14px;font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+'h':'—'}</td>
-          <td style="padding:9px 14px"><span class="badge ${a.work_type==='WFH'?'b-blue':'b-navy'}" style="font-size:10px">${a.work_type||'Office'}</span></td>
+<td style="padding:9px 14px">
+  <div style="display:flex;align-items:center;gap:6px">
+    <span class="badge ${a.work_type==='WFH'?'b-blue':a.work_type==='On Site'?'b-green':'b-navy'}" style="font-size:10px">${a.work_type||'Office'}</span>
+    <select onchange="updateWorkType('${a.id}',this.value)" style="font-size:10px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;cursor:pointer;font-family:'DM Sans',sans-serif;color:var(--navy)">
+      <option value="">Change</option>
+      <option value="Office" ${a.work_type==='Office'?'selected':''}>🏢 Office</option>
+      <option value="WFH" ${a.work_type==='WFH'?'selected':''}>🏠 WFH</option>
+      <option value="On Site" ${a.work_type==='On Site'?'selected':''}>📍 On Site</option>
+    </select>
+  </div>
+</td>
           <td style="padding:9px 14px;font-size:11px;color:var(--muted)">
             ${a.latitude && a.longitude ? 
   `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:11px">📍 View Map</a><br><span style="font-size:10px;color:var(--muted)">${a.location_address ? esc(a.location_address.substring(0,30)) : ''}</span>` 
@@ -6790,6 +6800,13 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     }
   });
 });
+async function updateWorkType(attId, workType) {
+  if (!workType) return;
+  const { error } = await sb.from('attendance').update({ work_type: workType }).eq('id', attId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Work type updated!', 'ok');
+  loadCeoDashboard();
+}
 // ═══════════════════════════════════════════
 //  COMPLIANCE - MISSING FUNCTIONS
 // ═══════════════════════════════════════════
