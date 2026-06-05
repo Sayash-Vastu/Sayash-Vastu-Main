@@ -6603,60 +6603,92 @@ let query = sb.from('expense_claims').select('*').eq('is_archived', false).order
   el.innerHTML = html;
 }
 function previewExpFile(input) {
-  const file = input.files[0];
-  if (!file) return;
-  document.getElementById('exp-preview').innerHTML = `
-    <div style="font-size:12px;font-weight:600;color:var(--navy)">${file.name}</div>
-    <div style="font-size:11px;color:var(--muted)">${(file.size/1024).toFixed(0)} KB</div>`;
+  const files = input.files;
+  if (!files.length) return;
+  document.getElementById('exp-preview').innerHTML = Array.from(files).map(file => `
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f5f6fa">
+      <span style="font-size:16px">📄</span>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">${file.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${(file.size/1024).toFixed(0)} KB</div>
+      </div>
+    </div>
+  `).join('');
 }
 
 async function submitExpense() {
+  const btn = document.querySelector('[onclick="submitExpense()"]');
+  if (btn && btn.disabled) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+
   const type = document.getElementById('exp-type').value;
   const amount = document.getElementById('exp-amount').value;
   const date = document.getElementById('exp-date').value;
   const desc = document.getElementById('exp-desc').value.trim();
-  const file = document.getElementById('exp-file').files[0];
+  const files = document.getElementById('exp-file').files;
   const msgEl = document.getElementById('expMsg');
 
-  if (!amount || !date) { msgEl.textContent='⚠️ Amount aur Date required'; msgEl.style.color='var(--red)'; return; }
+  if (!amount || !date) { 
+    msgEl.textContent='⚠️ Amount aur Date required'; 
+    msgEl.style.color='var(--red)'; 
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Claim'; }
+    return; 
+  }
 
-  // 1 week limit check
   const expDate = new Date(date);
   const today = new Date(); today.setHours(0,0,0,0);
   const diffDays = Math.floor((today - expDate) / 86400000);
-  if (diffDays > 7) { msgEl.textContent='❌ 1 week se purani expense claim nahi kar sakte!'; msgEl.style.color='var(--red)'; return; }
+  if (diffDays > 7) { 
+    msgEl.textContent='❌ 1 week se purani expense claim nahi kar sakte!'; 
+    msgEl.style.color='var(--red)'; 
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Claim'; }
+    return; 
+  }
 
-  let receiptUrl = null, receiptName = null;
-  if (file) {
-    if (file.size > 5*1024*1024) { msgEl.textContent='❌ Max 5MB allowed'; msgEl.style.color='var(--red)'; return; }
-    msgEl.textContent='⏳ Uploading receipt...'; msgEl.style.color='var(--muted)';
-const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
-const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
-    if (uploadErr) {
-      console.error('Upload error:', uploadErr.message);
-      msgEl.textContent='❌ Upload failed: '+uploadErr.message;
-      msgEl.style.color='var(--red)';
-      return;
-    } else {
+  let receiptUrls = []; let receiptNames = [];
+  if (files && files.length) {
+    msgEl.textContent='⏳ Uploading files...'; msgEl.style.color='var(--muted)';
+    for (const file of files) {
+      if (file.size > 5*1024*1024) { 
+        msgEl.textContent='❌ Max 5MB per file allowed'; 
+        msgEl.style.color='var(--red)'; 
+        if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Claim'; }
+        return; 
+      }
+      const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
+      const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
+      if (uploadErr) {
+        msgEl.textContent='❌ Upload failed: '+uploadErr.message;
+        msgEl.style.color='var(--red)';
+        if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Claim'; }
+        return;
+      }
       const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
-      receiptUrl = urlData.publicUrl;
-      receiptName = file.name;
+      receiptUrls.push(urlData.publicUrl);
+      receiptNames.push(file.name);
     }
-} 
+  }
+
   const { error } = await sb.from('expense_claims').insert({
     employee_email: currentUser.email,
     employee_name: currentUser.name,
     expense_type: type, amount: parseFloat(amount),
     expense_date: date, description: desc,
-    receipt_url: receiptUrl, receipt_name: receiptName
+    receipt_url: receiptUrls[0] || null,
+    receipt_name: receiptNames.join(', ') || null
   });
 
-  if (error) { msgEl.textContent='❌ '+error.message; msgEl.style.color='var(--red)'; return; }
+  if (error) { 
+    msgEl.textContent='❌ '+error.message; 
+    msgEl.style.color='var(--red)'; 
+    if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Claim'; }
+    return; 
+  }
 
   msgEl.textContent='✅ Claim submitted!'; msgEl.style.color='var(--green)';
   showToast('✅ Expense claim submitted!','ok');
+  if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Claim'; }
 
-  // Notify CEO
   await createNotification(CEO_EMAIL,
     `💰 Expense Claim — ${currentUser.name}`,
     `${currentUser.name} submitted a ${type} expense claim of ₹${amount}.`,
