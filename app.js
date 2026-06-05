@@ -6275,7 +6275,7 @@ const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.
       <td style="font-weight:600;font-size:12px;max-width:200px">${esc(t.particulars)}</td>
       <td><span class="badge b-blue" style="font-size:10px">${freqLabels[t.frequency]||t.frequency||'—'}</span></td>
 <td style="font-size:12px;font-weight:700;color:${isOverdue?'var(--red)':isDueSoon?'var(--amber)':'var(--navy)'}">
-${t.last_date ? (() => { const d = new Date(t.last_date); return isNaN(d.getDate()) ? t.last_date : d.getDate(); })() : '—'}
+${esc(t.last_date||'—')}
 ${isOverdue?'<span style="color:var(--red);">●</span>':''}
   ${isDueSoon?`<span class="badge b-amber" style="font-size:9px;margin-left:4px">${daysLeft}d left</span>`:''}
 </td>
