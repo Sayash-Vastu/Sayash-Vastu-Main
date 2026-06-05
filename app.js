@@ -2405,12 +2405,20 @@ async function loadLeaves() {
 }
 
 async function applyLeave() {
+  const btn = document.querySelector('#leaveForm button') || document.querySelector('[onclick="applyLeave()"]');
+  if (btn && btn.disabled) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Applying...'; }
   const type=document.getElementById('lv-type').value;
   const from=document.getElementById('lv-from').value;
   const to=document.getElementById('lv-to').value;
   const reason=document.getElementById('lv-reason').value.trim();
   const msg=document.getElementById('leaveMsg');
-  if (!from||!to||!reason) { msg.textContent='⚠️ Fill all fields'; msg.style.color='var(--red)'; return; }
+  if (!from||!to||!reason) { 
+    msg.textContent='⚠️ Fill all fields'; 
+    msg.style.color='var(--red)'; 
+    if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
+    return; 
+  }
   const days=Math.ceil((new Date(to)-new Date(from))/86400000)+1;
   const { data: emp } = await sb.from('employees').select('id').eq('email',currentUser.email).single();
   const { error } = await sb.from('leaves').insert({
@@ -2419,10 +2427,15 @@ async function applyLeave() {
     leave_type: type, from_date: from, to_date: to,
     total_days: days, reason, status: 'Pending'
   });
-  if (error) { msg.textContent='❌ '+error.message; msg.style.color='var(--red)'; return; }
+  if (error) { 
+    msg.textContent='❌ '+error.message; 
+    msg.style.color='var(--red)'; 
+    if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
+    return; 
+  }
   msg.textContent='✅ Leave applied!'; msg.style.color='var(--green)';
   showToast('✅ Leave application submitted!','ok');
-  // Notify CEO
+  if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
   await createNotification(
     CEO_EMAIL,
     `🏖️ Leave request from ${currentUser.name}`,
