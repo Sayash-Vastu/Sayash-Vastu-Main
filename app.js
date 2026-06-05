@@ -6276,7 +6276,7 @@ const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.
       <td><span class="badge b-blue" style="font-size:10px">${freqLabels[t.frequency]||t.frequency||'—'}</span></td>
 <td style="font-size:12px;font-weight:700;color:${isOverdue?'var(--red)':isDueSoon?'var(--amber)':'var(--navy)'}">
   ${esc(t.last_date||'—')}
-  ${isOverdue?'<span class="badge b-red" style="font-size:9px;margin-left:4px">Overdue</span>':''}
+${isOverdue?'<span style="color:var(--red);">●</span>':''}
   ${isDueSoon?`<span class="badge b-amber" style="font-size:9px;margin-left:4px">${daysLeft}d left</span>`:''}
 </td>
       <td><span style="font-size:11px;font-weight:600;color:var(--navy)">${esc(t.assigned_to_name||'—')}</span></td>
