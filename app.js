@@ -1536,6 +1536,12 @@ async function loadCeoDashboard() {
             ${a.latitude && a.longitude ? 
   `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:11px">📍 View Map</a><br><span style="font-size:10px;color:var(--muted)">${a.location_address ? esc(a.location_address.substring(0,30)) : ''}</span>` 
   : (a.location_address ? `<span style="font-size:10px;color:var(--muted)">🏢 ${esc(a.location_address.substring(0,35))}</span>` : a.ip_address ? `<span style="font-size:10px;color:var(--muted)">🖥️ Office | ${esc(a.ip_address)}</span>` : '—')}
+          </td>
+          <td style="padding:9px 14px">${attBadge(a.status)}</td>
+        </tr>`).join('')}
+        </tbody></table>`;
+    }
+  }
 
   // Upcoming Birthdays for CEO
   const { data: allEmpsBday } = await sb.from('employees').select('name,designation,date_of_birth').eq('is_active',true);
