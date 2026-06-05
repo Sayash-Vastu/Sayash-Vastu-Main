@@ -2195,7 +2195,8 @@ async function assignTask() {
   const btn = document.getElementById('assignBtn');
   if (btn.disabled) return;
   btn.disabled = true;
-    window._selectedAssignEmps = window._selectedAssignEmps || [];
+  btn.textContent = 'Assigning...';
+  window._selectedAssignEmps = window._selectedAssignEmps || [];
   const empsToAssign = window._selectedAssignEmps;
  // ── Mandatory attendance check (sirf employees ke liye) ──
   if (currentUser.role === 'employee') {
@@ -2216,7 +2217,6 @@ async function assignTask() {
   const msg = document.getElementById('assignMsg');
   if (!empsToAssign.length) { msg.textContent='⚠️ Kam se kam ek employee select karo'; msg.style.color='var(--red)'; return; }
   if (!project||!detail||!start||!end) { msg.textContent='⚠️ Please fill all fields'; msg.style.color='var(--red)'; return; }
-  btn.disabled=true; btn.textContent='Assigning...';
   const atFile = document.getElementById('at-file');
   let atFileUrl = null; let atFileName = null;
   if (atFile && atFile.files[0]) {
