@@ -6665,7 +6665,7 @@ async function submitExpense() {
         if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Claim'; }
         return; 
       }
-      const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
+const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_').toLowerCase()}`;
       const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
       if (uploadErr) {
         msgEl.textContent='❌ Upload failed: '+uploadErr.message;
