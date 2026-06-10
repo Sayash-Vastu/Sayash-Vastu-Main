@@ -1454,11 +1454,15 @@ async function loadCeoDashboard() {
     } else {
       annEl.innerHTML = anniversaries.map(e => {
         const years = new Date().getFullYear() - new Date(e.joining_date).getFullYear();
-        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f5f6fa">
-          <span style="font-size:18px">${years===0?'🎉':'🎊'}</span>
+        return `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid #f5f6fa">
+          <span style="font-size:18px">${years===0?'🌟':'🎊'}</span>
           <div>
             <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>
-            <div style="font-size:10px;color:var(--muted)">${years===0?'Joined Today!':years+' year'+(years!==1?'s':'')}</div>
+            ${years===0?`
+              <div style="font-size:11px;font-weight:600;color:var(--gold);margin-top:2px">Welcome to Sayash Vastu Family! 🌟</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic">Best Regards, Team Sayash Vastu</div>
+            `:`<div style="font-size:10px;color:var(--muted)">${years} year${years!==1?'s':''} with Sayash Vastu! 🎊</div>`}
           </div>
         </div>`;
       }).join('');
