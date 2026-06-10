@@ -3900,7 +3900,7 @@ function exportHolidaysPDF() {
 //  HR POLICIES
 // ═══════════════════════════════════════════
 async function loadHRPolicies() {
-  const isCEO = currentUser.role === 'ceo' || currentUser.role === 'manager';
+  const isCEO = currentUser.role === 'ceo';
   const ceoPanel = document.getElementById('ceo-policy-panel');
   if (ceoPanel) ceoPanel.style.display = isCEO ? 'block' : 'none';
 
