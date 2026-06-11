@@ -888,7 +888,9 @@ const showClientData = !hideClientCrm;
 const showPayments = currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com';
 
 if (navClientCrmParent) navClientCrmParent.style.display = hideClientCrm ? 'none' : 'flex';
-if (navClientCrmMenu) navClientCrmMenu.style.display = 'none';
+const clientCrmSection = document.getElementById('client-crm-section');
+if (clientCrmSection) clientCrmSection.style.display = hideClientCrm ? 'none' : 'block';
+  if (navClientCrmMenu) navClientCrmMenu.style.display = 'none';
 
 if (navClients) navClients.style.display = showClientData ? 'flex' : 'none';
 if (navClientProjects) navClientProjects.style.display = showClientData ? 'flex' : 'none';
