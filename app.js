@@ -876,17 +876,19 @@ if (navCompliance) {
   }
 }
   // Client CRM Navigation
+const navClientCrmParent = document.getElementById('nav-client-crm-parent');
+const navClientCrmMenu = document.getElementById('clientCrmMenu');
 const navClients = document.getElementById('nav-clients');
 const navClientProjects = document.getElementById('nav-client-projects');
 const navClientVisits = document.getElementById('nav-client-visits');
 const navPayments = document.getElementById('nav-payments-link');
 
-const showClientData = currentUser.role === 'ceo' || 
-  currentUser.email === 'alisha@sayashvastu.com' ||
-  ['rajendra@sayashvastu.com','ritika@sayashvastu.com','harshita@sayashvastu.com',
-   'anmol@sayashvastu.com','aanya@sayashvastu.com'].includes(currentUser.email);
-
+const hideClientCrm = ['shantanu@sayashvastu.com', 'komal@sayashvastu.com'].includes(currentUser.email);
+const showClientData = !hideClientCrm;
 const showPayments = currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com';
+
+if (navClientCrmParent) navClientCrmParent.style.display = hideClientCrm ? 'none' : 'flex';
+if (navClientCrmMenu) navClientCrmMenu.style.display = 'none';
 
 if (navClients) navClients.style.display = showClientData ? 'flex' : 'none';
 if (navClientProjects) navClientProjects.style.display = showClientData ? 'flex' : 'none';
