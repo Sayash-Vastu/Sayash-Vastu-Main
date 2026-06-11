@@ -5211,7 +5211,7 @@ async function openEmpPerfReport(empEmail, empName) {
     </div>
     <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">All Tasks (${total})</div>
     ${(tasks||[]).length ? (tasks||[]).map(t => {
-      const isLate = t.end_date && today > new Date(t.end_date);
+const isLate = t.end_date && today > new Date(t.end_date) && t.work_status !== 'Completed' && t.work_status !== 'Report Ready';
       const isDone = t.work_status==='Completed'||t.work_status==='Report Ready';
       return '<div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f5f6fa;' + (isDone?'opacity:0.6':'') + (isLate?'background:#fdf0ee;padding:10px 8px;border-radius:6px;margin-bottom:4px':'') + '">'
         + '<div style="flex:1">'
