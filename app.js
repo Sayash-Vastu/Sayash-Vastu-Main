@@ -5221,7 +5221,10 @@ async function openEmpPerfReport(empEmail, empName) {
         + (isLate?'<span class="badge b-red" style="font-size:9px">⚠️ Late</span>':'')
         + '</div>'
         + '<div style="font-size:12px;color:var(--navy);font-weight:600">' + esc(t.task_detail.substring(0,60)) + (t.task_detail.length>60?'...':'') + '</div>'
-        + '<div style="font-size:11px;color:var(--muted);margin-top:2px">📅 End: ' + fmtDate(t.end_date) + '</div>'
++ '<div style="display:flex;align-items:center;gap:8px;margin-top:4px">'
++ '<div style="font-size:11px;color:var(--muted)">📅 End: ' + fmtDate(t.end_date) + '</div>'
++ '<button class="btn btn-outline btn-sm" onclick="openTaskViewModal(\'' + t.id + '\');"> 👁️ View</button>'
++ '</div>'
         + '</div>'
         + '</div>';
     }).join('') : '<div style="font-size:12px;color:var(--muted);text-align:center;padding:16px">No tasks found</div>'}
@@ -6445,7 +6448,7 @@ async function openEmpQuickView(empEmail) {
     <div style="padding:10px;background:var(--bg);border-radius:8px">
       <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">Active Tasks (${(tasks||[]).length})</div>
       ${(tasks||[]).length ? (tasks||[]).slice(0,3).map(t => {
-        const isLate = t.end_date && today > new Date(t.end_date);
+const isLate = t.end_date && today > new Date(t.end_date) && t.work_status !== 'Completed' && t.work_status !== 'Report Ready';
         return `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f6fa">
           <span style="background:#e8ecf5;color:var(--navy);padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700">${esc(t.project)}</span>
           <span style="font-size:11px;flex:1">${esc(t.task_detail.substring(0,35))}...</span>
