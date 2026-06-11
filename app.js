@@ -875,6 +875,23 @@ if (navCompliance) {
     navCompliance.style.display = 'none';
   }
 }
+  // Client CRM Navigation
+const navClients = document.getElementById('nav-clients');
+const navClientProjects = document.getElementById('nav-client-projects');
+const navClientVisits = document.getElementById('nav-client-visits');
+const navPayments = document.getElementById('nav-payments-link');
+
+const showClientData = currentUser.role === 'ceo' || 
+  currentUser.email === 'alisha@sayashvastu.com' ||
+  ['rajendra@sayashvastu.com','ritika@sayashvastu.com','harshita@sayashvastu.com',
+   'anmol@sayashvastu.com','aanya@sayashvastu.com'].includes(currentUser.email);
+
+const showPayments = currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com';
+
+if (navClients) navClients.style.display = showClientData ? 'flex' : 'none';
+if (navClientProjects) navClientProjects.style.display = showClientData ? 'flex' : 'none';
+if (navClientVisits) navClientVisits.style.display = showClientData ? 'flex' : 'none';
+if (navPayments) navPayments.style.display = showPayments ? 'flex' : 'none';
     const navDocs = document.getElementById('nav-documents');
     const navCal = document.getElementById('nav-calendar');
     if (navDocs) navDocs.style.display = 'flex';
