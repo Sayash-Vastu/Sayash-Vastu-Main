@@ -999,6 +999,9 @@ if (name === 'calendar') loadCalendar();
   if (name === 'expenses') loadExpenses();
   if (name === 'compliance') loadCompliance();
   if (name === 'attendance') loadMyRegularizations();
+  if (name === 'clientsList') loadClientsList();
+if (name === 'clientProjects') loadClientProjectsAll();
+if (name === 'clientVisits') loadClientVisitsAll();
 }
 
 // ═══════════════════════════════════════════
@@ -6886,4 +6889,384 @@ if ('serviceWorker' in navigator) {
         console.log('❌ Service Worker failed:', err);
       });
   });
+}
+// ═══════════════════════════════════════════
+// CLIENT CRM CONNECTION
+// ═══════════════════════════════════════════
+const CLIENT_SUPABASE_URL = 'https://cyfqyhrwxtxwbcolbuny.supabase.co';
+const CLIENT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5ZnF5aHJ3eHR4d2Jjb2xidW55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MzM4NjQsImV4cCI6MjA5NjIwOTg2NH0.vHZwo2QxrnTOIU4gurM7kU9ALeDQfaNatielfUh56aI';
+const sbClient = supabase.createClient(CLIENT_SUPABASE_URL, CLIENT_SUPABASE_KEY);
+
+async function loadClientsList() {
+  const el = document.getElementById('view-clientsList');
+  el.innerHTML = `
+    <div class="page-header">
+      <h2>👥 Clients</h2>
+      <p>All client details</p>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <input type="text" id="empClientSearch" placeholder="🔍 Search clients..." 
+        style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;width:250px" 
+        oninput="filterEmpClients()">
+      <select id="empClientStatus" style="padding:8px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none" onchange="filterEmpClients()">
+        <option value="">All Status</option>
+        <option>Lead</option><option>Active</option><option>Completed</option><option>Inactive</option>
+      </select>
+      <button class="btn btn-gold" onclick="openAddClientEmp()">➕ Add Client</button>
+    </div>
+    <div id="empClientGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px"></div>
+  `;
+  const { data } = await sbClient.from('clients').select('*').order('created_at', { ascending: false });
+  window._empClients = data || [];
+  filterEmpClients();
+}
+
+function filterEmpClients() {
+  const search = document.getElementById('empClientSearch')?.value.toLowerCase() || '';
+  const status = document.getElementById('empClientStatus')?.value || '';
+  const filtered = (window._empClients || []).filter(c => {
+    const matchSearch = !search || c.name?.toLowerCase().includes(search) || c.phone?.includes(search);
+    const matchStatus = !status || c.status === status;
+    return matchSearch && matchStatus;
+  });
+  const grid = document.getElementById('empClientGrid');
+  if (!grid) return;
+  if (!filtered.length) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--muted);padding:30px">No clients found</div>';
+    return;
+  }
+  const statusColors = { Lead: 'b-amber', Active: 'b-green', Completed: 'b-blue', Inactive: 'b-gray' };
+  grid.innerHTML = filtered.map(c => `
+    <div style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:16px;cursor:pointer" onclick="openEmpClientDetail('${c.id}')">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div class="av" style="background:var(--navy)">${c.name.charAt(0)}</div>
+        <div style="flex:1">
+          <div style="font-weight:700;color:var(--navy);font-size:13px">${esc(c.name)}</div>
+          <div style="font-size:11px;color:var(--muted)">${esc(c.city||'')}${c.city&&c.state?', ':''}${esc(c.state||'')}</div>
+        </div>
+        <span class="badge ${statusColors[c.status]||'b-gray'}">${c.status}</span>
+      </div>
+      <div style="font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:4px">
+        ${c.phone ? `<div style="display:flex;align-items:center;gap:8px">📞 ${esc(c.phone)} 
+          <a href="https://wa.me/91${c.phone.replace(/\D/g,'')}" target="_blank" 
+            style="background:#25D366;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;text-decoration:none;font-weight:600">WhatsApp</a>
+        </div>` : ''}
+        ${c.property_type ? `<div>🏠 ${esc(c.property_type)}</div>` : ''}
+        ${c.source ? `<div>📌 ${esc(c.source)}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+async function openEmpClientDetail(clientId) {
+  const { data: c } = await sbClient.from('clients').select('*').eq('id', clientId).single();
+  const { data: projects } = await sbClient.from('projects').select('*').eq('client_id', clientId);
+  const { data: payments } = await sbClient.from('payments').select('*').eq('client_id', clientId).order('date', { ascending: false });
+  const { data: followups } = await sbClient.from('followups').select('*').eq('client_id', clientId).order('created_at', { ascending: false });
+  const { data: visits } = await sbClient.from('site_visits').select('*').eq('client_id', clientId).order('visit_date', { ascending: false });
+  if (!c) return;
+
+  const totalPaid = (payments||[]).reduce((s,p) => s+(p.amount||0), 0);
+  const totalProject = (projects||[]).reduce((s,p) => s+(p.total_amount||0), 0);
+  const pending = totalProject - totalPaid;
+
+  const el = document.getElementById('view-clientsList');
+  el.innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="loadClientsList()" style="margin-bottom:16px">← Back to Clients</button>
+    <div style="background:linear-gradient(135deg,var(--navy),#1a3a5c);border-radius:14px;padding:20px;margin-bottom:20px;color:#fff">
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div class="av" style="background:var(--gold);width:50px;height:50px;font-size:18px;color:var(--navy)">${c.name.charAt(0)}</div>
+        <div style="flex:1">
+          <div style="font-size:20px;font-weight:800">${esc(c.name)}</div>
+          <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:4px">
+            ${c.phone?`📞 ${esc(c.phone)}`:''}
+            ${c.email?` · ✉️ ${esc(c.email)}`:''}
+            ${c.city?` · 📍 ${esc(c.city)}, ${esc(c.state)}`:''}
+          </div>
+          <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+            <span class="badge b-green">${c.status}</span>
+            ${c.property_type?`<span class="badge b-gold">${esc(c.property_type)}</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          ${c.phone?`<a href="https://wa.me/91${c.phone.replace(/\D/g,'')}" target="_blank" style="background:#25D366;color:#fff;padding:8px 14px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:700">💬 WhatsApp</a>`:''}
+          <button class="btn btn-outline btn-sm" style="color:#fff;border-color:rgba(255,255,255,0.3)" onclick="openEditClientEmp('${c.id}')">✏️ Edit</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px">
+      <div class="stat-card sc-blue"><div class="stat-icon">📋</div><div class="stat-num">${(projects||[]).length}</div><div class="stat-lbl">Projects</div></div>
+      <div class="stat-card sc-green"><div class="stat-icon">💰</div><div class="stat-num">₹${(totalPaid/1000).toFixed(0)}K</div><div class="stat-lbl">Paid</div></div>
+      <div class="stat-card sc-red"><div class="stat-icon">⏳</div><div class="stat-num">₹${(pending/1000).toFixed(0)}K</div><div class="stat-lbl">Pending</div></div>
+    </div>
+
+    ${(projects||[]).length ? `
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><div class="panel-title">📋 Projects</div><button class="btn btn-gold btn-sm" onclick="openAddProjectEmp('${c.id}')">➕ Add</button></div>
+      <div class="panel-body">
+        ${projects.map(p => {
+          const pct = p.total_amount > 0 ? Math.round((p.paid_amount||0)/p.total_amount*100) : 0;
+          return `<div style="padding:10px 0;border-bottom:1px solid #f5f6fa">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:600;color:var(--navy)">${esc(p.title)}</div>
+              <span class="badge ${p.status==='Completed'?'b-green':p.status==='In Progress'?'b-blue':'b-amber'}">${p.status}</span>
+            </div>
+            <div style="font-size:12px;color:var(--muted);margin-top:4px">Total: ₹${(p.total_amount||0).toLocaleString()} · Paid: ₹${(p.paid_amount||0).toLocaleString()}</div>
+            <div class="progress-bar" style="margin-top:6px"><div class="progress-fill" style="width:${pct}%;background:var(--green)"></div></div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : `<div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><div class="panel-title">📋 Projects</div><button class="btn btn-gold btn-sm" onclick="openAddProjectEmp('${c.id}')">➕ Add</button></div>
+      <div class="panel-body"><div style="text-align:center;color:var(--muted);padding:20px">No projects yet</div></div>
+    </div>`}
+
+    ${(visits||[]).length ? `
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><div class="panel-title">🏗️ Site Visits</div><button class="btn btn-gold btn-sm" onclick="openAddVisitEmp('${c.id}')">➕ Add</button></div>
+      <div class="panel-body">
+        ${visits.map(v => `
+          <div style="padding:10px 0;border-bottom:1px solid #f5f6fa">
+            <div style="font-weight:600;color:var(--navy)">📅 ${fmtDate(v.visit_date)} · ${esc(v.visited_by||'—')}</div>
+            ${v.location?`<div style="font-size:12px;color:var(--muted)">📍 ${esc(v.location)}</div>`:''}
+            ${v.discussion?`<div style="font-size:12px;color:var(--muted);margin-top:3px">💬 ${esc(v.discussion.substring(0,80))}...</div>`:''}
+          </div>
+        `).join('')}
+      </div>
+    </div>` : `<div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><div class="panel-title">🏗️ Site Visits</div><button class="btn btn-gold btn-sm" onclick="openAddVisitEmp('${c.id}')">➕ Add</button></div>
+      <div class="panel-body"><div style="text-align:center;color:var(--muted);padding:20px">No site visits yet</div></div>
+    </div>`}
+
+    ${(followups||[]).length ? `
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head"><div class="panel-title">📞 Follow Ups</div></div>
+      <div class="panel-body">
+        ${followups.slice(0,5).map(f => `
+          <div style="padding:8px 0;border-bottom:1px solid #f5f6fa">
+            <div style="font-weight:600;color:var(--navy)">${esc(f.type||'Follow Up')}</div>
+            <div style="font-size:12px;color:var(--muted)">${esc(f.notes||'')} · ${fmtDate(f.next_followup)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>` : ''}
+
+    ${(currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? `
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">💰 Payments</div></div>
+      <div class="panel-body">
+        <div style="margin-bottom:12px;font-size:16px;font-weight:700;color:var(--green)">Total Received: ₹${totalPaid.toLocaleString()}</div>
+        ${(payments||[]).length ? payments.map(p => `
+          <div style="padding:8px 0;border-bottom:1px solid #f5f6fa;display:flex;justify-content:space-between">
+            <div>
+              <div style="font-weight:700;color:var(--green)">₹${(p.amount||0).toLocaleString()}</div>
+              <div style="font-size:11px;color:var(--muted)">${fmtDate(p.date)} · ${esc(p.mode||'')}</div>
+            </div>
+            <span class="badge b-green">Received</span>
+          </div>
+        `).join('') : '<div style="text-align:center;color:var(--muted);padding:16px">No payments yet</div>'}
+        <div style="margin-top:12px">
+          <a href="https://sayash-client-crm.vercel.app" target="_blank" class="btn btn-gold" style="display:block;text-align:center">💰 Full Payment Management → Client CRM</a>
+        </div>
+      </div>
+    </div>` : ''}
+  `;
+}
+
+function openAddClientEmp() {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addClientEmpModal">
+      <div class="modal">
+        <div class="modal-title">➕ Add New Client</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Full Name *</label><input id="ace-name" placeholder="Client name"></div>
+          <div class="field"><label>Phone</label><input id="ace-phone" placeholder="Phone number"></div>
+          <div class="field"><label>Email</label><input id="ace-email" placeholder="Email address"></div>
+          <div class="field"><label>Birthday</label><input type="date" id="ace-birthday"></div>
+          <div class="field"><label>State</label><input id="ace-state" placeholder="State"></div>
+          <div class="field"><label>City</label><input id="ace-city" placeholder="City"></div>
+          <div class="field"><label>Property Type</label>
+            <select id="ace-property">
+              <option value="">Select</option>
+              <option>Residential</option><option>Commercial</option><option>Plot</option><option>Office</option><option>Villa</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Source</label>
+            <select id="ace-source">
+              <option value="">Select</option>
+              <option>Google</option><option>Referral</option><option>Walk-in</option><option>Social Media</option><option>Phone</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Status</label>
+            <select id="ace-status"><option>Lead</option><option>Active</option><option>Completed</option><option>Inactive</option></select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Notes</label><textarea id="ace-notes" placeholder="Any notes..."></textarea></div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addClientEmpModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveClientEmp()">💾 Save Client</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function saveClientEmp() {
+  const name = document.getElementById('ace-name').value.trim();
+  if (!name) { showToast('⚠️ Name required', 'warn'); return; }
+  const { error } = await sbClient.from('clients').insert({
+    name,
+    phone: document.getElementById('ace-phone').value.trim(),
+    email: document.getElementById('ace-email').value.trim(),
+    birthday: document.getElementById('ace-birthday').value || null,
+    state: document.getElementById('ace-state').value.trim(),
+    city: document.getElementById('ace-city').value.trim(),
+    property_type: document.getElementById('ace-property').value,
+    source: document.getElementById('ace-source').value,
+    status: document.getElementById('ace-status').value,
+    notes: document.getElementById('ace-notes').value.trim(),
+  });
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Client added!', 'ok');
+  closeModal('addClientEmpModal');
+  loadClientsList();
+}
+
+async function openEditClientEmp(clientId) {
+  const { data: c } = await sbClient.from('clients').select('*').eq('id', clientId).single();
+  if (!c) return;
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="editClientEmpModal">
+      <div class="modal">
+        <div class="modal-title">✏️ Edit Client</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Full Name *</label><input id="ece-name" value="${esc(c.name||'')}"></div>
+          <div class="field"><label>Phone</label><input id="ece-phone" value="${esc(c.phone||'')}"></div>
+          <div class="field"><label>Email</label><input id="ece-email" value="${esc(c.email||'')}"></div>
+          <div class="field"><label>State</label><input id="ece-state" value="${esc(c.state||'')}"></div>
+          <div class="field"><label>City</label><input id="ece-city" value="${esc(c.city||'')}"></div>
+          <div class="field"><label>Property Type</label>
+            <select id="ece-property">
+              <option ${c.property_type==='Residential'?'selected':''}>Residential</option>
+              <option ${c.property_type==='Commercial'?'selected':''}>Commercial</option>
+              <option ${c.property_type==='Plot'?'selected':''}>Plot</option>
+              <option ${c.property_type==='Office'?'selected':''}>Office</option>
+              <option ${c.property_type==='Villa'?'selected':''}>Villa</option>
+              <option ${c.property_type==='Other'?'selected':''}>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Status</label>
+            <select id="ece-status">
+              <option ${c.status==='Lead'?'selected':''}>Lead</option>
+              <option ${c.status==='Active'?'selected':''}>Active</option>
+              <option ${c.status==='Completed'?'selected':''}>Completed</option>
+              <option ${c.status==='Inactive'?'selected':''}>Inactive</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Notes</label><textarea id="ece-notes">${esc(c.notes||'')}</textarea></div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('editClientEmpModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="updateClientEmp('${c.id}')">💾 Update</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function updateClientEmp(clientId) {
+  const { error } = await sbClient.from('clients').update({
+    name: document.getElementById('ece-name').value.trim(),
+    phone: document.getElementById('ece-phone').value.trim(),
+    email: document.getElementById('ece-email').value.trim(),
+    state: document.getElementById('ece-state').value.trim(),
+    city: document.getElementById('ece-city').value.trim(),
+    property_type: document.getElementById('ece-property').value,
+    status: document.getElementById('ece-status').value,
+    notes: document.getElementById('ece-notes').value.trim(),
+  }).eq('id', clientId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Client updated!', 'ok');
+  closeModal('editClientEmpModal');
+  openEmpClientDetail(clientId);
+}
+
+function openAddProjectEmp(clientId) {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addProjEmpModal">
+      <div class="modal">
+        <div class="modal-title">📋 Add Project</div>
+        <div class="form-grid cols-2">
+          <div class="field" style="grid-column:1/-1"><label>Project Title *</label><input id="ape-title" placeholder="Project title"></div>
+          <div class="field"><label>Status</label>
+            <select id="ape-status"><option>In Progress</option><option>Completed</option><option>On Hold</option></select>
+          </div>
+          <div class="field"><label>Start Date</label><input type="date" id="ape-start"></div>
+          <div class="field"><label>Total Amount (₹)</label><input type="number" id="ape-total" placeholder="0"></div>
+          <div class="field"><label>Paid Amount (₹)</label><input type="number" id="ape-paid" placeholder="0"></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Notes</label><textarea id="ape-notes" placeholder="Project notes..."></textarea></div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addProjEmpModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveProjEmp('${clientId}')">💾 Save</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function saveProjEmp(clientId) {
+  const title = document.getElementById('ape-title').value.trim();
+  if (!title) { showToast('⚠️ Title required', 'warn'); return; }
+  const { error } = await sbClient.from('projects').insert({
+    client_id: clientId, title,
+    status: document.getElementById('ape-status').value,
+    start_date: document.getElementById('ape-start').value || null,
+    total_amount: parseFloat(document.getElementById('ape-total').value) || 0,
+    paid_amount: parseFloat(document.getElementById('ape-paid').value) || 0,
+    notes: document.getElementById('ape-notes').value.trim(),
+  });
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Project added!', 'ok');
+  closeModal('addProjEmpModal');
+  openEmpClientDetail(clientId);
+}
+
+function openAddVisitEmp(clientId) {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addVisitEmpModal">
+      <div class="modal">
+        <div class="modal-title">🏗️ Add Site Visit</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Visit Date</label><input type="date" id="ave-date" value="${new Date().toISOString().split('T')[0]}"></div>
+          <div class="field"><label>Visited By</label><input id="ave-by" value="${currentUser.name}"></div>
+          <div class="field" style="grid-column:1/-1"><label>Location</label><input id="ave-location" placeholder="Site address"></div>
+          <div class="field" style="grid-column:1/-1"><label>Discussion</label><textarea id="ave-discussion" placeholder="What was discussed..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="ave-suggestions" placeholder="Suggestions given..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>Next Steps</label><textarea id="ave-nextsteps" placeholder="What needs to be done next..."></textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addVisitEmpModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveVisitEmp('${clientId}')">💾 Save Visit</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function saveVisitEmp(clientId) {
+  const { error } = await sbClient.from('site_visits').insert({
+    client_id: clientId,
+    visit_date: document.getElementById('ave-date').value || null,
+    visited_by: document.getElementById('ave-by').value.trim(),
+    location: document.getElementById('ave-location').value.trim(),
+    discussion: document.getElementById('ave-discussion').value.trim(),
+    suggestions: document.getElementById('ave-suggestions').value.trim(),
+    next_steps: document.getElementById('ave-nextsteps').value.trim(),
+  });
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Site visit saved!', 'ok');
+  closeModal('addVisitEmpModal');
+  openEmpClientDetail(clientId);
 }
