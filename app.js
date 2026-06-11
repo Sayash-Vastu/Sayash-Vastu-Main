@@ -7270,3 +7270,120 @@ async function saveVisitEmp(clientId) {
   closeModal('addVisitEmpModal');
   openEmpClientDetail(clientId);
 }
+async function loadClientProjectsAll() {
+  const el = document.getElementById('view-clientProjects');
+  el.innerHTML = `
+    <div class="page-header"><h2>📋 All Projects</h2><p>All client projects</p></div>
+    <div id="clientProjectsList"></div>
+  `;
+  const { data } = await sbClient.from('projects').select('*, clients(name)').order('created_at', { ascending: false });
+  if (!data?.length) {
+    document.getElementById('clientProjectsList').innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No projects yet</div></div>';
+    return;
+  }
+  document.getElementById('clientProjectsList').innerHTML = `
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Client</th><th>Project</th><th>Status</th><th>Total</th><th>Paid</th><th>Pending</th><th>Progress</th></tr></thead>
+        <tbody>
+          ${data.map((p, i) => {
+            const pct = p.total_amount > 0 ? Math.round((p.paid_amount||0)/p.total_amount*100) : 0;
+            const pending = (p.total_amount||0) - (p.paid_amount||0);
+            return `<tr>
+              <td>${i+1}</td>
+              <td><strong>${p.clients?.name||'-'}</strong></td>
+              <td>${esc(p.title)}</td>
+              <td><span class="badge ${p.status==='Completed'?'b-green':p.status==='In Progress'?'b-blue':'b-amber'}">${p.status}</span></td>
+              <td>₹${(p.total_amount||0).toLocaleString()}</td>
+              <td style="color:var(--green);font-weight:600">₹${(p.paid_amount||0).toLocaleString()}</td>
+              <td style="color:var(--red);font-weight:600">₹${pending.toLocaleString()}</td>
+              <td>
+                <div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${pct}%;background:var(--green)"></div></div>
+                <div style="font-size:10px;color:var(--muted)">${pct}%</div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+async function loadClientVisitsAll() {
+  const el = document.getElementById('view-clientVisits');
+  el.innerHTML = `
+    <div class="page-header"><h2>🏗️ Site Visits</h2><p>All client site visits</p></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <button class="btn btn-gold" onclick="openAddVisitEmpGlobal()">➕ Add Site Visit</button>
+    </div>
+    <div id="clientVisitsList"></div>
+  `;
+  const { data } = await sbClient.from('site_visits').select('*, clients(name)').order('visit_date', { ascending: false });
+  if (!data?.length) {
+    document.getElementById('clientVisitsList').innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-title">No site visits yet</div></div>';
+    return;
+  }
+  document.getElementById('clientVisitsList').innerHTML = data.map(v => `
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-head">
+        <div class="panel-title">🏗️ ${esc(v.clients?.name||'-')} <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">${fmtDate(v.visit_date)}</span></div>
+        <span class="badge b-blue">${esc(v.visited_by||'-')}</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          ${v.location?`<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📍 Location</div><div style="font-size:13px">${esc(v.location)}</div></div>`:''}
+          ${v.next_steps?`<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📋 Next Steps</div><div style="font-size:13px">${esc(v.next_steps)}</div></div>`:''}
+          ${v.discussion?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">💬 Discussion</div><div style="font-size:13px">${esc(v.discussion)}</div></div>`:''}
+          ${v.suggestions?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">✨ Suggestions</div><div style="font-size:13px">${esc(v.suggestions)}</div></div>`:''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openAddVisitEmpGlobal() {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addVisitGlobalModal">
+      <div class="modal">
+        <div class="modal-title">🏗️ Add Site Visit</div>
+        <div class="form-grid cols-2">
+          <div class="field" style="grid-column:1/-1"><label>Client *</label>
+            <select id="avg-client"><option value="">Select Client</option></select>
+          </div>
+          <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
+          <div class="field"><label>Visited By</label><input id="avg-by" value="${currentUser.name}"></div>
+          <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address"></div>
+          <div class="field" style="grid-column:1/-1"><label>Discussion</label><textarea id="avg-discussion" placeholder="What was discussed..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>Next Steps</label><textarea id="avg-nextsteps" placeholder="What needs to be done next..."></textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addVisitGlobalModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveVisitGlobal()">💾 Save Visit</button>
+        </div>
+      </div>
+    </div>
+  `);
+  sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
+    const sel = document.getElementById('avg-client');
+    if (sel && data) sel.innerHTML = '<option value="">Select Client</option>' + data.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  });
+}
+
+async function saveVisitGlobal() {
+  const clientId = document.getElementById('avg-client').value;
+  if (!clientId) { showToast('⚠️ Client required', 'warn'); return; }
+  const { error } = await sbClient.from('site_visits').insert({
+    client_id: clientId,
+    visit_date: document.getElementById('avg-date').value || null,
+    visited_by: document.getElementById('avg-by').value.trim(),
+    location: document.getElementById('avg-location').value.trim(),
+    discussion: document.getElementById('avg-discussion').value.trim(),
+    suggestions: document.getElementById('avg-suggestions').value.trim(),
+    next_steps: document.getElementById('avg-nextsteps').value.trim(),
+  });
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Site visit saved!', 'ok');
+  closeModal('addVisitGlobalModal');
+  loadClientVisitsAll();
+}
