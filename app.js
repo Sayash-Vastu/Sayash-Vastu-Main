@@ -1201,7 +1201,7 @@ async function loadEmpDashboard() {
         <div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px">${esc(l.employee_name).substring(0,2).toUpperCase()}</div>
         <div>
           <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(l.employee_name)}</div>
-          <div style="font-size:11px;color:var(--muted)">${esc(l.leave_type)} Leave</div>
+<div style="font-size:11px;color:var(--muted)">On Leave</div>
         </div>
         <span class="badge b-blue" style="margin-left:auto;font-size:10px">On Leave</span>
       </div>
@@ -2527,7 +2527,8 @@ async function applyLeave() {
 //  NOTICES
 // ═══════════════════════════════════════════
 async function loadNotices() {
-  const { data } = await sb.from('notices').select('*').eq('is_active',true).order('created_at',{ascending:false});
+const now = new Date().toISOString();
+  const { data } = await sb.from('notices').select('*').eq('is_active',true).or(`expires_at.is.null,expires_at.gt.${now}`).order('created_at',{ascending:false});
   const { data: myReactions } = await sb.from('notice_reactions').select('*').eq('employee_email', currentUser.email);
   const myReactionMap = {};
   (myReactions||[]).forEach(r => {
@@ -2602,9 +2603,12 @@ async function postNotice() {
   const target=document.getElementById('nt-target').value;
   const msg=document.getElementById('noticeMsg');
   if (!title||!content) { msg.textContent='⚠️ Fill all fields'; msg.style.color='var(--red)'; return; }
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + 3);
   const { error } = await sb.from('notices').insert({
     title, content, priority, target,
-    created_by_email: currentUser.email, created_by_name: currentUser.name
+    created_by_email: currentUser.email, created_by_name: currentUser.name,
+    expires_at: expiryDate.toISOString()
   });
   if (error) { msg.textContent='❌ '+error.message; msg.style.color='var(--red)'; return; }
   msg.textContent='✅ Notice posted!'; msg.style.color='var(--green)';
