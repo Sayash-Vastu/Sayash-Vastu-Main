@@ -7403,10 +7403,7 @@ async function saveVisitGlobal() {
 let autoRefreshInterval = null;
 
 function startAutoRefresh() {
-  // Clear existing
   if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-  
-  // Har 30 second mein current view refresh
   autoRefreshInterval = setInterval(async () => {
     if (!currentUser || !localStorage.getItem('sv_user')) {
       clearInterval(autoRefreshInterval);
@@ -7416,29 +7413,11 @@ function startAutoRefresh() {
     const activeView = document.querySelector('.view.active');
     if (!activeView) return;
     const viewId = activeView.id.replace('view-', '');
-    
-    // Silently refresh current view
-      try {
+    try {
       if (viewId === 'home') {
         if (currentUser.role === 'ceo') await loadCeoDashboard();
         else await loadEmpDashboard();
       }
-        if (viewId === 'tasks') await loadMyTasks();
-      if (viewId === 'allTasks') await loadAllTasks();
-      if (viewId === 'attendance') await loadAttendance();
-      if (viewId === 'leaves') await loadLeaves();
-      if (viewId === 'notices') await loadNotices();
-      if (viewId === 'leaveApprove') await loadLeaveApprovals();
-      if (viewId === 'clientsList') await loadClientsList();
-      if (viewId === 'clientProjects') await loadClientProjectsAll();
-      if (viewId === 'clientVisits') await loadClientVisitsAll();
-    } catch(e) {
-      console.log('Auto refresh error:', e);
-    }
-  }, 30000); // 30 seconds
-}
-
-// Tab visibility change
       if (viewId === 'tasks') await loadMyTasks();
       if (viewId === 'allTasks') await loadAllTasks();
       if (viewId === 'attendance') await loadAttendance();
@@ -7451,7 +7430,7 @@ function startAutoRefresh() {
     } catch(e) {
       console.log('Auto refresh error:', e);
     }
-  }, 30000); // 30 seconds
+  }, 30000);
 }
 
 // Tab visibility change — jab user wapas aaye
