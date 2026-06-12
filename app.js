@@ -7408,7 +7408,11 @@ function startAutoRefresh() {
   
   // Har 30 second mein current view refresh
   autoRefreshInterval = setInterval(async () => {
-    if (!currentUser) return;
+    if (!currentUser || !localStorage.getItem('sv_user')) {
+      clearInterval(autoRefreshInterval);
+      return;
+    }
+    if (!currentUser) currentUser = JSON.parse(localStorage.getItem('sv_user'));
     const activeView = document.querySelector('.view.active');
     if (!activeView) return;
     const viewId = activeView.id.replace('view-', '');
@@ -7452,13 +7456,18 @@ function startAutoRefresh() {
 
 // Tab visibility change — jab user wapas aaye
 document.addEventListener('visibilitychange', async function() {
-  if (document.visibilityState === 'visible' && currentUser) {
-    console.log('Tab active — refreshing data...');
+if (document.visibilityState === 'visible') {
+    if (!currentUser) currentUser = JSON.parse(localStorage.getItem('sv_user'));
+    if (!currentUser) return;
+  console.log('Tab active — refreshing data...');
     const activeView = document.querySelector('.view.active');
     if (!activeView) return;
     const viewId = activeView.id.replace('view-', '');
     try {
-      if (viewId === 'home') await loadHome();
+if (viewId === 'home') {
+  if (currentUser.role === 'ceo') await loadCeoDashboard();
+  else await loadEmpDashboard();
+}
       if (viewId === 'tasks') await loadMyTasks();
       if (viewId === 'allTasks') await loadAllTasks();
       if (viewId === 'clientsList') await loadClientsList();
