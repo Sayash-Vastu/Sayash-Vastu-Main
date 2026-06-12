@@ -7414,8 +7414,27 @@ function startAutoRefresh() {
     const viewId = activeView.id.replace('view-', '');
     
     // Silently refresh current view
-    try {
-      if (viewId === 'home') await loadHome();
+      try {
+      if (viewId === 'home') {
+        if (currentUser.role === 'ceo') await loadCeoDashboard();
+        else await loadEmpDashboard();
+      }
+        if (viewId === 'tasks') await loadMyTasks();
+      if (viewId === 'allTasks') await loadAllTasks();
+      if (viewId === 'attendance') await loadAttendance();
+      if (viewId === 'leaves') await loadLeaves();
+      if (viewId === 'notices') await loadNotices();
+      if (viewId === 'leaveApprove') await loadLeaveApprovals();
+      if (viewId === 'clientsList') await loadClientsList();
+      if (viewId === 'clientProjects') await loadClientProjectsAll();
+      if (viewId === 'clientVisits') await loadClientVisitsAll();
+    } catch(e) {
+      console.log('Auto refresh error:', e);
+    }
+  }, 30000); // 30 seconds
+}
+
+// Tab visibility change
       if (viewId === 'tasks') await loadMyTasks();
       if (viewId === 'allTasks') await loadAllTasks();
       if (viewId === 'attendance') await loadAttendance();
@@ -7449,11 +7468,14 @@ document.addEventListener('visibilitychange', async function() {
 
 // Network wapas aane par refresh
 window.addEventListener('online', async function() {
-  if (currentUser) {
+ if (currentUser) {
     showToast('🌐 Connection restored!', 'ok');
     const activeView = document.querySelector('.view.active');
     if (!activeView) return;
     const viewId = activeView.id.replace('view-', '');
-    if (viewId === 'home') await loadHome();
+    if (viewId === 'home') {
+      if (currentUser.role === 'ceo') await loadCeoDashboard();
+      else await loadEmpDashboard();
+    }
   }
 });
