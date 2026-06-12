@@ -904,6 +904,8 @@ if (navPayments) navPayments.style.display = showPayments ? 'flex' : 'none';
   const today = new Date().toISOString().split('T')[0];
   const atStart = document.getElementById('at-start');
   if (atStart) atStart.value = today;
+  // Auto refresh start
+  startAutoRefresh();
 }
 
 // ═══════════════════════════════════════════
@@ -7395,3 +7397,63 @@ async function saveVisitGlobal() {
   closeModal('addVisitGlobalModal');
   loadClientVisitsAll();
 }
+// ═══════════════════════════════════════════
+// AUTO REFRESH SYSTEM
+// ═══════════════════════════════════════════
+let autoRefreshInterval = null;
+
+function startAutoRefresh() {
+  // Clear existing
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+  
+  // Har 30 second mein current view refresh
+  autoRefreshInterval = setInterval(async () => {
+    if (!currentUser) return;
+    const activeView = document.querySelector('.view.active');
+    if (!activeView) return;
+    const viewId = activeView.id.replace('view-', '');
+    
+    // Silently refresh current view
+    try {
+      if (viewId === 'home') await loadHome();
+      if (viewId === 'tasks') await loadMyTasks();
+      if (viewId === 'allTasks') await loadAllTasks();
+      if (viewId === 'attendance') await loadAttendance();
+      if (viewId === 'leaves') await loadLeaves();
+      if (viewId === 'notices') await loadNotices();
+      if (viewId === 'leaveApprove') await loadLeaveApprovals();
+      if (viewId === 'clientsList') await loadClientsList();
+      if (viewId === 'clientProjects') await loadClientProjectsAll();
+      if (viewId === 'clientVisits') await loadClientVisitsAll();
+    } catch(e) {
+      console.log('Auto refresh error:', e);
+    }
+  }, 30000); // 30 seconds
+}
+
+// Tab visibility change — jab user wapas aaye
+document.addEventListener('visibilitychange', async function() {
+  if (document.visibilityState === 'visible' && currentUser) {
+    console.log('Tab active — refreshing data...');
+    const activeView = document.querySelector('.view.active');
+    if (!activeView) return;
+    const viewId = activeView.id.replace('view-', '');
+    try {
+      if (viewId === 'home') await loadHome();
+      if (viewId === 'tasks') await loadMyTasks();
+      if (viewId === 'allTasks') await loadAllTasks();
+      if (viewId === 'clientsList') await loadClientsList();
+    } catch(e) {}
+  }
+});
+
+// Network wapas aane par refresh
+window.addEventListener('online', async function() {
+  if (currentUser) {
+    showToast('🌐 Connection restored!', 'ok');
+    const activeView = document.querySelector('.view.active');
+    if (!activeView) return;
+    const viewId = activeView.id.replace('view-', '');
+    if (viewId === 'home') await loadHome();
+  }
+});
