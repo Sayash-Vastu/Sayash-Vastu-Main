@@ -555,38 +555,42 @@ tbody tr:hover{background:#fafbff}
   .sidebar .nav-btn span:not(.ni):not(.nav-badge){display:inline !important}
   .sidebar-section{display:block !important}
   .user-info-name,.user-info-role{display:block !important}
-  .main-content{margin-left:0 !important}
+  .main-content{margin-left:0 !important;width:100% !important}
   .topbar{padding:0 14px}
-  .view{padding:14px}
+  .view{padding:12px}
   .form-grid.cols-2,.form-grid.cols-3{grid-template-columns:1fr !important}
   .stat-grid{grid-template-columns:1fr 1fr !important}
-  .tbl-wrap{font-size:11px}
+  .tbl-wrap{font-size:11px;overflow-x:auto;-webkit-overflow-scrolling:touch}
   .modal{width:95vw !important;padding:18px}
   .page-header h2{font-size:17px}
   .panel-head{flex-direction:column;align-items:flex-start;gap:8px}
   .leave-action-head{flex-direction:column}
-  .att-check-card{flex-direction:column;gap:16px}
-  .att-time{font-size:28px}
+  .att-check-card{flex-direction:column;gap:12px;padding:18px}
+  .att-time{font-size:26px}
   .topbar-left h3{font-size:14px}
   .topbar-right .date-pill{display:none}
-}
+  .btn{padding:7px 12px;font-size:11px}
+  .modal-actions{flex-wrap:wrap}
 
-/* Hide Vercel toolbar */
-vercel-live-feedback,
-nextjs-portal,
-#__vercel_toolbar_container,
-.__vercel-toolbar,
-[data-vercel-toolbar],
-vercel-toolbar {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  width: 0 !important;
-  height: 0 !important;
-  pointer-events: none !important;
-}
-.tbl-wrap {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  width: 100%;
+  /* All inline grids fix */
+  div[style*="grid-template-columns:280px"]{display:flex !important;flex-direction:column !important}
+  div[style*="grid-template-columns:1fr 280px"]{display:flex !important;flex-direction:column !important}
+  div[style*="grid-template-columns:1fr 300px"]{display:flex !important;flex-direction:column !important}
+  div[style*="grid-template-columns:1fr 320px"]{display:flex !important;flex-direction:column !important}
+  div[style*="grid-template-columns:1fr 330px"]{display:flex !important;flex-direction:column !important}
+  div[style*="grid-template-columns:repeat(3"]{grid-template-columns:1fr 1fr !important}
+  div[style*="grid-template-columns:repeat(4"]{grid-template-columns:1fr 1fr !important}
+  div[style*="grid-template-columns:repeat(5"]{grid-template-columns:1fr 1fr !important}
+  div[style*="grid-template-columns:repeat(6"]{grid-template-columns:1fr 1fr !important}
+
+  /* Welcome banner fix */
+  div[style*="background:linear-gradient(135deg,var(--navy)"]{
+    flex-direction:column !important;
+    align-items:flex-start !important;
+    gap:12px !important;
+    padding:16px !important;
+  }
+
+  /* Table fix */
+  table{min-width:500px}
 }
