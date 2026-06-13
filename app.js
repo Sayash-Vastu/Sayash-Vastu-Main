@@ -2447,7 +2447,7 @@ async function loadLeaves() {
   const { data } = await sb.from('leaves').select('*').eq('employee_email',currentUser.email).order('created_at',{ascending:false});
   const leaves = data || [];
   const pending = leaves.filter(l=>l.status==='Pending').length;
-  const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.total_days||0),0);
+const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_type==='Half Day'?0.5:(l.total_days||0)),0);
   const rejected = leaves.filter(l=>l.status==='Rejected').length;
   document.getElementById('lv-pending').textContent=pending;
   document.getElementById('lv-taken').textContent=taken;
