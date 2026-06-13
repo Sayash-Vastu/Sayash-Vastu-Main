@@ -2414,7 +2414,7 @@ async function markCheckIn() {
   const { error } = await sb.from('attendance').insert({
     employee_id: emp?.id, employee_email: currentUser.email,
     employee_name: currentUser.name, date: today,
-    check_in: now.toISOString(), status: 'Present'
+check_in: now.toISOString(), status: new Date().getHours() >= 13 ? 'Half Day' : 'Present'
   });
   btn.disabled=false; btn.textContent='✅ Check In';
   if (error) { showToast('❌ '+error.message,'err'); return; }
