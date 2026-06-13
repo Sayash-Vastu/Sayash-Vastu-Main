@@ -7294,153 +7294,195 @@ async function saveVisitEmp(clientId) {
 async function loadClientProjectsAll() {
   const el = document.getElementById('view-clientProjects');
   el.innerHTML = `
-    <div class="page-header"><h2>📋 All Projects</h2><p>All client projects</p></div>
+    <div class="page-header"><h2>📋 All Projects</h2><p>Select a client to view projects</p></div>
     <div id="clientProjectsList"></div>
   `;
-  const { data } = await sbClient.from('projects').select('*, clients(name)').order('created_at', { ascending: false });
-  if (!data?.length) {
-    document.getElementById('clientProjectsList').innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No projects yet</div></div>';
+
+  // Load all clients
+  const { data: clients } = await sbClient.from('clients').select('*').order('name');
+  
+  if (!clients?.length) {
+    document.getElementById('clientProjectsList').innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No clients found</div></div>';
     return;
   }
+
+  const statusColors = { Lead: 'b-amber', Active: 'b-green', Completed: 'b-blue', Inactive: 'b-gray' };
+
   document.getElementById('clientProjectsList').innerHTML = `
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr><th>#</th><th>Client</th><th>Project</th><th>Status</th><th>Total</th><th>Paid</th><th>Pending</th><th>Progress</th></tr></thead>
-        <tbody>
-          ${data.map((p, i) => {
-            const pct = p.total_amount > 0 ? Math.round((p.paid_amount||0)/p.total_amount*100) : 0;
-            const pending = (p.total_amount||0) - (p.paid_amount||0);
-            return `<tr>
-              <td>${i+1}</td>
-              <td><strong>${p.clients?.name||'-'}</strong></td>
-              <td>${esc(p.title)}</td>
-              <td><span class="badge ${p.status==='Completed'?'b-green':p.status==='In Progress'?'b-blue':'b-amber'}">${p.status}</span></td>
-              <td>₹${(p.total_amount||0).toLocaleString()}</td>
-              <td style="color:var(--green);font-weight:600">₹${(p.paid_amount||0).toLocaleString()}</td>
-              <td style="color:var(--red);font-weight:600">₹${pending.toLocaleString()}</td>
-              <td>
-                <div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:${pct}%;background:var(--green)"></div></div>
-                <div style="font-size:10px;color:var(--muted)">${pct}%</div>
-              </td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px">
+      ${clients.map(c => `
+        <div onclick="openClientProjects('${c.id}','${esc(c.name)}')" 
+          style="background:#fff;border:1px solid var(--border);border-radius:12px;padding:18px;cursor:pointer;transition:all 0.15s;border-left:4px solid var(--gold)"
+          onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 8px 24px rgba(0,0,0,0.08)'"
+          onmouseout="this.style.transform='';this.style.boxShadow=''">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div class="av" style="background:var(--navy);width:40px;height:40px;font-size:14px">${esc(c.name).charAt(0).toUpperCase()}</div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:700;color:var(--navy)">${esc(c.name)}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:3px">${esc(c.city||'')}${c.city&&c.state?', ':''}${esc(c.state||'')}</div>
+            </div>
+            <span class="badge ${statusColors[c.status]||'b-gray'}" style="font-size:10px">${c.status||'—'}</span>
+          </div>
+          <div style="margin-top:12px;font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px">
+            <span>📋 Click to view projects →</span>
+          </div>
+        </div>
+      `).join('')}
     </div>
   `;
 }
 
-async function loadClientVisitsAll() {
-  const el = document.getElementById('view-clientVisits');
+async function openClientProjects(clientId, clientName) {
+  const el = document.getElementById('view-clientProjects');
   el.innerHTML = `
-    <div class="page-header"><h2>🏗️ Site Visits</h2><p>All client site visits</p></div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
-      <button class="btn btn-gold" onclick="openAddVisitEmpGlobal()">➕ Add Site Visit</button>
+    <button class="btn btn-outline btn-sm" onclick="loadClientProjectsAll()" style="margin-bottom:16px">← Back to Clients</button>
+    <div class="page-header">
+      <h2>📋 ${esc(clientName)}</h2>
+      <p>All projects for this client</p>
     </div>
-    <div id="clientVisitsList"></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <button class="btn btn-gold" onclick="openAddProjectEmp('${clientId}')">➕ Add Project</button>
+    </div>
+    <div id="clientSubProjectsList">
+      <div style="text-align:center;color:var(--muted);padding:30px">Loading...</div>
+    </div>
   `;
-  const { data } = await sbClient.from('site_visits').select('*, clients(name)').order('visit_date', { ascending: false });
-  if (!data?.length) {
-    document.getElementById('clientVisitsList').innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-title">No site visits yet</div></div>';
+
+  const { data: projects } = await sbClient.from('projects').select('*').eq('client_id', clientId).order('created_at', { ascending: false });
+
+  if (!projects?.length) {
+    document.getElementById('clientSubProjectsList').innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No projects yet</div><p>Add a project to get started</p></div>';
     return;
   }
-  document.getElementById('clientVisitsList').innerHTML = data.map(v => `
-    <div class="panel" style="margin-bottom:14px">
+
+  const statusColors = { 'In Progress': 'b-blue', 'Completed': 'b-green', 'On Hold': 'b-amber', 'Not Started': 'b-gray' };
+
+  document.getElementById('clientSubProjectsList').innerHTML = projects.map(p => {
+    const pct = p.total_amount > 0 ? Math.round((p.paid_amount||0)/p.total_amount*100) : 0;
+    const pending = (p.total_amount||0) - (p.paid_amount||0);
+    return `
+      <div class="panel" style="margin-bottom:14px;border-left:4px solid var(--blue);cursor:pointer"
+        onclick="openSubProjectDetail('${p.id}','${esc(p.title)}','${clientId}','${esc(clientName)}')">
+        <div class="panel-head">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--navy)">${esc(p.title)}</div>
+            ${p.description?`<div style="font-size:12px;color:var(--muted);margin-top:3px">${esc(p.description)}</div>`:''}
+          </div>
+          <span class="badge ${statusColors[p.status]||'b-gray'}">${p.status||'—'}</span>
+        </div>
+        <div class="panel-body">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:10px">
+            <div style="text-align:center;padding:10px;background:var(--bg);border-radius:8px">
+              <div style="font-size:16px;font-weight:800;color:var(--navy)">₹${((p.total_amount||0)/1000).toFixed(0)}K</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">Total</div>
+            </div>
+            <div style="text-align:center;padding:10px;background:var(--green-bg);border-radius:8px">
+              <div style="font-size:16px;font-weight:800;color:var(--green)">₹${((p.paid_amount||0)/1000).toFixed(0)}K</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">Paid</div>
+            </div>
+            <div style="text-align:center;padding:10px;background:var(--red-bg);border-radius:8px">
+              <div style="font-size:16px;font-weight:800;color:var(--red)">₹${(pending/1000).toFixed(0)}K</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:3px">Pending</div>
+            </div>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:var(--green)"></div></div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px">${pct}% complete · Click to view details →</div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+async function openSubProjectDetail(projectId, projectName, clientId, clientName) {
+  const el = document.getElementById('view-clientProjects');
+  el.innerHTML = `
+    <button class="btn btn-outline btn-sm" onclick="openClientProjects('${clientId}','${esc(clientName)}')" style="margin-bottom:16px">← Back to ${esc(clientName)}</button>
+    <div class="page-header">
+      <h2>📋 ${esc(projectName)}</h2>
+      <p>${esc(clientName)}</p>
+    </div>
+    <div id="subProjectDetailContent">
+      <div style="text-align:center;color:var(--muted);padding:30px">Loading...</div>
+    </div>
+  `;
+
+  const [{ data: project }, { data: visits }, { data: payments }, { data: followups }] = await Promise.all([
+    sbClient.from('projects').select('*').eq('id', projectId).single(),
+    sbClient.from('site_visits').select('*').eq('client_id', clientId).order('visit_date', { ascending: false }),
+    sbClient.from('payments').select('*').eq('client_id', clientId).order('date', { ascending: false }),
+    sbClient.from('followups').select('*').eq('client_id', clientId).order('created_at', { ascending: false })
+  ]);
+
+  const totalPaid = (payments||[]).reduce((s,p) => s+(p.amount||0), 0);
+  const totalAmt = project?.total_amount || 0;
+  const pct = totalAmt > 0 ? Math.round((totalPaid/totalAmt)*100) : 0;
+
+  document.getElementById('subProjectDetailContent').innerHTML = `
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+      <div class="stat-card sc-blue"><div class="stat-icon">🏗️</div><div class="stat-num">${(visits||[]).length}</div><div class="stat-lbl">Site Visits</div></div>
+      <div class="stat-card sc-green"><div class="stat-icon">💰</div><div class="stat-num">₹${(totalPaid/1000).toFixed(0)}K</div><div class="stat-lbl">Paid</div></div>
+      <div class="stat-card sc-red"><div class="stat-icon">⏳</div><div class="stat-num">₹${((totalAmt-totalPaid)/1000).toFixed(0)}K</div><div class="stat-lbl">Pending</div></div>
+      <div class="stat-card sc-gold"><div class="stat-icon">📊</div><div class="stat-num">${pct}%</div><div class="stat-lbl">Complete</div></div>
+    </div>
+
+    <!-- Site Visits -->
+    <div class="panel" style="margin-bottom:16px">
       <div class="panel-head">
-        <div class="panel-title">🏗️ ${esc(v.clients?.name||'-')} <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">${fmtDate(v.visit_date)}</span></div>
-        <span class="badge b-blue">${esc(v.visited_by||'-')}</span>
+        <div class="panel-title">🏗️ Site Visits</div>
+        <button class="btn btn-gold btn-sm" onclick="openAddVisitEmp('${clientId}')">➕ Add Visit</button>
       </div>
       <div class="panel-body">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          ${v.location?`<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📍 Location</div><div style="font-size:13px">${esc(v.location)}</div></div>`:''}
-          ${v.next_steps?`<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📋 Next Steps</div><div style="font-size:13px">${esc(v.next_steps)}</div></div>`:''}
-          ${v.discussion?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">💬 Discussion</div><div style="font-size:13px">${esc(v.discussion)}</div></div>`:''}
-          ${v.suggestions?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">✨ Suggestions</div><div style="font-size:13px">${esc(v.suggestions)}</div></div>`:''}
-        </div>
+        ${(visits||[]).length ? visits.map(v => `
+          <div style="padding:10px 0;border-bottom:1px solid #f5f6fa">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div style="font-weight:600;color:var(--navy)">📅 ${fmtDate(v.visit_date)}</div>
+              <span class="badge b-blue">${esc(v.visited_by||'—')}</span>
+            </div>
+            ${v.location?`<div style="font-size:12px;color:var(--muted);margin-top:3px">📍 ${esc(v.location)}</div>`:''}
+            ${v.discussion?`<div style="font-size:12px;color:var(--muted);margin-top:3px">💬 ${esc(v.discussion.substring(0,80))}...</div>`:''}
+            ${v.suggestions?`<div style="font-size:12px;color:var(--muted);margin-top:3px">✨ ${esc(v.suggestions.substring(0,80))}...</div>`:''}
+          </div>
+        `).join('') : '<div style="text-align:center;color:var(--muted);padding:20px">No site visits yet</div>'}
       </div>
     </div>
-  `).join('');
-}
 
-function openAddVisitEmpGlobal() {
-  document.body.insertAdjacentHTML('beforeend', `
-    <div class="modal-overlay open" id="addVisitGlobalModal">
-      <div class="modal">
-        <div class="modal-title">🏗️ Add Site Visit</div>
-        <div class="form-grid cols-2">
-          <div class="field" style="grid-column:1/-1"><label>Client *</label>
-            <select id="avg-client" onchange="loadProjectsForClient(this.value)"><option value="">Select Client</option></select>
+    <!-- Payments -->
+    ${(currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? `
+    <div class="panel" style="margin-bottom:16px">
+      <div class="panel-head">
+        <div class="panel-title">💰 Payments</div>
+        <a href="https://sayash-client-crm.vercel.app" target="_blank" class="btn btn-gold btn-sm">Full View →</a>
+      </div>
+      <div class="panel-body">
+        ${(payments||[]).length ? `
+          <div class="progress-bar" style="margin-bottom:12px"><div class="progress-fill" style="width:${pct}%;background:var(--green)"></div></div>
+          ${payments.map(p => `
+            <div style="padding:8px 0;border-bottom:1px solid #f5f6fa;display:flex;justify-content:space-between">
+              <div>
+                <div style="font-weight:700;color:var(--green)">₹${(p.amount||0).toLocaleString()}</div>
+                <div style="font-size:11px;color:var(--muted)">${fmtDate(p.date)} · ${esc(p.mode||'')}</div>
+              </div>
+              <span class="badge b-green">Received</span>
+            </div>
+          `).join('')}
+        ` : '<div style="text-align:center;color:var(--muted);padding:16px">No payments yet</div>'}
+      </div>
+    </div>` : ''}
+
+    <!-- Follow Ups -->
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">📞 Follow Ups</div></div>
+      <div class="panel-body">
+        ${(followups||[]).length ? followups.slice(0,5).map(f => `
+          <div style="padding:8px 0;border-bottom:1px solid #f5f6fa">
+            <div style="font-weight:600;color:var(--navy)">${esc(f.type||'Follow Up')}</div>
+            <div style="font-size:12px;color:var(--muted)">${esc(f.notes||'')} · ${fmtDate(f.next_followup)}</div>
           </div>
-          <div class="field" style="grid-column:1/-1"><label>Project</label>
-            <select id="avg-project" onchange="loadSubProjectsForProject(this.value)"><option value="">Select Project</option></select>
-          </div>
-          <div class="field" style="grid-column:1/-1"><label>Sub Project</label>
-            <select id="avg-subproject"><option value="">Select Sub Project</option></select>
-          </div>
-          <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
-          <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
-          <div class="field"><label>Visited By</label><input id="avg-by" value="${currentUser.name}"></div>
-          <div class="field"><label>Assigned To</label><input id="avg-assigned" placeholder="Assigned to..."></div>
-          <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address"></div>
-          <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
-          <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
-          <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-outline" onclick="closeModal('addVisitGlobalModal')">Cancel</button>
-          <button class="btn btn-gold" onclick="saveVisitGlobal()">💾 Save Visit</button>
-        </div>
+        `).join('') : '<div style="text-align:center;color:var(--muted);padding:16px">No follow ups yet</div>'}
       </div>
     </div>
-  `);
-  sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
-    const sel = document.getElementById('avg-client');
-    if (sel && data) sel.innerHTML = '<option value="">Select Client</option>' + data.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
-  });
-}
-
-async function loadProjectsForClient(clientId) {
-  const sel = document.getElementById('avg-project');
-  const subSel = document.getElementById('avg-subproject');
-  if (!sel) return;
-  if (!clientId) { sel.innerHTML = '<option value="">Select Project</option>'; return; }
-  const { data } = await sbClient.from('projects').select('id, title').eq('client_id', clientId).order('title');
-  sel.innerHTML = '<option value="">Select Project</option>' + (data||[]).map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
-  if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>';
-}
-
-async function loadSubProjectsForProject(projectId) {
-  const subSel = document.getElementById('avg-subproject');
-  if (!subSel) return;
-  if (!projectId) { subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
-  const { data } = await sbClient.from('projects').select('id, title').eq('parent_id', projectId).order('title');
-  if (!data || !data.length) {
-    subSel.innerHTML = '<option value="">No sub projects</option>';
-    return;
-  }
-  subSel.innerHTML = '<option value="">Select Sub Project</option>' + data.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
-}
-
-async function saveVisitGlobal() {
-  const clientId = document.getElementById('avg-client').value;
-  if (!clientId) { showToast('⚠️ Client required', 'warn'); return; }
-  const { error } = await sbClient.from('site_visits').insert({
-    client_id: clientId,
-    project_id: document.getElementById('avg-project').value || null,
-    sub_project_id: document.getElementById('avg-subproject').value || null,
-    visit_date: document.getElementById('avg-date').value || null,
-    layout_received_date: document.getElementById('avg-layout-date').value || null,
-    visited_by: document.getElementById('avg-by').value.trim(),
-    assigned_to: document.getElementById('avg-assigned').value.trim(),
-    location: document.getElementById('avg-location').value.trim(),
-    discussion: document.getElementById('avg-discussion').value.trim(),
-    suggestions: document.getElementById('avg-suggestions').value.trim(),
-    remarks: document.getElementById('avg-remarks').value.trim(),
-  });
-  if (error) { showToast('❌ ' + error.message, 'err'); return; }
-  showToast('✅ Site visit saved!', 'ok');
-  closeModal('addVisitGlobalModal');
-  loadClientVisitsAll();
+  `;
 }
 // ═══════════════════════════════════════════
 // AUTO REFRESH SYSTEM
