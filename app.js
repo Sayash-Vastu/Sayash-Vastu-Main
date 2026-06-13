@@ -2496,7 +2496,7 @@ async function applyLeave() {
     if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
     return; 
   }
-  const days=Math.ceil((new Date(to)-new Date(from))/86400000)+1;
+const days = type === 'Half Day' ? 0.5 : Math.ceil((new Date(to)-new Date(from))/86400000)+1;
   const { data: emp } = await sb.from('employees').select('id').eq('email',currentUser.email).single();
   const { error } = await sb.from('leaves').insert({
     employee_id: emp?.id, employee_email: currentUser.email,
