@@ -1676,8 +1676,11 @@ async function markEmpLogin(workType) {
     employee_name: currentUser.name,
     date: today,
     check_in: now.toISOString(),
-    status: 'Present',
-    work_type: workType || 'Office',
+status: (() => {
+  const h = new Date().getHours();
+  return h >= 13 ? 'Half Day' : 'Present';
+})(),
+   work_type: workType || 'Office',
     latitude: latitude,
     longitude: longitude,
     location_address: location_address,
