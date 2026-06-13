@@ -5899,8 +5899,16 @@ function leaveBadge(s) {
   return `<span class="badge ${map[s]||'b-gray'}">${esc(s)}</span>`;
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
+function closeModal(id) { 
+  const el = document.getElementById(id);
+  if (el) {
+    el.classList.remove('open');
+    // Dynamically added modals remove karo
+    if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal'].includes(id)) {
+      el.remove();
+    }
+  }
+}
 function showToast(msg, type) {
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+(type||'');
