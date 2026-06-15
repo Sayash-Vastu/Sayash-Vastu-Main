@@ -1009,6 +1009,83 @@ if (name === 'calendar') loadCalendar();
 if (name === 'clientProjects') loadClientProjectsAll();
 if (name === 'clientVisits') loadClientVisitsAll();
 }
+function openAddVisitEmpGlobal() {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addVisitGlobalModal">
+      <div class="modal">
+        <div class="modal-title">🏗️ Add Site Visit</div>
+        <div class="form-grid cols-2">
+          <div class="field" style="grid-column:1/-1"><label>Client *</label>
+            <select id="avg-client" onchange="loadProjectsForClient(this.value)"><option value="">Select Client</option></select>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Project</label>
+            <select id="avg-project" onchange="loadSubProjectsForProject(this.value)"><option value="">Select Project</option></select>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Sub Project</label>
+            <select id="avg-subproject"><option value="">Select Sub Project</option></select>
+          </div>
+          <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
+          <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
+          <div class="field"><label>Visited By</label><input id="avg-by" value="${currentUser.name}"></div>
+          <div class="field"><label>Assigned To</label><input id="avg-assigned" placeholder="Assigned to..."></div>
+          <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address"></div>
+          <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addVisitGlobalModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveVisitGlobal()">💾 Save Visit</button>
+        </div>
+      </div>
+    </div>
+  `);
+  sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
+    const sel = document.getElementById('avg-client');
+    if (sel && data) sel.innerHTML = '<option value="">Select Client</option>' + data.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  });
+}
+
+async function loadProjectsForClient(clientId) {
+  const sel = document.getElementById('avg-project');
+  const subSel = document.getElementById('avg-subproject');
+  if (!sel) return;
+  if (!clientId) { sel.innerHTML = '<option value="">Select Project</option>'; return; }
+  const { data } = await sbClient.from('projects').select('id, title').eq('client_id', clientId).order('title');
+  sel.innerHTML = '<option value="">Select Project</option>' + (data||[]).map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+  if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>';
+}
+
+async function loadSubProjectsForProject(projectId) {
+  const subSel = document.getElementById('avg-subproject');
+  if (!subSel) return;
+  if (!projectId) { subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
+  const { data } = await sbClient.from('projects').select('id, title').eq('parent_id', projectId).order('title');
+  if (!data || !data.length) { subSel.innerHTML = '<option value="">No sub projects</option>'; return; }
+  subSel.innerHTML = '<option value="">Select Sub Project</option>' + data.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+}
+
+async function saveVisitGlobal() {
+  const clientId = document.getElementById('avg-client').value;
+  if (!clientId) { showToast('⚠️ Client required', 'warn'); return; }
+  const { error } = await sbClient.from('site_visits').insert({
+    client_id: clientId,
+    project_id: document.getElementById('avg-project').value || null,
+    sub_project_id: document.getElementById('avg-subproject').value || null,
+    visit_date: document.getElementById('avg-date').value || null,
+    layout_received_date: document.getElementById('avg-layout-date').value || null,
+    visited_by: document.getElementById('avg-by').value.trim(),
+    assigned_to: document.getElementById('avg-assigned').value.trim(),
+    location: document.getElementById('avg-location').value.trim(),
+    discussion: document.getElementById('avg-discussion').value.trim(),
+    suggestions: document.getElementById('avg-suggestions').value.trim(),
+    remarks: document.getElementById('avg-remarks').value.trim(),
+  });
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Site visit saved!', 'ok');
+  closeModal('addVisitGlobalModal');
+  loadClientVisitsAll();
+}
 
 // ═══════════════════════════════════════════
 //  HOME
