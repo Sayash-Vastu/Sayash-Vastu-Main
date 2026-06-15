@@ -1012,7 +1012,7 @@ if (name === 'clientVisits') loadClientVisitsAll();
 async function loadClientVisitsAll() {
   const el = document.getElementById('view-clientVisits');
   el.innerHTML = `
-    <div class="page-header"><h2>🏗️ Site Visits</h2><p>All client site visits</p></div>
+    <div class="page-header"><h2><h2>🏗️ Site Visit / MOM</h2><p>All client site visits</p></div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
       <button class="btn btn-gold" onclick="openAddVisitEmpGlobal()">➕ Add Site Visit</button>
     </div>
