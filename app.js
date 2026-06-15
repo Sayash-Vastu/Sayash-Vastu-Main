@@ -1009,6 +1009,38 @@ if (name === 'calendar') loadCalendar();
 if (name === 'clientProjects') loadClientProjectsAll();
 if (name === 'clientVisits') loadClientVisitsAll();
 }
+async function loadClientVisitsAll() {
+  const el = document.getElementById('view-clientVisits');
+  el.innerHTML = `
+    <div class="page-header"><h2>🏗️ Site Visits</h2><p>All client site visits</p></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <button class="btn btn-gold" onclick="openAddVisitEmpGlobal()">➕ Add Site Visit</button>
+    </div>
+    <div id="clientVisitsList"></div>
+  `;
+  const { data } = await sbClient.from('site_visits').select('*, clients(name)').order('visit_date', { ascending: false });
+  if (!data?.length) {
+    document.getElementById('clientVisitsList').innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-title">No site visits yet</div></div>';
+    return;
+  }
+  document.getElementById('clientVisitsList').innerHTML = data.map(v => `
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-head">
+        <div class="panel-title">🏗️ ${esc(v.clients?.name||'-')} <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">${fmtDate(v.visit_date)}</span></div>
+        <span class="badge b-blue">${esc(v.visited_by||'-')}</span>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          ${v.location?`<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📍 Location</div><div style="font-size:13px">${esc(v.location)}</div></div>`:''}
+          ${v.assigned_to?`<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">👤 Assigned To</div><div style="font-size:13px">${esc(v.assigned_to)}</div></div>`:''}
+          ${v.discussion?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">💬 Site Description</div><div style="font-size:13px">${esc(v.discussion)}</div></div>`:''}
+          ${v.suggestions?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">✨ Vastu Suggestions</div><div style="font-size:13px">${esc(v.suggestions)}</div></div>`:''}
+          ${v.remarks?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📝 Remarks</div><div style="font-size:13px">${esc(v.remarks)}</div></div>`:''}
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
 function openAddVisitEmpGlobal() {
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="addVisitGlobalModal">
