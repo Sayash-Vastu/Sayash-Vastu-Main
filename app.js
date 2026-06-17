@@ -557,6 +557,8 @@ const { data: attData } = await sb.from('attendance').select('*').eq('is_archive
       const a         = attMap[dateStr];
       const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
       const onLeave   = empLeaves.find(l => dateStr >= l.from_date && dateStr <= l.to_date);
+      const todayCheck = new Date(); todayCheck.setHours(0,0,0,0);
+      const isFuture  = dateObj > todayCheck;
       if (a) {
         const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
@@ -567,18 +569,20 @@ const { data: attData } = await sb.from('attendance').select('*').eq('is_archive
         dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
       } else if (isWeekend) {
         dailyRows.push([dispDate, dayName, 'Week Off', '—', '—', '—', '—', 'Week Off']);
+      } else if (isFuture) {
+        dailyRows.push([dispDate, dayName, '—', '—', '—', '—', '—', '']);
       } else {
         dailyRows.push([dispDate, dayName, 'Absent', '—', '—', '—', '—', '']);
       }
-    }
 
     const present = dailyRows.filter(r => r[2] === 'Present').length;
     const absent  = dailyRows.filter(r => r[2] === 'Absent').length;
     const leave   = dailyRows.filter(r => r[2] === 'Leave').length;
     const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
     const late    = dailyRows.filter(r => r[6] === 'Yes').length;
-    const attPct = (totalDays - weekOff) > 0 ? ((present / (totalDays - weekOff)) * 100).toFixed(2) + '%' : '0%';
-
+const futureDays = dailyRows.filter(r => r[2] === '—').length;
+    const attPct = (totalDays - weekOff - futureDays) > 0 ? ((present / (totalDays - weekOff - futureDays)) * 100).toFixed(2) + '%' : '0%';
+      
     // HEADER
     setFill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
     try {
