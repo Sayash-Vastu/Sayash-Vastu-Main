@@ -555,7 +555,7 @@ const { data: attData } = await sb.from('attendance').select('*').eq('is_archive
       const dayName   = days3[dateObj.getDay()];
       const dispDate  = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
       const a         = attMap[dateStr];
-      const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+const isWeekend = dateObj.getDay() === 0;
       const onLeave   = empLeaves.find(l => dateStr >= l.from_date && dateStr <= l.to_date);
       const todayCheck = new Date(); todayCheck.setHours(0,0,0,0);
       const isFuture  = dateObj > todayCheck;
@@ -4296,7 +4296,7 @@ async function loadMyAttendance() {
   }
   tbody.innerHTML = attData.map(a => {
     const d = new Date(a.date);
-    const isWeekend = d.getDay()===0||d.getDay()===6;
+const isWeekend = d.getDay()===0;
     return `<tr style="${isWeekend?'background:#f8f9fc':''}">
       <td style="font-weight:600">${fmtDate(a.date)}</td>
       <td style="font-size:11px;color:${isWeekend?'var(--muted)':'var(--text)'}">${days2[d.getDay()]}</td>
@@ -4349,7 +4349,7 @@ const { data: attData } = await sb.from('attendance')
     const dayName  = days3[dateObj.getDay()];
     const dispDate = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
     const a        = attMap[dateStr];
-    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+const isWeekend = dateObj.getDay() === 0;
     const onLeave = (leaveDataMyPdf||[]).find(l => dateStr >= l.from_date && dateStr <= l.to_date);
     const todayCheckPdf = new Date(); todayCheckPdf.setHours(0,0,0,0);
     const isFuturePdf = dateObj > todayCheckPdf;
