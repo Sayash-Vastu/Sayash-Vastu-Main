@@ -2413,10 +2413,14 @@ async function assignTask() {
     }
     msg.textContent='⏳ Uploading file...'; msg.style.color='var(--muted)';
     const path = `assign/${Date.now()}_${f.name.replace(/[^a-z0-9.]/gi,'_')}`;
-    const { error: uploadErr } = await sb.storage.from('task-files').upload(path, f, {upsert: false});
+    const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, f, {upsert: false});
     if (!uploadErr) {
-      const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+      const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
       atFileUrl = urlData.publicUrl; atFileName = f.name;
+    } else {
+      console.error('Upload error:', uploadErr);
+      msg.textContent = '⚠️ File upload failed: ' + uploadErr.message;
+      msg.style.color = 'var(--amber)';
     }
   }
 
