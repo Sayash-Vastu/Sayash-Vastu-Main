@@ -1469,10 +1469,14 @@ async function loadCeoDashboard() {
   const { count: pendingLeaves } = await sb.from('leaves').select('*',{count:'exact'}).eq('status','Pending');
   const { count: doneTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false).eq('work_status','Completed');
 
-  const todayDate = new Date().toISOString().split('T')[0];
+const todayDate = new Date().toISOString().split('T')[0];
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', todayDate).eq('is_archived',false);
   const presentToday = (todayAtt||[]).filter(a=>a.status==='Present'||a.status==='Half Day').length;
-
+  const { data: leaveTodayCount } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date',todayDate).gte('to_date',todayDate);
+  const onLeaveCount = (leaveTodayCount||[]).length;
+  const isWeekendNow = [0,6].includes(new Date().getDay());
+  const absentToday = isWeekendNow ? 0 : Math.max(0, (totalEmp||0) - presentToday - onLeaveCount);
+  
   const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
   const today2 = new Date(); today2.setHours(0,0,0,0);
   const delayedTasks = (allTasks||[]).filter(t=>{
@@ -1483,9 +1487,9 @@ async function loadCeoDashboard() {
   document.getElementById('nb-leave-approve').textContent = pendingLeaves || 0;
   if (pendingLeaves > 0) document.getElementById('nb-leave-approve').style.display = 'inline-block';
 
-  document.getElementById('ceoDashStats').innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px">
-      <div style="background:var(--navy);border-radius:10px;padding:14px 12px;cursor:pointer" onclick="showView('employees')">
+document.getElementById('ceoDashStats').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-bottom:20px">
+    <div style="background:var(--navy);border-radius:10px;padding:14px 12px;cursor:pointer" onclick="showView('employees')">
         <div style="font-size:16px;margin-bottom:6px">👥</div>
         <div style="font-size:22px;font-weight:800;color:#fff;line-height:1">${totalEmp||0}</div>
         <div style="font-size:9px;color:rgba(255,255,255,0.45);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Employees</div>
@@ -1500,10 +1504,15 @@ async function loadCeoDashboard() {
         <div style="font-size:22px;font-weight:800;color:#fff;line-height:1">${doneTasks||0}</div>
         <div style="font-size:9px;color:rgba(255,255,255,0.45);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Completed</div>
       </div>
-      <div style="background:#fff;border-radius:10px;padding:14px 12px;border:1px solid var(--border);border-left:3px solid var(--green);cursor:pointer">
+<div style="background:#fff;border-radius:10px;padding:14px 12px;border:1px solid var(--border);border-left:3px solid var(--green);cursor:pointer">
         <div style="font-size:16px;margin-bottom:6px">🟢</div>
         <div style="font-size:22px;font-weight:800;color:var(--green);line-height:1">${presentToday}</div>
         <div style="font-size:9px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Present Today</div>
+      </div>
+      <div style="background:#fff;border-radius:10px;padding:14px 12px;border:1px solid var(--border);border-left:3px solid var(--red);cursor:pointer">
+        <div style="font-size:16px;margin-bottom:6px">🔴</div>
+        <div style="font-size:22px;font-weight:800;color:var(--red);line-height:1">${absentToday}</div>
+        <div style="font-size:9px;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Absent Today</div>
       </div>
       <div style="background:#fff;border-radius:10px;padding:14px 12px;border:1px solid var(--border);border-left:3px solid var(--red);cursor:pointer" onclick="showView('allTasks')">
         <div style="font-size:16px;margin-bottom:6px">⚠️</div>
