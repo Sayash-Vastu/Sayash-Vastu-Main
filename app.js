@@ -2502,9 +2502,23 @@ const now = new Date();
   const { data: monthAtt } = await sb.from('attendance').select('status,date').eq('employee_email',currentUser.email).eq('is_archived',false).gte('date',monthStart);
   const { data: monthLeaves } = await sb.from('leaves').select('*').eq('employee_email',currentUser.email).eq('status','Approved').lte('from_date',monthEndStr).gte('to_date',monthStart);
  let leaveCountThisMonth = (monthLeaves||[]).reduce((sum,l) => sum + (parseFloat(l.total_days) || 0), 0);
-  document.getElementById('att-present').textContent=(monthAtt||[]).filter(a=>a.status==='Present').length;
-  document.getElementById('att-absent').textContent=(monthAtt||[]).filter(a=>a.status==='Absent').length;
-  document.getElementById('att-half').textContent=(monthAtt||[]).filter(a=>a.status==='Half Day').length;
+const presentCount = (monthAtt||[]).filter(a=>a.status==='Present').length;
+  const halfCount = (monthAtt||[]).filter(a=>a.status==='Half Day').length;
+  const todayForCalc = new Date(); todayForCalc.setHours(0,0,0,0);
+  let absentCount = 0;
+  const dInLoop = new Date(now.getFullYear(), now.getMonth(), 1);
+  while (dInLoop.getMonth() === now.getMonth()) {
+    const dsLoop = dInLoop.getFullYear() + '-' + String(dInLoop.getMonth()+1).padStart(2,'0') + '-' + String(dInLoop.getDate()).padStart(2,'0');
+    const isSundayLoop = dInLoop.getDay() === 0;
+    const hasAttLoop = presentDatesSet.has(dsLoop);
+    const isOnLeaveLoop = (monthLeaves||[]).some(l => dsLoop >= l.from_date && dsLoop <= l.to_date);
+    const isFutureLoop = dInLoop > todayForCalc;
+    if (!hasAttLoop && !isSundayLoop && !isOnLeaveLoop && !isFutureLoop) absentCount++;
+    dInLoop.setDate(dInLoop.getDate()+1);
+  }
+  document.getElementById('att-present').textContent=presentCount;
+  document.getElementById('att-absent').textContent=absentCount;
+  document.getElementById('att-half').textContent=halfCount;
   document.getElementById('att-leave').textContent=leaveCountThisMonth;
   const { data: allAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('is_archived',false).order('date',{ascending:false}).limit(30);
   const tbody = document.getElementById('attBody');
