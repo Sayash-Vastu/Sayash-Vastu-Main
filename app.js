@@ -2502,6 +2502,7 @@ const now = new Date();
   const { data: monthAtt } = await sb.from('attendance').select('status,date').eq('employee_email',currentUser.email).eq('is_archived',false).gte('date',monthStart);
   const { data: monthLeaves } = await sb.from('leaves').select('*').eq('employee_email',currentUser.email).eq('status','Approved').lte('from_date',monthEndStr).gte('to_date',monthStart);
  let leaveCountThisMonth = (monthLeaves||[]).reduce((sum,l) => sum + (parseFloat(l.total_days) || 0), 0);
+const presentDatesSet = new Set((monthAtt||[]).map(a=>a.date));
 const presentCount = (monthAtt||[]).filter(a=>a.status==='Present').length;
   const halfCount = (monthAtt||[]).filter(a=>a.status==='Half Day').length;
   const todayForCalc = new Date(); todayForCalc.setHours(0,0,0,0);
