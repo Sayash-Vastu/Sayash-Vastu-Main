@@ -2501,17 +2501,7 @@ const now = new Date();
   const monthEndStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(lastDayOfMonth).padStart(2,'0');
   const { data: monthAtt } = await sb.from('attendance').select('status,date').eq('employee_email',currentUser.email).eq('is_archived',false).gte('date',monthStart);
   const { data: monthLeaves } = await sb.from('leaves').select('*').eq('employee_email',currentUser.email).eq('status','Approved').lte('from_date',monthEndStr).gte('to_date',monthStart);
-  const presentDatesSet = new Set((monthAtt||[]).map(a=>a.date));
-  let leaveCountThisMonth = 0;
-  (monthLeaves||[]).forEach(l => {
-    let cur = new Date(Math.max(new Date(l.from_date), new Date(monthStart)));
-    const lend = new Date(Math.min(new Date(l.to_date), new Date(monthEndStr)));
-    while (cur <= lend) {
-      const ds = cur.toISOString().split('T')[0];
-      if (!presentDatesSet.has(ds)) leaveCountThisMonth++;
-      cur.setDate(cur.getDate()+1);
-    }
-  });
+ let leaveCountThisMonth = (monthLeaves||[]).reduce((sum,l) => sum + (parseFloat(l.total_days) || 0), 0);
   document.getElementById('att-present').textContent=(monthAtt||[]).filter(a=>a.status==='Present').length;
   document.getElementById('att-absent').textContent=(monthAtt||[]).filter(a=>a.status==='Absent').length;
   document.getElementById('att-half').textContent=(monthAtt||[]).filter(a=>a.status==='Half Day').length;
