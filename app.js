@@ -5594,7 +5594,8 @@ async function loadFollowUp() {
       + '<span>📅 End: <span style="color:' + (isLate ? 'var(--red)' : 'var(--muted)') + ';font-weight:' + (isLate ? '700' : '400') + '">' + fmtDate(t.end_date) + '</span></span>'
       + (t.pending_with_name ? '<span>📌 With: <strong style="color:var(--purple)">' + esc(t.pending_with_name) + '</strong></span>' : '')
       + '</div>'
-      + (t.comments ? '<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--muted)">💬 ' + esc(t.comments) + '</div>' : '')
++ (t.comments ? '<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--muted)">💬 ' + esc(t.comments) + '</div>' : '')
++ (t.file_url ? '<div style="margin-top:8px"><a href="' + t.file_url + '" target="_blank" class="btn btn-outline btn-sm">📎 ' + esc(t.file_name || 'View Attachment') + '</a></div>' : '')
       + '</div>'
       + '<div style="padding:10px 18px;border-top:1px solid var(--border);background:#fafbff">'
       + '<button class="btn btn-primary btn-sm" onclick="openTaskViewModal(\'' + t.id + '\')">👁️ View Details</button>'
