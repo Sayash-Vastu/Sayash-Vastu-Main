@@ -4325,22 +4325,17 @@ async function exportMyAttPDF() {
 
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-  const { data: attData } = await sb.from('attendance')
+const { data: attData } = await sb.from('attendance')
     .select('*').eq('employee_email', currentUser.email)
     .eq('is_archived', false).gte('date', start).lte('date', end)
     .order('date', { ascending: true });
 
+  const { data: leaveDataMyPdf } = await sb.from('leaves').select('*')
+    .eq('employee_email', currentUser.email)
+    .eq('status', 'Approved')
+    .lte('from_date', end).gte('to_date', start);
+
   const rows = attData || [];
-  const present = rows.filter(a => a.status === 'Present').length;
-  const absent  = rows.filter(a => a.status === 'Absent').length;
-  const leave   = rows.filter(a => a.status === 'Leave').length;
-  const weekOff = rows.filter(a => a.status === 'Week Off').length;
-  const late    = rows.filter(a => {
-    if (!a.check_in) return false;
-    const t = new Date(a.check_in);
-return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
-  }).length;
-  const attPct = (totalDays - weekOff) > 0 ? ((present / (totalDays - weekOff)) * 100).toFixed(2) + '%' : '0%';
 
   const days3   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -4355,19 +4350,33 @@ return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
     const dispDate = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
     const a        = attMap[dateStr];
     const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+    const onLeave = (leaveDataMyPdf||[]).find(l => dateStr >= l.from_date && dateStr <= l.to_date);
+    const todayCheckPdf = new Date(); todayCheckPdf.setHours(0,0,0,0);
+    const isFuturePdf = dateObj > todayCheckPdf;
     if (a) {
       const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
 const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>15); })();
       dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
+    } else if (onLeave) {
+      dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
     } else if (isWeekend) {
       dailyRows.push([dispDate, dayName, 'Week Off', '—', '—', '—', '—', 'Week Off']);
+    } else if (isFuturePdf) {
+      dailyRows.push([dispDate, dayName, '—', '—', '—', '—', '—', '']);
     } else {
       dailyRows.push([dispDate, dayName, 'Absent', '—', '—', '—', '—', '']);
     }
   }
 
+  const present = dailyRows.filter(r => r[2] === 'Present').length;
+  const absent  = dailyRows.filter(r => r[2] === 'Absent').length;
+  const leave   = dailyRows.filter(r => r[2] === 'Leave').length;
+  const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
+  const futureDaysPdf = dailyRows.filter(r => r[2] === '—').length;
+  const late    = dailyRows.filter(r => r[6] === 'Yes').length;
+  const attPct = (totalDays - weekOff - futureDaysPdf) > 0 ? ((present / (totalDays - weekOff - futureDaysPdf)) * 100).toFixed(2) + '%' : '0%';
   const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
   const MUTED  = [85,85,85];  const BORDER= [200,213,229]; const LIGHT = [245,248,252];
   const GREEN  = [26,110,60]; const RED   = [163,45,45];  const AMBER = [133,79,11];
