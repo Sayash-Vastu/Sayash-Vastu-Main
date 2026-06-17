@@ -2495,9 +2495,10 @@ async function loadAttendance() {
     checkedMsg.style.display='block'; checkedMsg.textContent='✅ Attendance complete for today!';
     statusText.textContent='In: '+new Date(todayAtt.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' | Out: '+new Date(todayAtt.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
   }
- const now = new Date();
-  const monthStart = new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0];
-  const monthEndStr = new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().split('T')[0];
+const now = new Date();
+  const monthStart = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
+  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
+  const monthEndStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(lastDayOfMonth).padStart(2,'0');
   const { data: monthAtt } = await sb.from('attendance').select('status,date').eq('employee_email',currentUser.email).eq('is_archived',false).gte('date',monthStart);
   const { data: monthLeaves } = await sb.from('leaves').select('*').eq('employee_email',currentUser.email).eq('status','Approved').lte('from_date',monthEndStr).gte('to_date',monthStart);
   const presentDatesSet = new Set((monthAtt||[]).map(a=>a.date));
