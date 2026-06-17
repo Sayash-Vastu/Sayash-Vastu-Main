@@ -2929,16 +2929,39 @@ async function loadAttReport() {
   const end=new Date(yr,mo,0).toISOString().split('T')[0];
 const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true).neq('role','ceo');
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
+  const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
   const tbody=document.getElementById('attReportBody');
   if (!emps) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px">No data</td></tr>'; return; }
   const totalDays=new Date(yr,mo,0).getDate();
+  const todayForReport = new Date(); todayForReport.setHours(0,0,0,0);
+
+  // Calculate per-employee Absent/Leave properly
+  const empCalc = {};
+  emps.forEach(e => {
+    const presentDatesR = new Set((attData||[]).filter(a=>a.employee_email===e.email).map(a=>a.date));
+    const empLeavesR = (leaveDataReport||[]).filter(l=>l.employee_email===e.email);
+    let absentR = 0, leaveR = 0;
+    const dIter = new Date(yr, mo-1, 1);
+    while (dIter.getMonth() === mo-1) {
+      const dsIter = dIter.getFullYear() + '-' + String(dIter.getMonth()+1).padStart(2,'0') + '-' + String(dIter.getDate()).padStart(2,'0');
+      const isSunIter = dIter.getDay() === 0;
+      const isFutureIter = dIter > todayForReport;
+      const onLeaveIter = empLeavesR.find(l => dsIter >= l.from_date && dsIter <= l.to_date);
+      if (!presentDatesR.has(dsIter)) {
+        if (onLeaveIter) leaveR++;
+        else if (!isSunIter && !isFutureIter) absentR++;
+      }
+      dIter.setDate(dIter.getDate()+1);
+    }
+    empCalc[e.email] = { absent: absentR, leave: leaveR };
+  });
+
   // Summary cards
   const totalPresent = (attData||[]).filter(a=>a.status==='Present').length;
-  const totalAbsent = (attData||[]).filter(a=>a.status==='Absent').length;
+  const totalAbsent = Object.values(empCalc).reduce((s,v)=>s+v.absent,0);
   const totalHalf = (attData||[]).filter(a=>a.status==='Half Day').length;
-  const totalLeave = (attData||[]).filter(a=>a.status==='Leave').length;
-  const totalLate = (attData||[]).filter(a=>{
-    if (!a.check_in) return false;
+  const totalLeave = Object.values(empCalc).reduce((s,v)=>s+v.leave,0);
+  if (!a.check_in) return false;
     const t = new Date(a.check_in);
     return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
   }).length;
@@ -2978,9 +3001,9 @@ const { data: emps } = await sb.from('employees').select('name,email').eq('is_ac
   tbody.innerHTML=emps.map(e=>{
     const empAtt=(attData||[]).filter(a=>a.employee_email===e.email);
     const present=empAtt.filter(a=>a.status==='Present').length;
-    const absent=empAtt.filter(a=>a.status==='Absent').length;
+    const absent=empCalc[e.email]?.absent || 0;
     const half=empAtt.filter(a=>a.status==='Half Day').length;
-    const leave=empAtt.filter(a=>a.status==='Leave').length;
+    const leave=empCalc[e.email]?.leave || 0;
     const pct=totalDays>0?Math.round((present/totalDays)*100):0;
      const late = empAtt.filter(a=>{
       if (!a.check_in) return false;
