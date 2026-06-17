@@ -525,8 +525,9 @@ async function exportAttPDF() {
 const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-  const { data: attData } = await sb.from('attendance').select('*').eq('is_archived', false).gte('date', start).lte('date', end);
-
+const { data: attData } = await sb.from('attendance').select('*').eq('is_archived', false).gte('date', start).lte('date', end);
+  const { data: leaveData } = await sb.from('leaves').select('*').eq('status', 'Approved').lte('from_date', end).gte('to_date', start);
+  
   const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
   const MUTED  = [85,85,85];  const BORDER= [200,213,229]; const LIGHT = [245,248,252];
   const GREEN  = [26,110,60]; const RED   = [163,45,45];  const AMBER = [133,79,11];
@@ -543,19 +544,9 @@ const { data: emps } = await sb.from('employees').select('*').eq('is_active', tr
     if (!isFirst) doc.addPage();
 
     const empRows = (attData || []).filter(a => a.employee_email === emp.email);
+    const empLeaves = (leaveData || []).filter(l => l.employee_email === emp.email);
     const attMap = {};
     empRows.forEach(a => { attMap[a.date] = a; });
-
-    const present = empRows.filter(a => a.status === 'Present').length;
-    const absent  = empRows.filter(a => a.status === 'Absent').length;
-    const leave   = empRows.filter(a => a.status === 'Leave').length;
-    const weekOff = empRows.filter(a => a.status === 'Week Off').length;
-    const late    = empRows.filter(a => {
-      if (!a.check_in) return false;
-      const t = new Date(a.check_in);
-      return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
-    }).length;
-    const attPct = (totalDays - weekOff) > 0 ? ((present / (totalDays - weekOff)) * 100).toFixed(2) + '%' : '0%';
 
     const dailyRows = [];
     for (let d = 1; d <= lastDay; d++) {
@@ -565,18 +556,28 @@ const { data: emps } = await sb.from('employees').select('*').eq('is_active', tr
       const dispDate  = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
       const a         = attMap[dateStr];
       const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+      const onLeave   = empLeaves.find(l => dateStr >= l.from_date && dateStr <= l.to_date);
       if (a) {
         const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
         const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>15); })();
         dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
+      } else if (onLeave) {
+        dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
       } else if (isWeekend) {
         dailyRows.push([dispDate, dayName, 'Week Off', '—', '—', '—', '—', 'Week Off']);
       } else {
         dailyRows.push([dispDate, dayName, 'Absent', '—', '—', '—', '—', '']);
       }
     }
+
+    const present = dailyRows.filter(r => r[2] === 'Present').length;
+    const absent  = dailyRows.filter(r => r[2] === 'Absent').length;
+    const leave   = dailyRows.filter(r => r[2] === 'Leave').length;
+    const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
+    const late    = dailyRows.filter(r => r[6] === 'Yes').length;
+    const attPct = (totalDays - weekOff) > 0 ? ((present / (totalDays - weekOff)) * 100).toFixed(2) + '%' : '0%';
 
     // HEADER
     setFill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
@@ -634,7 +635,7 @@ const { data: emps } = await sb.from('employees').select('*').eq('is_active', tr
     doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
     doc.text('SUMMARY', W/2, y, { align: 'center' });
     y += 4;
-const halfDay = empRows.filter(a => a.status === 'Half Day').length;
+const halfDay = dailyRows.filter(r => r[2] === 'Half Day').length;
     const sumCols = ['PRESENT','HALF DAY','ABSENT','LEAVE','LATE MARKS','ATTENDANCE %'];
 const sumVals = [String(present), String(halfDay), String(absent), String(leave), String(late), attPct];
 const sumClrs = [GREEN, AMBER, RED, PURPLE, RED, GREEN];
