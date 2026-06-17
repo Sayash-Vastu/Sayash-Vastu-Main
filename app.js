@@ -2495,13 +2495,26 @@ async function loadAttendance() {
     checkedMsg.style.display='block'; checkedMsg.textContent='✅ Attendance complete for today!';
     statusText.textContent='In: '+new Date(todayAtt.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' | Out: '+new Date(todayAtt.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
   }
-  const now = new Date();
+ const now = new Date();
   const monthStart = new Date(now.getFullYear(),now.getMonth(),1).toISOString().split('T')[0];
-  const { data: monthAtt } = await sb.from('attendance').select('status').eq('employee_email',currentUser.email).eq('is_archived',false).gte('date',monthStart);
+  const monthEndStr = new Date(now.getFullYear(),now.getMonth()+1,0).toISOString().split('T')[0];
+  const { data: monthAtt } = await sb.from('attendance').select('status,date').eq('employee_email',currentUser.email).eq('is_archived',false).gte('date',monthStart);
+  const { data: monthLeaves } = await sb.from('leaves').select('*').eq('employee_email',currentUser.email).eq('status','Approved').lte('from_date',monthEndStr).gte('to_date',monthStart);
+  const presentDatesSet = new Set((monthAtt||[]).map(a=>a.date));
+  let leaveCountThisMonth = 0;
+  (monthLeaves||[]).forEach(l => {
+    let cur = new Date(Math.max(new Date(l.from_date), new Date(monthStart)));
+    const lend = new Date(Math.min(new Date(l.to_date), new Date(monthEndStr)));
+    while (cur <= lend) {
+      const ds = cur.toISOString().split('T')[0];
+      if (!presentDatesSet.has(ds)) leaveCountThisMonth++;
+      cur.setDate(cur.getDate()+1);
+    }
+  });
   document.getElementById('att-present').textContent=(monthAtt||[]).filter(a=>a.status==='Present').length;
   document.getElementById('att-absent').textContent=(monthAtt||[]).filter(a=>a.status==='Absent').length;
   document.getElementById('att-half').textContent=(monthAtt||[]).filter(a=>a.status==='Half Day').length;
-  document.getElementById('att-leave').textContent=(monthAtt||[]).filter(a=>a.status==='Leave').length;
+  document.getElementById('att-leave').textContent=leaveCountThisMonth;
   const { data: allAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('is_archived',false).order('date',{ascending:false}).limit(30);
   const tbody = document.getElementById('attBody');
   if (!allAtt||!allAtt.length) {
@@ -2510,7 +2523,7 @@ async function loadAttendance() {
   const days2 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   tbody.innerHTML = allAtt.map(a=>{
     const d = new Date(a.date);
-    const isWeekend = d.getDay()===0||d.getDay()===6;
+const isWeekend = d.getDay()===0;
     return `<tr style="${isWeekend?'background:#f8f9fc':''}">
     <td style="font-weight:600">${fmtDate(a.date)}</td>
     <td style="font-size:11px;color:${isWeekend?'var(--muted)':'var(--text)'}">${days2[d.getDay()]}</td>
