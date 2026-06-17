@@ -2400,8 +2400,8 @@ async function assignTask() {
     btn.disabled = false; btn.textContent = '➕ Assign Task';
     return; 
   }
-
-  const atFile = document.getElementById('at-file');
+const atFile = document.getElementById('at-file');
+  const atOneDriveLink = document.getElementById('at-onedrive-link') ? document.getElementById('at-onedrive-link').value.trim() : '';
   let atFileUrl = null; let atFileName = null;
   if (atFile && atFile.files[0]) {
     const f = atFile.files[0];
@@ -2422,6 +2422,9 @@ async function assignTask() {
       msg.textContent = '⚠️ File upload failed: ' + uploadErr.message;
       msg.style.color = 'var(--amber)';
     }
+  } else if (atOneDriveLink) {
+    atFileUrl = atOneDriveLink;
+    atFileName = 'OneDrive Link';
   }
 
   const assignedEmails = new Set();
@@ -2468,7 +2471,7 @@ async function assignTask() {
   });
   const countEl = document.getElementById('at-selected-count');
   if (countEl) countEl.textContent = '';
-  ['at-project','at-detail','at-end'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+['at-project','at-detail','at-end','at-onedrive-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   if (atFile) { atFile.value=''; document.getElementById('at-file-preview').innerHTML='<div style="display:flex;align-items:center;gap:10px;justify-content:center"><span style="font-size:20px">📎</span><div><div class="upload-zone-text">Click to attach file</div><div class="upload-zone-hint">PDF, Image, Excel, DWG — max 10MB</div></div></div>'; }
   setTimeout(()=>msg.textContent='',5000);
   loadNotifications();
