@@ -828,11 +828,11 @@ document.querySelector('.main-content').style.setProperty('width', 'calc(100% - 
     const navLeavesCeo = document.getElementById('nav-leaves');
     if (navAttCeo) navAttCeo.style.display = 'none';
     if (navLeavesCeo) navLeavesCeo.style.display = 'none';
-    // Hide My Reports + Follow-up for CEO
+   // Hide My Reports for CEO (Follow-up stays visible for CEO)
     const navMyRep = document.getElementById('nav-my-reports');
     if (navMyRep) navMyRep.style.display = 'none';
     const navFU = document.getElementById('nav-followup');
-    if (navFU) navFU.style.display = 'none';
+    if (navFU) navFU.style.display = 'flex';
  } else {
     ['nav-all-tasks-work','nav-employees','nav-att-report','nav-leave-approve','nav-regularization'].forEach(id => {
       document.getElementById(id).style.display = 'none';
