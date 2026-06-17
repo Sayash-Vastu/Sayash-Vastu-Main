@@ -6915,7 +6915,12 @@ async function submitExpense() {
     return; 
   }
 
+  const onedriveLink = document.getElementById('exp-onedrive-link') ? document.getElementById('exp-onedrive-link').value.trim() : '';
   let receiptUrls = []; let receiptNames = [];
+  if (onedriveLink) {
+    receiptUrls.push(onedriveLink);
+    receiptNames.push('OneDrive Link');
+  }
   if (files && files.length) {
     msgEl.textContent='⏳ Uploading files...'; msgEl.style.color='var(--muted)';
     for (const file of files) {
@@ -6968,7 +6973,8 @@ const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_').toL
   document.getElementById('exp-amount').value='';
   document.getElementById('exp-date').value='';
   document.getElementById('exp-desc').value='';
-  document.getElementById('exp-file').value='';
+document.getElementById('exp-file').value='';
+  if (document.getElementById('exp-onedrive-link')) document.getElementById('exp-onedrive-link').value='';
   document.getElementById('exp-preview').innerHTML='<div class="upload-zone-text">Click to upload receipt</div><div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>';
   loadMyExpenses();
   setTimeout(()=>msgEl.textContent='',4000);
