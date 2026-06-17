@@ -2960,8 +2960,9 @@ const { data: emps } = await sb.from('employees').select('name,email').eq('is_ac
   const totalPresent = (attData||[]).filter(a=>a.status==='Present').length;
   const totalAbsent = Object.values(empCalc).reduce((s,v)=>s+v.absent,0);
   const totalHalf = (attData||[]).filter(a=>a.status==='Half Day').length;
-  const totalLeave = Object.values(empCalc).reduce((s,v)=>s+v.leave,0);
-  if (!a.check_in) return false;
+ const totalLeave = Object.values(empCalc).reduce((s,v)=>s+v.leave,0);
+  const totalLate = (attData||[]).filter(a=>{
+    if (!a.check_in) return false;
     const t = new Date(a.check_in);
     return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
   }).length;
