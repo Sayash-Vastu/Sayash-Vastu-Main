@@ -4228,16 +4228,33 @@ async function loadMyAttendance() {
   const end = new Date(yr, mo, 0).toISOString().split('T')[0];
   const totalDays = new Date(yr, mo, 0).getDate();
 
-  const { data: attData } = await sb.from('attendance').select('*')
+ const { data: attData } = await sb.from('attendance').select('*')
     .eq('employee_email', currentUser.email)
     .eq('is_archived', false)
     .gte('date', start).lte('date', end)
     .order('date', {ascending: false});
 
+  const { data: leaveDataMy } = await sb.from('leaves').select('*')
+    .eq('employee_email', currentUser.email)
+    .eq('status', 'Approved')
+    .lte('from_date', end).gte('to_date', start);
+
+  const presentDates = new Set((attData||[]).map(a => a.date));
+  let leaveDayCount = 0;
+  (leaveDataMy||[]).forEach(l => {
+    let cur = new Date(Math.max(new Date(l.from_date), new Date(start)));
+    const lend = new Date(Math.min(new Date(l.to_date), new Date(end)));
+    while (cur <= lend) {
+      const ds = cur.toISOString().split('T')[0];
+      if (!presentDates.has(ds)) leaveDayCount++;
+      cur.setDate(cur.getDate()+1);
+    }
+  });
+
   const present = (attData||[]).filter(a=>a.status==='Present').length;
   const absent = (attData||[]).filter(a=>a.status==='Absent').length;
   const half = (attData||[]).filter(a=>a.status==='Half Day').length;
-  const leave = (attData||[]).filter(a=>a.status==='Leave').length;
+  const leave = leaveDayCount;
   const pct = totalDays > 0 ? Math.round((present/totalDays)*100) : 0;
 
   document.getElementById('att-present').textContent = present;
