@@ -574,7 +574,7 @@ const { data: attData } = await sb.from('attendance').select('*').eq('is_archive
       } else {
         dailyRows.push([dispDate, dayName, 'Absent', '—', '—', '—', '—', '']);
       }
-
+}
     const present = dailyRows.filter(r => r[2] === 'Present').length;
     const absent  = dailyRows.filter(r => r[2] === 'Absent').length;
     const leave   = dailyRows.filter(r => r[2] === 'Leave').length;
