@@ -2844,7 +2844,7 @@ async function renderAllTasks() {
       <td style="font-size:12px">${esc(t.assigned_to_name)}</td>
       <td style="font-size:11px;font-weight:${isLate?'700':'400'};color:${isLate?'var(--red)':'var(--text)'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       <td>${statusBadge(t.work_status)}</td>
-      <td>${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>`:t.approval_type&&t.approval_status==='Pending'?`<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>`:ceoBadge(t.ceo_approval)}</td>
+<td>${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>`:(t.approval_type&&t.approval_status==='Pending')?`<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>`:'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td>${files.length?renderFileChips(files):'<span style="color:var(--muted);font-size:11px">—</span>'}</td>
       <td style="display:flex;gap:5px">
         <button class="btn btn-primary btn-sm" onclick="openTaskViewModal('${t.id}')">👁️ View</button>
