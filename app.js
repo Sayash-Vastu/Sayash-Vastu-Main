@@ -2076,7 +2076,11 @@ async function renderMyTasks() {
       <td style="font-size:11px;font-weight:${isLate?'700':'400'};color:${isLate?'var(--red)':'var(--text)'}">${fmtDate(t.end_date)}${isLate?' ⚠️':''}</td>
       <td>${statusBadge(t.work_status)}</td>
       <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : t.approval_type && t.approval_status==='Pending' ? `<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':'—'}</td>
-      <td style="min-width:100px">${files.length ? renderFileChips(files) : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+<td style="min-width:100px">
+        ${files.length ? renderFileChips(files) : ''}
+        ${t.file_url ? `<div class="file-chip">📎 <a href="${t.file_url}" target="_blank">${esc((t.file_name||'File').length > 16 ? (t.file_name||'File').substring(0,16)+'…' : (t.file_name||'File'))}</a></div>` : ''}
+        ${!files.length && !t.file_url ? '<span style="color:var(--muted);font-size:11px">—</span>' : ''}
+      </td>
       <td style="display:flex;gap:5px">
         <button class="btn btn-outline btn-sm" onclick="openTaskViewModal('${t.id}')">👁️</button>
         <button class="btn btn-primary btn-sm" onclick="openTaskModal('${t.id}')">Update</button>
