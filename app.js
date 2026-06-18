@@ -1063,9 +1063,15 @@ function openAddVisitEmpGlobal() {
           </div>
           <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
           <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
-          <div class="field"><label>Visited By</label><input id="avg-by" value="${currentUser.name}"></div>
-          <div class="field"><label>Assigned To</label><input id="avg-assigned" placeholder="Assigned to..."></div>
-          <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address"></div>
+<div class="field"><label>Visited By</label>
+  <input id="avg-by" value="${currentUser.name}" list="avgByList" placeholder="Type or select...">
+  <datalist id="avgByList"></datalist>
+</div>
+<div class="field"><label>Assign Report To *</label>
+  <input id="avg-assigned" list="avgAssignedList" placeholder="Type or select employee...">
+  <datalist id="avgAssignedList"></datalist>
+</div>
+                    <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address"></div>
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
@@ -1077,12 +1083,19 @@ function openAddVisitEmpGlobal() {
       </div>
     </div>
   `);
-  sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
+sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
     const sel = document.getElementById('avg-client');
     if (sel && data) sel.innerHTML = '<option value="">Select Client</option>' + data.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   });
-}
 
+  sb.from('employees').select('name').eq('is_active', true).order('name').then(({ data }) => {
+    const byList = document.getElementById('avgByList');
+    const assignedList = document.getElementById('avgAssignedList');
+    const opts = (data || []).map(e => `<option value="${esc(e.name)}">`).join('');
+    if (byList) byList.innerHTML = opts;
+    if (assignedList) assignedList.innerHTML = opts;
+  });
+}
 async function loadProjectsForClient(clientId) {
   const sel = document.getElementById('avg-project');
   const subSel = document.getElementById('avg-subproject');
@@ -1105,25 +1118,81 @@ async function loadSubProjectsForProject(projectId) {
 async function saveVisitGlobal() {
   const clientId = document.getElementById('avg-client').value;
   if (!clientId) { showToast('⚠️ Client required', 'warn'); return; }
+
+  const clientSel = document.getElementById('avg-client');
+  const clientName = clientSel.options[clientSel.selectedIndex]?.text || '';
+  const projectSel = document.getElementById('avg-project');
+  const projectName = projectSel.options[projectSel.selectedIndex]?.text || '';
+  const subSel = document.getElementById('avg-subproject');
+  const subName = subSel.options[subSel.selectedIndex]?.text || '';
+  const assignedToName = document.getElementById('avg-assigned').value.trim();
+  const visitedBy = document.getElementById('avg-by').value.trim();
+  const discussion = document.getElementById('avg-discussion').value.trim();
+  const location = document.getElementById('avg-location').value.trim();
+
   const { error } = await sbClient.from('site_visits').insert({
     client_id: clientId,
     project_id: document.getElementById('avg-project').value || null,
     sub_project_id: document.getElementById('avg-subproject').value || null,
     visit_date: document.getElementById('avg-date').value || null,
     layout_received_date: document.getElementById('avg-layout-date').value || null,
-    visited_by: document.getElementById('avg-by').value.trim(),
-    assigned_to: document.getElementById('avg-assigned').value.trim(),
-    location: document.getElementById('avg-location').value.trim(),
-    discussion: document.getElementById('avg-discussion').value.trim(),
+    visited_by: visitedBy,
+    assigned_to: assignedToName,
+    location: location,
+    discussion: discussion,
     suggestions: document.getElementById('avg-suggestions').value.trim(),
     remarks: document.getElementById('avg-remarks').value.trim(),
   });
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
-  showToast('✅ Site visit saved!', 'ok');
+
+  // Create a Project Tracker record in Client CRM with Pending status
+  let linkedRecordId = null;
+  const { data: trackerRecord, error: trackerErr } = await sbClient.from('project_records').insert({
+    client_id: clientId,
+    project_name: projectName || 'Site Visit',
+    sub_project_name: subName || null,
+    recommendation: discussion || 'Site visit report pending',
+    site_visit_date: document.getElementById('avg-date').value || null,
+    received_from: visitedBy,
+    record_type: 'Site Visit',
+    tracker_status: 'Pending',
+  }).select().single();
+  if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
+
+  // Create a task for the assigned person
+  if (assignedToName) {
+    const { data: empMatch } = await sb.from('employees').select('email,name').ilike('name', assignedToName).maybeSingle();
+    const assignedEmail = empMatch?.email || null;
+    const assignedName = empMatch?.name || assignedToName;
+
+    if (assignedEmail) {
+      await sb.from('tasks').insert({
+        project: clientName,
+        task_detail: `Site visit report pending — ${clientName}${projectName ? ' / ' + projectName : ''}${subName ? ' / ' + subName : ''}. ${discussion || ''}`.trim(),
+        assigned_to_email: assignedEmail.toLowerCase(),
+        assigned_to_name: assignedName,
+        assigned_by_email: currentUser.email,
+        assigned_by_name: currentUser.name,
+        start_date: new Date().toISOString().split('T')[0],
+        end_date: new Date().toISOString().split('T')[0],
+        work_status: 'Not Started',
+        ceo_approval: 'Pending',
+        linked_record_id: linkedRecordId,
+        linked_client_id: clientId,
+      });
+      await createNotification(assignedEmail.toLowerCase(), `📋 New task — Site visit report pending`, `${clientName}${projectName ? ' / ' + projectName : ''} — report banani hai.`, 'task', 'tasks');
+      await sendEmail(assignedEmail, assignedName, '📋 New Task — Site Visit Report Pending',
+        `You have been assigned a task.\n\nClient: ${clientName}\nProject: ${projectName || '-'}\nDetails: ${discussion || '-'}\n\nPlease login to view and complete.`,
+        'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
+    } else {
+      showToast('⚠️ Task create nahi hua — employee email nahi mila "' + assignedToName + '" ke liye', 'warn');
+    }
+  }
+
+  showToast('✅ Site visit saved' + (assignedToName ? ' & task assigned!' : '!'), 'ok');
   closeModal('addVisitGlobalModal');
   loadClientVisitsAll();
 }
-
 // ═══════════════════════════════════════════
 //  HOME
 // ═══════════════════════════════════════════
