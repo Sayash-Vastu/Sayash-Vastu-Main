@@ -2322,6 +2322,15 @@ if (newEndDate) updates.end_date = newEndDate;
   const { error } = await sb.from('tasks').update(updates).eq('id', currentTaskRow.id);
   if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
 
+  // If this task is linked to a Client CRM project tracker record, sync its status
+  if (currentTaskRow.linked_record_id) {
+    let newTrackerStatus = null;
+    if (status === 'Completed') newTrackerStatus = 'Completed';
+    else if (status === 'In Progress' || status === 'Sent for Review') newTrackerStatus = 'In Progress';
+    if (newTrackerStatus) {
+      await sbClient.from('project_records').update({ tracker_status: newTrackerStatus }).eq('id', currentTaskRow.linked_record_id);
+    }
+  }
   // Send email + notify when forwarded
   if (sendToEmail && sendToName) {
     // Create notification in DB
