@@ -765,12 +765,14 @@ async function doLogin() {
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Signing in...';
   errEl.style.display = 'none';
   try {
-    const { data, error } = await sb.from('employees').select('*').eq('email', email.toLowerCase()).eq('password_hash', pass).eq('is_active', true).single();
+const { data, error } = await sb.from('employees').select('*').eq('email', email.toLowerCase()).eq('password_hash', pass).eq('is_active', true).single();
     if (error || !data) {
       showLoginError('Invalid email or password. Please try again.');
       btn.disabled = false; btn.textContent = 'Sign In to Portal'; return;
     }
     currentUser = data;
+    currentUser.displayRole = currentUser.role;
+    if (currentUser.role === 'hr') currentUser.role = 'ceo';
     localStorage.setItem('sv_user', JSON.stringify(data));
     await sb.from('user_sessions').insert({ employee_email: data.email, employee_name: data.name, role: data.role, login_at: new Date().toISOString() });
     btn.disabled = false; btn.textContent = 'Sign In to Portal';
@@ -814,8 +816,7 @@ document.querySelector('.main-content').style.setProperty('width', 'calc(100% - 
     sidebarAvEl.style.background = '';
   }
   document.getElementById('sidebarName').textContent = currentUser.name;
-  document.getElementById('sidebarRole').textContent = currentUser.role.toUpperCase();
-
+document.getElementById('sidebarRole').textContent = (currentUser.displayRole || currentUser.role).toUpperCase();
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo') {
