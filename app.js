@@ -820,7 +820,7 @@ document.getElementById('sidebarRole').textContent = (currentUser.displayRole ||
   document.getElementById('nav-assign').style.display = 'flex';
 
   if (currentUser.role === 'ceo') {
-['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization'].forEach(id => {
+['nav-employees','nav-att-report','nav-leave-approve','nav-all-tasks-work','nav-assign-ceo','nav-reports-approval','nav-ceo-my-tasks','nav-regularization','nav-payroll-parent'].forEach(id => {
     const el = document.getElementById(id);
       if (el) el.style.display = 'flex';
     });
