@@ -1019,7 +1019,8 @@ if (name === 'documents') {
     else loadMyDocs();
 }
 if (name === 'offerLetters') loadOfferLetters();
-  if (name === 'calendar') loadCalendar();
+  if (name === 'salaryStructure') loadSalaryStructure();
+    if (name === 'calendar') loadCalendar();
   if (name === 'expenses') loadExpenses();
   if (name === 'compliance') loadCompliance();
   if (name === 'attendance') loadMyRegularizations();
@@ -3160,6 +3161,38 @@ async function deleteOfferLetter(empId, empName) {
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast(`✅ Offer letter deleted!`, 'ok');
   loadOfferLetters();
+}
+async function loadSalaryStructure() {
+  const { data } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
+  const tbody = document.getElementById('salaryStructureBody');
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(e => `<tr>
+    <td style="font-weight:700;color:var(--navy)">${esc(e.employee_code)}</td>
+    <td>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="av" style="background:var(--navy)">${esc(e.name).substring(0,2).toUpperCase()}</div>
+        <span style="font-weight:600">${esc(e.name)}</span>
+      </div>
+    </td>
+    <td style="font-size:12px">${esc(e.designation||'—')}</td>
+    <td>
+      <input type="number" id="sal-${e.id}" value="${e.monthly_salary || 0}" style="width:140px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif">
+    </td>
+    <td>
+      <button class="btn btn-gold btn-sm" onclick="updateSalary('${e.id}','${esc(e.name)}')">💾 Save</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function updateSalary(empId, empName) {
+  const val = document.getElementById('sal-' + empId).value;
+  const salary = parseFloat(val) || 0;
+  const { error } = await sb.from('employees').update({ monthly_salary: salary }).eq('id', empId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast(`✅ Salary updated for ${empName}: ₹${salary.toLocaleString('en-IN')}`, 'ok');
 }
 // ═══════════════════════════════════════════
 //  ATT REPORT CEO
