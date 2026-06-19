@@ -1031,8 +1031,11 @@ async function loadClientVisitsAll() {
   document.getElementById('clientVisitsList').innerHTML = data.map(v => `
     <div class="panel" style="margin-bottom:14px">
       <div class="panel-head">
-        <div class="panel-title">🏗️ ${esc(v.clients?.name||'-')} <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">${fmtDate(v.visit_date)}</span></div>
-        <span class="badge b-blue">${esc(v.visited_by||'-')}</span>
+<div class="panel-title">🏗️ ${esc(v.clients?.name||'-')} <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">${fmtDate(v.visit_date)}</span></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge b-blue">${esc(v.visited_by||'-')}</span>
+          <button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
+        </div>
       </div>
       <div class="panel-body">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -1045,6 +1048,13 @@ async function loadClientVisitsAll() {
       </div>
     </div>
   `).join('');
+}
+async function deleteSiteVisitGlobal(visitId) {
+  if (!confirm('Delete this site visit?')) return;
+  const { error } = await sbClient.from('site_visits').delete().eq('id', visitId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Site visit deleted!', 'ok');
+  loadClientVisitsAll();
 }
 function openAddVisitEmpGlobal() {
   document.body.insertAdjacentHTML('beforeend', `
