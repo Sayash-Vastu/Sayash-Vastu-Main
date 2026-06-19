@@ -6847,7 +6847,8 @@ async function loadMyExpenses() {
           `:''}
         </div>
         <div style="text-align:right">
-          <div style="font-size:22px;font-weight:800;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</div>
+<div style="font-size:22px;font-weight:800;color:var(--navy)">₹${parseFloat(e.amount).toLocaleString('en-IN')}</div>
+          ${e.receipt_url ? `<div style="margin-top:6px">${e.receipt_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" class="btn btn-outline btn-sm" style="font-size:10px;margin:2px 0">📄 View ${e.receipt_url.split(',').length > 1 ? (idx+1) : ''}</a>`).join('')}</div>` : ''}
 <button onclick="deleteExpense('${e.id}')" class="btn btn-sm" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-top:6px">🗑️ Delete</button>
         </div>
       </div>
