@@ -3133,9 +3133,10 @@ async function loadOfferLetters() {
     </td>
     <td style="font-size:12px">${esc(e.designation||'—')}</td>
     <td>${e.offer_letter_url ? `<a href="${e.offer_letter_url}" target="_blank" class="btn btn-outline btn-sm" style="background:#E6F1FB;border-color:#378ADD;color:#185FA5">📄 View</a>` : '<span style="color:var(--muted);font-size:11px">Not uploaded</span>'}</td>
-    <td>
+<td>
       <input type="file" id="ol-file-${e.id}" accept=".pdf,.doc,.docx" style="display:none" onchange="uploadOfferLetter('${e.id}','${esc(e.name)}',this)">
       <button class="btn btn-gold btn-sm" onclick="document.getElementById('ol-file-${e.id}').click()">⬆️ ${e.offer_letter_url ? 'Replace' : 'Upload'}</button>
+      ${e.offer_letter_url ? `<button class="btn btn-sm" onclick="deleteOfferLetter('${e.id}','${esc(e.name)}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-left:4px">🗑️</button>` : ''}
     </td>
   </tr>`).join('');
 }
@@ -3151,6 +3152,13 @@ async function uploadOfferLetter(empId, empName, input) {
   const { error } = await sb.from('employees').update({ offer_letter_url: urlData.publicUrl }).eq('id', empId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast(`✅ Offer letter uploaded for ${empName}!`, 'ok');
+  loadOfferLetters();
+}
+async function deleteOfferLetter(empId, empName) {
+  if (!confirm(`Delete offer letter for ${empName}?`)) return;
+  const { error } = await sb.from('employees').update({ offer_letter_url: null }).eq('id', empId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast(`✅ Offer letter deleted!`, 'ok');
   loadOfferLetters();
 }
 // ═══════════════════════════════════════════
@@ -4890,9 +4898,14 @@ async function loadMyProfile() {
   document.getElementById('pi-code').textContent = emp.employee_code || '—';
   document.getElementById('pi-dept').textContent = emp.department || '—';
   document.getElementById('pi-desig').textContent = emp.designation || '—';
-  document.getElementById('pi-joining').textContent = emp.joining_date ? fmtDate(emp.joining_date) : '—';
+document.getElementById('pi-joining').textContent = emp.joining_date ? fmtDate(emp.joining_date) : '—';
+  const offerLetterEl = document.getElementById('myOfferLetter');
+  if (offerLetterEl) {
+    offerLetterEl.innerHTML = emp.offer_letter_url 
+      ? `<a href="${emp.offer_letter_url}" target="_blank" class="btn btn-gold btn-sm">📄 View / Download Offer Letter</a>`
+      : `<span style="color:var(--muted);font-size:12px">Offer letter not uploaded yet by HR</span>`;
+  }
   loadMyDocs();
-
   // Editable fields
   document.getElementById('pi-name').value = emp.name || '';
   document.getElementById('pi-email').value = emp.email || '';
