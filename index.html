@@ -181,8 +181,15 @@
   <span class="ni">✅</span><span>Leave Approvals</span>
   <span class="nav-badge" id="nb-leave-approve" style="display:none">0</span>
 </button>
-        <button class="nav-btn" id="nav-payroll" onclick="showView('payroll')" style="display:none;padding-left:32px"><span class="ni">💰</span><span>Payroll</span></button>
-        <button class="nav-btn" id="nav-offer-letters" onclick="showView('offerLetters')" style="display:none;padding-left:32px"><span class="ni">📄</span><span>Offer Letters</span></button>
+<button class="nav-btn" id="nav-payroll-parent" onclick="toggleSideMenu('payrollMenu')" style="display:none;padding-left:32px">
+          <span class="ni">💰</span><span>Payroll</span>
+          <span id="payroll-arrow" style="margin-left:auto;font-size:10px;transition:transform 0.2s">▶</span>
+        </button>
+        <div id="payrollMenu" style="display:none">
+          <button class="nav-btn" id="nav-offer-letters" onclick="showView('offerLetters')" style="padding-left:48px"><span class="ni">📄</span><span>Offer Letters</span></button>
+          <button class="nav-btn" id="nav-salary-slips" onclick="showView('salarySlips')" style="padding-left:48px"><span class="ni">💵</span><span>Salary Slips</span></button>
+          <button class="nav-btn" id="nav-salary-structure" onclick="showView('salaryStructure')" style="padding-left:48px"><span class="ni">⚙️</span><span>Salary Setup</span></button>
+        </div>
         <button class="nav-btn" id="nav-regularization" onclick="showView('regularization')" style="display:none;padding-left:32px">
   <span class="ni">📋</span><span>Regularization</span>
   <span class="nav-badge" id="nb-regularization" style="display:none">0</span>
