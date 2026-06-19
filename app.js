@@ -1074,7 +1074,19 @@ function openAddVisitEmpGlobal() {
                     <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address"></div>
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
-          <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
+<div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>Upload Report File (Optional)</label>
+            <div class="upload-zone" onclick="document.getElementById('avgFile').click()">
+              <input type="file" id="avgFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="document.getElementById('avgFileName').textContent = this.files[0] ? '✅ ' + this.files[0].name : ''">
+              <div style="font-size:24px;margin-bottom:6px">📎</div>
+              <div style="font-size:13px;color:var(--muted)">Click to upload file</div>
+              <div id="avgFileName" style="font-size:12px;color:var(--green);font-weight:600;margin-top:6px"></div>
+            </div>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Or OneDrive / SharePoint Link (Optional)</label>
+            <input id="avg-onedrive-link" placeholder="https://sayashvastucorp-my.sharepoint.com/...">
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">📌 File already OneDrive par hai toh share link yahan paste karo</div>
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeModal('addVisitGlobalModal')">Cancel</button>
@@ -1096,44 +1108,65 @@ sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
     if (assignedList) assignedList.innerHTML = opts;
   });
 }
+window._avgClientRecords = [];
+
 async function loadProjectsForClient(clientId) {
   const sel = document.getElementById('avg-project');
   const subSel = document.getElementById('avg-subproject');
   if (!sel) return;
-  if (!clientId) { sel.innerHTML = '<option value="">Select Project</option>'; return; }
-  const { data } = await sbClient.from('projects').select('id, title').eq('client_id', clientId).order('title');
-  sel.innerHTML = '<option value="">Select Project</option>' + (data||[]).map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+  if (!clientId) { sel.innerHTML = '<option value="">Select Project</option>'; if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
+
+  const { data } = await sbClient.from('project_records').select('project_name, sub_project_name').eq('client_id', clientId);
+  window._avgClientRecords = data || [];
+  const projectNames = [...new Set(window._avgClientRecords.map(r => r.project_name).filter(Boolean))];
+
+  if (!projectNames.length) { sel.innerHTML = '<option value="">No projects found</option>'; if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
+  sel.innerHTML = '<option value="">Select Project</option>' + projectNames.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
   if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>';
 }
 
-async function loadSubProjectsForProject(projectId) {
+function loadSubProjectsForProject(projectName) {
   const subSel = document.getElementById('avg-subproject');
   if (!subSel) return;
-  if (!projectId) { subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
-  const { data } = await sbClient.from('projects').select('id, title').eq('parent_id', projectId).order('title');
-  if (!data || !data.length) { subSel.innerHTML = '<option value="">No sub projects</option>'; return; }
-  subSel.innerHTML = '<option value="">Select Sub Project</option>' + data.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
-}
+  if (!projectName) { subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
 
+  const subNames = [...new Set((window._avgClientRecords || [])
+    .filter(r => r.project_name === projectName)
+    .map(r => r.sub_project_name)
+    .filter(Boolean))];
+
+  if (!subNames.length) { subSel.innerHTML = '<option value="">No sub projects</option>'; return; }
+  subSel.innerHTML = '<option value="">Select Sub Project</option>' + subNames.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+}
 async function saveVisitGlobal() {
   const clientId = document.getElementById('avg-client').value;
   if (!clientId) { showToast('⚠️ Client required', 'warn'); return; }
 
   const clientSel = document.getElementById('avg-client');
   const clientName = clientSel.options[clientSel.selectedIndex]?.text || '';
-  const projectSel = document.getElementById('avg-project');
-  const projectName = projectSel.options[projectSel.selectedIndex]?.text || '';
-  const subSel = document.getElementById('avg-subproject');
-  const subName = subSel.options[subSel.selectedIndex]?.text || '';
+  const projectName = document.getElementById('avg-project').value;
+  const subName = document.getElementById('avg-subproject').value;
   const assignedToName = document.getElementById('avg-assigned').value.trim();
   const visitedBy = document.getElementById('avg-by').value.trim();
   const discussion = document.getElementById('avg-discussion').value.trim();
   const location = document.getElementById('avg-location').value.trim();
 
+  // Handle file upload / OneDrive link
+  let attachmentUrl = document.getElementById('avg-onedrive-link').value.trim() || null;
+  const avgFile = document.getElementById('avgFile').files[0];
+  if (avgFile) {
+    const path = `site-visits/${Date.now()}_${avgFile.name.replace(/[^a-z0-9.]/gi,'_')}`;
+    const { error: uploadErr } = await sbClient.storage.from('client-documents').upload(path, avgFile);
+    if (uploadErr) {
+      showToast('❌ File upload failed: ' + uploadErr.message, 'err');
+    } else {
+      const { data: urlData } = sbClient.storage.from('client-documents').getPublicUrl(path);
+      attachmentUrl = urlData.publicUrl;
+    }
+  }
+
   const { error } = await sbClient.from('site_visits').insert({
     client_id: clientId,
-    project_id: document.getElementById('avg-project').value || null,
-    sub_project_id: document.getElementById('avg-subproject').value || null,
     visit_date: document.getElementById('avg-date').value || null,
     layout_received_date: document.getElementById('avg-layout-date').value || null,
     visited_by: visitedBy,
@@ -1156,6 +1189,7 @@ async function saveVisitGlobal() {
     received_from: visitedBy,
     record_type: 'Site Visit',
     tracker_status: 'Pending',
+    hyperlink: attachmentUrl,
   }).select().single();
   if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
 
@@ -1179,6 +1213,8 @@ async function saveVisitGlobal() {
         ceo_approval: 'Pending',
         linked_record_id: linkedRecordId,
         linked_client_id: clientId,
+        file_url: attachmentUrl,
+        file_name: avgFile ? avgFile.name : (attachmentUrl ? 'OneDrive Link' : null),
       });
       await createNotification(assignedEmail.toLowerCase(), `📋 New task — Site visit report pending`, `${clientName}${projectName ? ' / ' + projectName : ''} — report banani hai.`, 'task', 'tasks');
       await sendEmail(assignedEmail, assignedName, '📋 New Task — Site Visit Report Pending',
