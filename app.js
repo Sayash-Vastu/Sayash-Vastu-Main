@@ -3020,7 +3020,7 @@ async function renderAllTasks() {
 //  EMPLOYEES CEO
 // ═══════════════════════════════════════════
 async function loadEmployees() {
-  const { data } = await sb.from('employees').select('*').eq('is_active',true).order('employee_code',{ascending:true});
+const { data } = await sb.from('employees').select('*').order('employee_code',{ascending:true});
   const tbody=document.getElementById('employeesBody');
   if (!data||!data.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>'; return; }
   tbody.innerHTML=data.map(e=>`<tr>
@@ -3038,8 +3038,9 @@ async function loadEmployees() {
     <td><span class="badge ${e.role==='ceo'?'b-gold':e.role==='manager'?'b-purple':'b-navy'}">${e.role.toUpperCase()}</span></td>
     <td>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <span class="badge ${e.is_active?'b-green':'b-red'}">${e.is_active?'Active':'Inactive'}</span>
+<span class="badge ${e.is_active?'b-green':'b-red'}">${e.is_active?'Active':'Inactive'}</span>
         ${e.role!=='ceo'?`<button class="btn btn-sm" onclick="toggleEmployee('${e.id}',${e.is_active})" style="padding:3px 8px;font-size:10px;background:${e.is_active?'#fdf0ee':'#e6f5ee'};color:${e.is_active?'var(--red)':'var(--green)'};border-color:${e.is_active?'var(--red-bg)':'var(--green-bg)'}">${e.is_active?'Deactivate':'Activate'}</button>`:''}
+        ${!e.is_active && e.role!=='ceo'?`<button class="btn btn-sm" onclick="permanentlyDeleteEmployee('${e.id}','${esc(e.name)}','${e.email}')" style="padding:3px 8px;font-size:10px;background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️ Delete Permanently</button>`:''}
         ${currentUser && (currentUser.role==='ceo'||currentUser.role==='manager')?`
           <button class="btn btn-sm" onclick="openEditEmpModal('${e.id}','${esc(e.name)}','${esc(e.employee_code)}','${esc(e.department||'')}','${esc(e.designation||'')}','${e.joining_date||''}','${e.role}')" style="padding:3px 8px;font-size:10px;background:#e6f5ee;color:var(--green);border-color:#b8e0c8">✏️ Edit</button>
           <button class="btn btn-sm" onclick="openPassModal('${e.id}','${esc(e.name)}','${esc(e.email)}')" style="padding:3px 8px;font-size:10px;background:#eef2fb;color:var(--blue);border-color:#c0d0f0">🔑 Pass</button>
@@ -3050,6 +3051,21 @@ async function loadEmployees() {
   </tr>`).join('');
 }
 
+async function permanentlyDeleteEmployee(id, name, email) {
+  if (!confirm(`⚠️ PERMANENTLY DELETE ${name}?\n\nYeh action undo nahi ho sakti! Sab tasks, attendance, leaves bhi delete ho jayenge.\n\nConfirm karo?`)) return;
+  if (!confirm(`Final confirmation: ${name} ko DB se hamesha ke liye delete karna hai?`)) return;
+  
+  await sb.from('tasks').delete().eq('assigned_to_email', email);
+  await sb.from('attendance').delete().eq('employee_email', email);
+  await sb.from('leaves').delete().eq('employee_email', email);
+  await sb.from('expense_claims').delete().eq('employee_email', email);
+  
+  const { error } = await sb.from('employees').delete().eq('id', id);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  
+  showToast(`✅ ${name} permanently deleted!`, 'ok');
+  loadEmployees();
+}
 function openAddEmpModal() { document.getElementById('addEmpModal').classList.add('open'); }
 
 async function addEmployee() {
