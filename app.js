@@ -1156,8 +1156,11 @@ async function saveVisitGlobal() {
   const subName = document.getElementById('avg-subproject').value;
   const assignedToName = document.getElementById('avg-assigned').value.trim();
   const visitedBy = document.getElementById('avg-by').value.trim();
+  const visitType = document.getElementById('avg-type').value;
   const discussion = document.getElementById('avg-discussion').value.trim();
   const location = document.getElementById('avg-location').value.trim();
+  const visitDate = document.getElementById('avg-date').value || null;
+  const suggestions = document.getElementById('avg-suggestions').value.trim();
 
   // Handle file upload / OneDrive link
   let attachmentUrl = document.getElementById('avg-onedrive-link').value.trim() || null;
@@ -1175,31 +1178,58 @@ async function saveVisitGlobal() {
 
   const { error } = await sbClient.from('site_visits').insert({
     client_id: clientId,
-    visit_date: document.getElementById('avg-date').value || null,
+    visit_date: visitDate,
     layout_received_date: document.getElementById('avg-layout-date').value || null,
     visited_by: visitedBy,
     assigned_to: assignedToName,
     location: location,
     discussion: discussion,
-    suggestions: document.getElementById('avg-suggestions').value.trim(),
+    suggestions: suggestions,
     remarks: document.getElementById('avg-remarks').value.trim(),
   });
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
 
-  // Create a Project Tracker record in Client CRM with Pending status
-  let linkedRecordId = null;
-  const { data: trackerRecord, error: trackerErr } = await sbClient.from('project_records').insert({
+  // Detect client type to build the right tracker_records payload
+  const isMaxHealthcare = clientName === 'MAX Healthcare';
+  const isSignatureGlobal = clientName === 'Signature Global';
+
+  let trackerPayload = {
     client_id: clientId,
     project_name: projectName || 'Site Visit',
     sub_project_name: subName || null,
-    recommendation: discussion || 'Site visit report pending',
-    site_visit_date: document.getElementById('avg-date').value || null,
-    received_from: visitedBy,
-    record_type: 'Site Visit',
     tracker_status: 'Pending',
     hyperlink: attachmentUrl,
-  }).select().single();
-  if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
+  };
+
+  if (isMaxHealthcare) {
+    trackerPayload.coordinator = visitedBy;
+    trackerPayload.site_visit_date = visitDate;
+    trackerPayload.recommendation = discussion || 'Site visit report pending';
+    trackerPayload.record_type = visitType;
+    trackerPayload.location_links = location ? [location] : [];
+    trackerPayload.vastu_reports = [];
+  } else if (isSignatureGlobal) {
+    trackerPayload.site_visit_date = visitDate;
+    trackerPayload.sg_team_visitor = visitedBy;
+    trackerPayload.sayash_observation = discussion || 'Site visit report pending';
+    trackerPayload.document_received = visitType;
+    trackerPayload.site_plan_link = location || null;
+  } else {
+    trackerPayload.received_from = visitedBy;
+    trackerPayload.recommendation = discussion || 'Site visit report pending';
+    trackerPayload.site_visit_date = visitDate;
+    trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Meeting' ? 'Meeting' : visitType === 'Mail' ? 'Mail Consultation' : 'Other';
+    trackerPayload.location_link = location || null;
+    trackerPayload.comments = suggestions || null;
+  }
+
+  let linkedRecordId = null;
+  const { data: trackerRecord, error: trackerErr } = await sbClient.from('project_records').insert(trackerPayload).select().single();
+  if (trackerErr) {
+    showToast('⚠️ Tracker record nahi bana: ' + trackerErr.message, 'warn');
+  } else if (trackerRecord) {
+    linkedRecordId = trackerRecord.id;
+  }
 
   // Create a task for the assigned person
   if (assignedToName) {
