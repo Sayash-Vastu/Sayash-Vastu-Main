@@ -6925,7 +6925,7 @@ let query = sb.from('expense_claims').select('*').eq('is_archived', false).order
             </td>
             <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--green)">${e.approved_by?esc(e.approved_by):'—'}</td>
             <td style="padding:10px 14px;font-size:12px;font-weight:600;color:var(--blue)">${e.paid_by?esc(e.paid_by):'—'}</td>
-            <td style="padding:10px 14px">${e.receipt_url?`<a href="${e.receipt_url}" target="_blank" class="btn btn-outline btn-sm">📄 View</a>`:'—'}</td>
+<td style="padding:10px 14px">${e.receipt_url ? e.receipt_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" class="btn btn-outline btn-sm" style="margin:2px">📄 View ${e.receipt_url.split(',').length > 1 ? (idx+1) : ''}</a>`).join('') : '—'}</td>
 <td style="padding:10px 14px">
   <div style="display:flex;gap:6px;flex-wrap:wrap">
     ${isManager && e.status==='Pending'?`
@@ -7017,15 +7017,14 @@ const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, fi
     }
   }
 
-  const { error } = await sb.from('expense_claims').insert({
+const { error } = await sb.from('expense_claims').insert({
     employee_email: currentUser.email,
     employee_name: currentUser.name,
     expense_type: type, amount: parseFloat(amount),
     expense_date: date, description: desc,
-    receipt_url: receiptUrls[0] || null,
+    receipt_url: receiptUrls.join(', ') || null,
     receipt_name: receiptNames.join(', ') || null
   });
-
   if (error) { 
     msgEl.textContent='❌ '+error.message; 
     msgEl.style.color='var(--red)'; 
