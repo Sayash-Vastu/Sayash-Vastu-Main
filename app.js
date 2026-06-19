@@ -1071,7 +1071,15 @@ function openAddVisitEmpGlobal() {
   <input id="avg-assigned" list="avgAssignedList" placeholder="Type or select employee...">
   <datalist id="avgAssignedList"></datalist>
 </div>
-                    <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address"></div>
+<div class="field"><label>Type</label>
+            <select id="avg-type">
+              <option>Site Visit</option>
+              <option>Meeting</option>
+              <option>Telephonic</option>
+              <option>Mail</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address or Google Maps link"></div>
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
 <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
