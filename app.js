@@ -3817,7 +3817,7 @@ async function addProject() {
     const path = `projects/${Date.now()}_${f.name.replace(/[^a-z0-9.]/gi,'_')}`;
     const { error: uploadErr } = await sb.storage.from('task-files').upload(path, f, {upsert: false});
     if (!uploadErr) {
-      const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
       projFileUrl = urlData.publicUrl;
       projFileName = f.name;
     }
@@ -7004,7 +7004,7 @@ async function submitExpense() {
         return; 
       }
 const path = `expenses/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_').toLowerCase()}`;
-      const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
+const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
       if (uploadErr) {
         msgEl.textContent='❌ Upload failed: '+uploadErr.message;
         msgEl.style.color='var(--red)';
