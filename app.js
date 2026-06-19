@@ -939,11 +939,13 @@ const viewTitles = {
   hrPolicy: ['HR Policies','Company policies — read and acknowledge'],
   projects: ['Projects','Company project overview'],
   helpRequest: ['Help Requests','Request help from colleagues'],
-  expenses: ['Expense Claims','Submit and track your expense reimbursements'],
+expenses: ['Expense Claims','Submit and track your expense reimbursements'],
   compliance: ['Compliance Checklist','Monthly finance and compliance tasks'],
+  offerLetters: ['Offer Letters','Upload and manage employee offer letters'],
+  salarySlips: ['Salary Slips','Generate and download salary slips'],
+  salaryStructure: ['Salary Setup','Set monthly salary for employees'],
 };
-
-function showView(name) {
+  function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   // Auto open parent menus
@@ -964,10 +966,19 @@ function showView(name) {
     const arr = document.getElementById('hr-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
   }
-  if (['allTasks','employees','attReport','leaveApprove'].includes(name)) {
+if (['allTasks','employees','attReport','leaveApprove'].includes(name)) {
     document.getElementById('ceoMenu').style.display = 'block';
     const arr = document.getElementById('ceo-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
+  }
+  if (['offerLetters','salarySlips','salaryStructure'].includes(name)) {
+    document.getElementById('ceoMenu').style.display = 'block';
+    const arr = document.getElementById('ceo-arrow');
+    if (arr) arr.style.transform = 'rotate(90deg)';
+    const pm = document.getElementById('payrollMenu');
+    if (pm) pm.style.display = 'block';
+    const parr = document.getElementById('payroll-arrow');
+    if (parr) parr.style.transform = 'rotate(90deg)';
   }
   const el = document.getElementById('view-' + name);
   if (el) el.classList.add('active');
@@ -1007,7 +1018,8 @@ if (name === 'documents') {
     if (currentUser.role === 'ceo') loadAllDocuments();
     else loadMyDocs();
 }
-if (name === 'calendar') loadCalendar();
+if (name === 'offerLetters') loadOfferLetters();
+  if (name === 'calendar') loadCalendar();
   if (name === 'expenses') loadExpenses();
   if (name === 'compliance') loadCompliance();
   if (name === 'attendance') loadMyRegularizations();
@@ -3104,6 +3116,43 @@ async function addEmployee() {
   loadEmployees(); loadEmployeeAutocomplete();
 }
 
+async function loadOfferLetters() {
+  const { data } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
+  const tbody = document.getElementById('offerLettersBody');
+  if (!data || !data.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map(e => `<tr>
+    <td style="font-weight:700;color:var(--navy)">${esc(e.employee_code)}</td>
+    <td>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="av" style="background:var(--navy)">${esc(e.name).substring(0,2).toUpperCase()}</div>
+        <span style="font-weight:600">${esc(e.name)}</span>
+      </div>
+    </td>
+    <td style="font-size:12px">${esc(e.designation||'—')}</td>
+    <td>${e.offer_letter_url ? `<a href="${e.offer_letter_url}" target="_blank" class="btn btn-outline btn-sm" style="background:#E6F1FB;border-color:#378ADD;color:#185FA5">📄 View</a>` : '<span style="color:var(--muted);font-size:11px">Not uploaded</span>'}</td>
+    <td>
+      <input type="file" id="ol-file-${e.id}" accept=".pdf,.doc,.docx" style="display:none" onchange="uploadOfferLetter('${e.id}','${esc(e.name)}',this)">
+      <button class="btn btn-gold btn-sm" onclick="document.getElementById('ol-file-${e.id}').click()">⬆️ ${e.offer_letter_url ? 'Replace' : 'Upload'}</button>
+    </td>
+  </tr>`).join('');
+}
+
+async function uploadOfferLetter(empId, empName, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { showToast('❌ File too large (max 10MB)', 'err'); return; }
+  const path = `offer-letters/${empId}_${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
+  const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
+  if (uploadErr) { showToast('❌ Upload failed: ' + uploadErr.message, 'err'); return; }
+  const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
+  const { error } = await sb.from('employees').update({ offer_letter_url: urlData.publicUrl }).eq('id', empId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast(`✅ Offer letter uploaded for ${empName}!`, 'ok');
+  loadOfferLetters();
+}
 // ═══════════════════════════════════════════
 //  ATT REPORT CEO
 // ═══════════════════════════════════════════
