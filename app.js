@@ -5673,10 +5673,12 @@ const { data: emps } = await sb.from('employees').select('*').eq('is_active', tr
     const pending = (myTasksData||[]).filter(t => t.work_status==='Not Started'||t.work_status==='In Progress').length;
     const delayed = (myTasksData||[]).filter(t => { const ed = t.end_date ? new Date(t.end_date) : null; return ed && today > ed && t.work_status !== 'Completed'; }).length;
     const completionPct = total > 0 ? Math.round((completed/total)*100) : 0;
-    const presentDays = (myAtt||[]).filter(a => a.status==='Present').length;
+const presentDays = (myAtt||[]).filter(a => a.status==='Present').length;
     const attPct = totalDays > 0 ? Math.round((presentDays/totalDays)*100) : 0;
     const totalHrs = (myAtt||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
     const avgHrs = presentDays > 0 ? (totalHrs/presentDays).toFixed(1) : '0.0';
+    const { data: myVisits } = await sbClient.from('site_visits').select('id').eq('visited_by', currentUser.name);
+    const mySiteVisitCount = (myVisits || []).length;
     let status, statusColor;
     const score = (completionPct * 0.6) + (attPct * 0.4);
     if (score >= 90) { status = '🟢 Excellent'; statusColor = 'var(--green)'; }
