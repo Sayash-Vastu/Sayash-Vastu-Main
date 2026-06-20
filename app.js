@@ -2922,13 +2922,13 @@ const atClientInput = document.getElementById('at-client');
     btn.disabled = false; btn.textContent = '➕ Assign Task';
     return; 
   }
-  if (!project||!detail||!start||!end) { 
+if (!detail||!start||!end) { 
     msg.textContent='⚠️ Please fill all fields'; 
     msg.style.color='var(--red)'; 
     btn.disabled = false; btn.textContent = '➕ Assign Task';
     return; 
   }
-const atFile = document.getElementById('at-file');
+  const atFile = document.getElementById('at-file');
   const atOneDriveLink = document.getElementById('at-onedrive-link') ? document.getElementById('at-onedrive-link').value.trim() : '';
   let atFileUrl = null; let atFileName = null;
   if (atFile && atFile.files[0]) {
