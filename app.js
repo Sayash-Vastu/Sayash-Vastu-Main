@@ -5656,11 +5656,13 @@ const { data: emps } = await sb.from('employees').select('*').eq('is_active', tr
             <div class="progress-bar" style="width:60px"><div class="progress-fill" style="width:${attPct}%;background:${attColor}"></div></div>
             <span style="font-size:12px;font-weight:700;color:${attColor}">${attPct}%</span>
           </div>
-        </td>
+</td>
+        <td>${visitCounts[emp.name] ? `<span class="badge b-green" style="font-size:11px">🏗️ ${visitCounts[emp.name]}</span>` : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
         <td><span class="badge ${statusClass}" style="font-size:10px;white-space:nowrap">${status}</span></td>
       </tr>`;
     }).join('');
   } else {
+
     // Employee view
     document.getElementById('myPerfCard').style.display = 'block';
     document.getElementById('allPerfSection').style.display = 'none';
