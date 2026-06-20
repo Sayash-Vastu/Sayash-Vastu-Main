@@ -891,8 +891,8 @@ const navPayments = document.getElementById('nav-payments-link');
 
 const hideClientCrm = ['shantanu@sayashvastu.com', 'komal@sayashvastu.com'].includes(currentUser.email);
 const showClientData = !hideClientCrm;
-const showPayments = currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com';
-
+const showPayments = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+  
 if (navClientCrmParent) navClientCrmParent.style.display = hideClientCrm ? 'none' : 'flex';
 const clientCrmSection = document.getElementById('client-crm-section');
 if (clientCrmSection) clientCrmSection.style.display = hideClientCrm ? 'none' : 'block';
