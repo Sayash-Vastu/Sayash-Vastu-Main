@@ -2071,8 +2071,27 @@ document.getElementById('ceoDashStats').innerHTML = `
       + (ceoTasks.length >= 5 ? '<div style="padding:10px 14px;text-align:center"><button class="btn btn-outline btn-sm" onclick="showView(&quot;ceoMyTasks&quot;)">View All →</button></div>' : '');
     }
   }
-
-  // Today's Attendance Log
+ // Payment Follow-ups Due (overdue + today)
+  const { data: pendingFollowupsCeo } = await sbClient.from('followups').select('*, clients(name)').eq('done', false).eq('type', 'Payment Follow-up').order('next_followup', {ascending: true});
+  const ceoPayFollowEl = document.getElementById('ceoPayFollowups');
+  if (ceoPayFollowEl) {
+    const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup && f.next_followup <= todayStr);
+    if (!overdueFollows.length) {
+      ceoPayFollowEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No payment follow-ups due</div>';
+    } else {
+      ceoPayFollowEl.innerHTML = overdueFollows.map(f => {
+        const isOverdue = f.next_followup < todayStr;
+        return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa">
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(f.clients?.name||'-')}</div>
+            <div style="font-size:11px;color:${isOverdue?'var(--red)':'var(--muted)'};font-weight:${isOverdue?'700':'400'}">${fmtDate(f.next_followup)}${isOverdue?' ⚠️ Overdue':' (Today)'}</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="showView('pendingPayments')">View →</button>
+        </div>`;
+      }).join('');
+    }
+  }
+    // Today's Attendance Log
   const { data: todayAttAll } = await sb.from('attendance').select('*').eq('date',todayStr).eq('is_archived',false).order('check_in',{ascending:true});
   const { data: ceoEmpPhotos } = await sb.from('employees').select('email,photo_url').eq('is_active', true);
   const ceoPhotoMap = {};
