@@ -940,10 +940,11 @@ const viewTitles = {
   projects: ['Projects','Company project overview'],
   helpRequest: ['Help Requests','Request help from colleagues'],
 expenses: ['Expense Claims','Submit and track your expense reimbursements'],
-  compliance: ['Compliance Checklist','Monthly finance and compliance tasks'],
+compliance: ['Compliance Checklist','Monthly finance and compliance tasks'],
   offerLetters: ['Offer Letters','Upload and manage employee offer letters'],
   salarySlips: ['Salary Slips','Generate and download salary slips'],
   salaryStructure: ['Salary Setup','Set monthly salary for employees'],
+  pendingPayments: ['Pending Payments','Track outstanding payments and follow-ups'],
 };
   function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
@@ -1024,11 +1025,12 @@ if (name === 'offerLetters') loadOfferLetters();
   if (name === 'expenses') loadExpenses();
   if (name === 'compliance') loadCompliance();
   if (name === 'attendance') loadMyRegularizations();
-  if (name === 'clientsList') loadClientsList();
+if (name === 'clientsList') loadClientsList();
 if (name === 'clientProjects') loadClientProjectsAll();
 if (name === 'clientVisits') loadClientVisitsAll();
+if (name === 'pendingPayments') loadPendingPayments();
 }
-async function loadClientVisitsAll() {
+    async function loadClientVisitsAll() {
   const el = document.getElementById('view-clientVisits');
   el.innerHTML = `
     <div class="page-header"><h2>🏗️ Site Visit / MOM</h2><p>All client site visits</p></div>
@@ -1173,6 +1175,195 @@ sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
 window._avgClientRecords = [];
 window._atClientRecords = [];
 
+async function loadPendingPayments() {
+  const el = document.getElementById('view-pendingPayments');
+  el.innerHTML = `
+    <div class="page-header"><h2>💰 Pending Payments</h2><p>Track outstanding payments and follow-ups</p></div>
+    <div id="pendingPaymentsStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px"></div>
+    <div id="pendingPaymentsList"></div>
+  `;
+
+  const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }] = await Promise.all([
+    sbClient.from('clients').select('id, name'),
+    sbClient.from('projects').select('*'),
+    sbClient.from('payments').select('*'),
+    sbClient.from('followups').select('*').order('next_followup', { ascending: true }),
+  ]);
+
+  const clientMap = {};
+  (clients || []).forEach(c => { clientMap[c.id] = c.name; });
+
+  const paidByProject = {};
+  (payments || []).forEach(p => {
+    if (!p.project_id) return;
+    paidByProject[p.project_id] = (paidByProject[p.project_id] || 0) + (p.amount || 0);
+  });
+
+  // Also sum payments by client_id for projects without project_id linkage
+  const paidByClient = {};
+  (payments || []).forEach(p => {
+    paidByClient[p.client_id] = (paidByClient[p.client_id] || 0) + (p.amount || 0);
+  });
+
+  const pendingRows = (projects || []).map(p => {
+    const total = p.total_amount || 0;
+    const paid = paidByProject[p.id] != null && paidByProject[p.id] > 0 ? paidByProject[p.id] : (p.paid_amount || 0);
+    const balance = total - paid;
+    return {
+      clientId: p.client_id,
+      clientName: clientMap[p.client_id] || '—',
+      projectTitle: p.title,
+      total, paid, balance,
+    };
+  }).filter(r => r.balance > 0);
+
+  const followupsByClient = {};
+  (followups || []).forEach(f => {
+    if (!followupsByClient[f.client_id]) followupsByClient[f.client_id] = [];
+    followupsByClient[f.client_id].push(f);
+  });
+
+  window._pendingPaymentRows = pendingRows;
+  window._followupsByClient = followupsByClient;
+
+  const totalPending = pendingRows.reduce((s, r) => s + r.balance, 0);
+  const today = new Date().toISOString().split('T')[0];
+  const overdueCount = Object.values(followupsByClient).flat().filter(f => !f.done && f.next_followup && f.next_followup < today).length;
+
+  document.getElementById('pendingPaymentsStats').innerHTML = `
+    <div class="stat-card sc-red"><div class="stat-icon">⏳</div><div class="stat-num">${pendingRows.length}</div><div class="stat-lbl">Pending Projects</div></div>
+    <div class="stat-card sc-navy"><div class="stat-icon">💰</div><div class="stat-num">₹${(totalPending/100000).toFixed(1)}L</div><div class="stat-lbl">Total Outstanding</div></div>
+    <div class="stat-card sc-amber"><div class="stat-icon">⚠️</div><div class="stat-num">${overdueCount}</div><div class="stat-lbl">Overdue Follow-ups</div></div>
+  `;
+
+  renderPendingPaymentsList();
+}
+
+function renderPendingPaymentsList() {
+  const rows = window._pendingPaymentRows || [];
+  const followupsByClient = window._followupsByClient || {};
+  const today = new Date().toISOString().split('T')[0];
+
+  const el = document.getElementById('pendingPaymentsList');
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No pending payments!</div></div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Client</th><th>Project</th><th>Total</th><th>Received</th><th>Balance Due</th><th>Next Follow-up</th><th>Last Outcome</th><th>Action</th></tr></thead>
+        <tbody>
+          ${rows.map(r => {
+            const clientFollowups = (followupsByClient[r.clientId] || []);
+            const pendingFollowup = clientFollowups.find(f => !f.done);
+            const lastDone = clientFollowups.filter(f => f.done).sort((a,b) => new Date(b.created_at||0) - new Date(a.created_at||0))[0];
+            const isOverdue = pendingFollowup && pendingFollowup.next_followup && pendingFollowup.next_followup < today;
+            return `<tr style="${isOverdue ? 'background:#fdf0ee' : ''}">
+              <td><strong>${esc(r.clientName)}</strong></td>
+              <td>${esc(r.projectTitle)}</td>
+              <td>₹${r.total.toLocaleString()}</td>
+              <td style="color:var(--green);font-weight:600">₹${r.paid.toLocaleString()}</td>
+              <td style="color:var(--red);font-weight:700">₹${r.balance.toLocaleString()}</td>
+              <td style="font-size:12px;${isOverdue ? 'color:var(--red);font-weight:700' : ''}">${pendingFollowup ? fmtDate(pendingFollowup.next_followup) + (isOverdue ? ' ⚠️ Overdue' : '') : '—'}</td>
+              <td style="font-size:12px;color:var(--muted)">${lastDone ? esc(lastDone.outcome || 'Followed up') + ' (' + fmtDate(lastDone.date||lastDone.created_at) + ')' : '—'}</td>
+              <td><button class="btn btn-gold btn-sm" onclick="openPaymentFollowupModal('${r.clientId}','${esc(r.clientName).replace(/'/g,"\\'")}', ${r.balance})">📞 Follow-up</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function openPaymentFollowupModal(clientId, clientName, balanceDue) {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="paymentFollowupModal">
+      <div class="modal">
+        <div class="modal-title">📞 Payment Follow-up — ${esc(clientName)}</div>
+        <div style="padding:10px 14px;background:#fdf0ee;border-radius:8px;margin-bottom:14px">
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase">Balance Due</div>
+          <div style="font-size:20px;font-weight:800;color:var(--red)">₹${balanceDue.toLocaleString()}</div>
+        </div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Outcome of this contact</label>
+            <select id="pf-outcome">
+              <option value="">— Select —</option>
+              <option>Promised to pay — Rescheduled</option>
+              <option>Paid Partial</option>
+              <option>Paid Full</option>
+              <option>No Response</option>
+              <option>Refused / Disputed</option>
+            </select>
+          </div>
+          <div class="field"><label>Amount Collected Now (₹) — if any</label><input type="number" id="pf-amount" placeholder="0"></div>
+          <div class="field"><label>Next Follow-up Date</label><input type="date" id="pf-nextdate"></div>
+          <div class="field" style="grid-column:1/-1"><label>Notes</label><textarea id="pf-notes" placeholder="e.g. Client said call in 2 days..."></textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('paymentFollowupModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="savePaymentFollowup('${clientId}')">💾 Save Follow-up</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function savePaymentFollowup(clientId) {
+  const outcome = document.getElementById('pf-outcome').value;
+  const amountCollected = parseFloat(document.getElementById('pf-amount').value) || 0;
+  const nextDate = document.getElementById('pf-nextdate').value || null;
+  const notes = document.getElementById('pf-notes').value.trim();
+
+  if (!outcome) { showToast('⚠️ Outcome select karo', 'warn'); return; }
+
+  // Mark any existing pending followup as done with this outcome
+  const existingFollowups = (window._followupsByClient || {})[clientId] || [];
+  const pendingFollowup = existingFollowups.find(f => !f.done);
+
+  if (pendingFollowup) {
+    await sbClient.from('followups').update({
+      done: true,
+      outcome,
+      amount_collected: amountCollected,
+      notes: notes || pendingFollowup.notes,
+    }).eq('id', pendingFollowup.id);
+  } else {
+    await sbClient.from('followups').insert({
+      client_id: clientId,
+      type: 'Payment Follow-up',
+      done: true,
+      outcome,
+      amount_collected: amountCollected,
+      notes,
+      date: new Date().toISOString(),
+    });
+  }
+
+  // If a next follow-up date is set, create a new pending followup entry
+  if (nextDate) {
+    await sbClient.from('followups').insert({
+      client_id: clientId,
+      type: 'Payment Follow-up',
+      next_followup: nextDate,
+      notes: notes,
+      done: false,
+      date: new Date().toISOString(),
+    });
+
+    // Create a reminder notification for this date (will surface via existing notification check on that day)
+    await createNotification(
+      currentUser.email,
+      `💰 Payment Follow-up Due — ${(window._pendingPaymentRows||[]).find(r=>r.clientId===clientId)?.clientName || 'Client'}`,
+      `Follow-up scheduled for ${nextDate}. Notes: ${notes || 'No notes'}`,
+      'General', 'pendingPayments'
+    );
+  }
+
+  showToast('✅ Follow-up saved!', 'ok');
+  closeModal('paymentFollowupModal');
+  loadPendingPayments();
+}
 async function loadProjectsForClientAssign(clientId) {
   const sel = document.getElementById('at-project');
   const subSel = document.getElementById('at-subproject');
