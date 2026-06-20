@@ -2599,7 +2599,11 @@ async function assignTask() {
     }
   }
 
+const atClientSel = document.getElementById('at-client');
+  const clientId = atClientSel ? atClientSel.value : '';
+  const clientName = atClientSel && atClientSel.selectedIndex >= 0 ? atClientSel.options[atClientSel.selectedIndex].text : '';
   const project = document.getElementById('at-project').value.trim();
+  const subProjectName = document.getElementById('at-subproject') ? document.getElementById('at-subproject').value : '';
   const detail = document.getElementById('at-detail').value.trim();
   const start = document.getElementById('at-start').value;
   const end = document.getElementById('at-end').value;
@@ -2647,9 +2651,41 @@ const atFile = document.getElementById('at-file');
   const assignedEmails = new Set();
   let successCount = 0;
 
-  for (const emp of empsToAssign) {
+for (const emp of empsToAssign) {
     if (assignedEmails.has(emp.email)) continue;
     assignedEmails.add(emp.email);
+
+    // Create a Project Tracker record in Client CRM if a client was selected
+    let linkedRecordId = null;
+    if (clientId) {
+      const isMaxHealthcareAT = clientName === 'MAX Healthcare';
+      const isSignatureGlobalAT = clientName === 'Signature Global';
+
+      let atTrackerPayload = {
+        client_id: clientId,
+        project_name: project || 'Task',
+        sub_project_name: subProjectName || null,
+        tracker_status: 'Pending',
+        hyperlink: atFileUrl,
+        assigned_to_name: emp.name,
+      };
+
+      if (isMaxHealthcareAT) {
+        atTrackerPayload.coordinator = currentUser.name;
+        atTrackerPayload.recommendation = detail || 'Task pending';
+      } else if (isSignatureGlobalAT) {
+        atTrackerPayload.sg_team_visitor = currentUser.name;
+        atTrackerPayload.sayash_observation = detail || 'Task pending';
+      } else {
+        atTrackerPayload.received_from = currentUser.name;
+        atTrackerPayload.recommendation = detail || 'Task pending';
+        atTrackerPayload.record_type = 'Other';
+      }
+
+      const { data: atTrackerRecord, error: atTrackerErr } = await sbClient.from('project_records').insert(atTrackerPayload).select().single();
+      if (!atTrackerErr && atTrackerRecord) linkedRecordId = atTrackerRecord.id;
+    }
+
     const { error } = await sb.from('tasks').insert({
       project, task_detail: detail,
       assigned_to_email: emp.email.toLowerCase(), 
@@ -2658,7 +2694,9 @@ const atFile = document.getElementById('at-file');
       assigned_by_name: currentUser.name,
       start_date: start, end_date: end,
       work_status: 'Not Started', ceo_approval: 'Pending',
-      file_url: atFileUrl, file_name: atFileName
+      file_url: atFileUrl, file_name: atFileName,
+      linked_record_id: linkedRecordId,
+      linked_client_id: clientId || null,
     });
     if (!error) {
       successCount++;
@@ -2668,7 +2706,6 @@ const atFile = document.getElementById('at-file');
         'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
     }
   }
-
   btn.disabled = false; btn.textContent = '➕ Assign Task';
 
   if (successCount > 0) {
@@ -5557,9 +5594,15 @@ const isCEO = currentUser.role === 'ceo';
   if (isCEO) {
     document.getElementById('allPerfSection').style.display = 'block';
     document.getElementById('myPerfCard').style.display = 'none';
-    const { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
+const { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
     const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
     const { data: allAtt } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
+    const { data: allVisits } = await sbClient.from('site_visits').select('visited_by');
+    const visitCounts = {};
+    (allVisits || []).forEach(v => {
+      if (!v.visited_by) return;
+      visitCounts[v.visited_by] = (visitCounts[v.visited_by] || 0) + 1;
+    });
     const tbody = document.getElementById('perfTableBody');
     if (!emps || !emps.length) {
       tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No employees found</td></tr>';
