@@ -2958,6 +2958,7 @@ if (!detail||!start||!end) {
   const assignedEmails = new Set();
   let successCount = 0;
 
+    const projectDisplayName = project || clientName || 'Task';
 for (const emp of empsToAssign) {
     if (assignedEmails.has(emp.email)) continue;
     assignedEmails.add(emp.email);
@@ -2993,9 +2994,9 @@ for (const emp of empsToAssign) {
       if (!atTrackerErr && atTrackerRecord) linkedRecordId = atTrackerRecord.id;
     }
 
-    const { error } = await sb.from('tasks').insert({
-      project, task_detail: detail,
-      assigned_to_email: emp.email.toLowerCase(), 
+const { error } = await sb.from('tasks').insert({
+      project: projectDisplayName, task_detail: detail,
+  assigned_to_email: emp.email.toLowerCase(), 
       assigned_to_name: emp.name,
       assigned_by_email: currentUser.email, 
       assigned_by_name: currentUser.name,
