@@ -1364,6 +1364,35 @@ async function savePaymentFollowup(clientId) {
   closeModal('paymentFollowupModal');
   loadPendingPayments();
 }
+let _atResolvedClientId = null;
+let _atResolvedClientName = null;
+
+async function loadProjectsForClientAssignByName(clientName) {
+  const sel = document.getElementById('at-project');
+  const subSel = document.getElementById('at-subproject');
+  if (!clientName || !clientName.trim()) {
+    _atResolvedClientId = null; _atResolvedClientName = null;
+    if (sel) sel.innerHTML = '<option value="">Select Project</option>';
+    if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>';
+    return;
+  }
+
+  const trimmedName = clientName.trim();
+  const existing = (window._atAllClients || []).find(c => c.name.toLowerCase() === trimmedName.toLowerCase());
+
+  if (existing) {
+    _atResolvedClientId = existing.id;
+    _atResolvedClientName = existing.name;
+    await loadProjectsForClientAssign(existing.id);
+  } else {
+    // Not found — will be created as a new client on save
+    _atResolvedClientId = null;
+    _atResolvedClientName = trimmedName;
+    if (sel) sel.innerHTML = '<option value="">New client — no existing projects</option>';
+    if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>';
+  }
+}
+
 async function loadProjectsForClientAssign(clientId) {
   const sel = document.getElementById('at-project');
   const subSel = document.getElementById('at-subproject');
@@ -2799,11 +2828,12 @@ async function loadEmployeeAutocomplete() {
 const tkList = document.getElementById('tkAssignList');
   if (tkList) tkList.innerHTML = data.map(e=>`<option value="${esc(e.name)}">`).join('');
 
-  // Load clients for Assign Task client dropdown
-  const atClientSel = document.getElementById('at-client');
-  if (atClientSel) {
+// Load clients for Assign Task client datalist
+  const atClientDatalist = document.getElementById('atClientList');
+  if (atClientDatalist) {
     const { data: clientsData } = await sbClient.from('clients').select('id, name').order('name');
-    atClientSel.innerHTML = '<option value="">Select Client</option>' + (clientsData||[]).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    window._atAllClients = clientsData || [];
+    atClientDatalist.innerHTML = (clientsData||[]).map(c => `<option value="${esc(c.name)}">`).join('');
   }
 }
   function previewAssignFile(input) {
@@ -2862,12 +2892,26 @@ async function assignTask() {
     }
   }
 
-const atClientSel = document.getElementById('at-client');
-  const clientId = atClientSel ? atClientSel.value : '';
-  const clientName = atClientSel && atClientSel.selectedIndex >= 0 ? atClientSel.options[atClientSel.selectedIndex].text : '';
+const atClientInput = document.getElementById('at-client');
+  let clientId = _atResolvedClientId;
+  let clientName = _atResolvedClientName || (atClientInput ? atClientInput.value.trim() : '');
   const project = document.getElementById('at-project').value.trim();
   const subProjectName = document.getElementById('at-subproject') ? document.getElementById('at-subproject').value : '';
   const detail = document.getElementById('at-detail').value.trim();
+
+  // If a client name was typed but doesn't exist yet, create it
+  if (clientName && !clientId) {
+    const { data: newClient, error: newClientErr } = await sbClient.from('clients').insert({
+      name: clientName,
+      status: 'Active',
+    }).select().single();
+    if (!newClientErr && newClient) {
+      clientId = newClient.id;
+      window._atAllClients = window._atAllClients || [];
+      window._atAllClients.push(newClient);
+      showToast('✅ New client "' + clientName + '" created!', 'ok');
+    }
+  }
   const start = document.getElementById('at-start').value;
   const end = document.getElementById('at-end').value;
   const msg = document.getElementById('assignMsg');
