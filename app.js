@@ -5657,7 +5657,7 @@ const { data: emps } = await sb.from('employees').select('*').eq('is_active', tr
             <span style="font-size:12px;font-weight:700;color:${attColor}">${attPct}%</span>
           </div>
 </td>
-        <td>${visitCounts[emp.name] ? `<span class="badge b-green" style="font-size:11px">🏗️ ${visitCounts[emp.name]}</span>` : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+<td style="text-align:center;font-weight:700;color:var(--navy)">${visitCounts[emp.name] || '—'}</td>
         <td><span class="badge ${statusClass}" style="font-size:10px;white-space:nowrap">${status}</span></td>
       </tr>`;
     }).join('');
