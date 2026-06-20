@@ -523,7 +523,8 @@
               </div>
 <div class="field" style="grid-column:1/-1">
                 <label>Client</label>
-                <select id="at-client" onchange="loadProjectsForClientAssign(this.value)"><option value="">Select Client</option></select>
+                <input id="at-client" list="atClientList" placeholder="Type or select client..." onchange="loadProjectsForClientAssignByName(this.value)">
+                <datalist id="atClientList"></datalist>
               </div>
               <div class="field">
                 <label>Project Name</label>
