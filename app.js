@@ -1031,18 +1031,48 @@ if (name === 'clientVisits') loadClientVisitsAll();
 async function loadClientVisitsAll() {
   const el = document.getElementById('view-clientVisits');
   el.innerHTML = `
-    <div class="page-header"><h2><h2>🏗️ Site Visit / MOM</h2><p>All client site visits</p></div>
+    <div class="page-header"><h2>🏗️ Site Visit / MOM</h2><p>All client site visits</p></div>
+    <div id="siteVisitSummary" style="margin-bottom:20px"></div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
       <button class="btn btn-gold" onclick="openAddVisitEmpGlobal()">➕ Add Site Visit</button>
     </div>
     <div id="clientVisitsList"></div>
   `;
   const { data } = await sbClient.from('site_visits').select('*, clients(name)').order('visit_date', { ascending: false });
+
+  // Build summary: total visits + per-employee breakdown
+  const totalVisits = (data || []).length;
+  const empCounts = {};
+  (data || []).forEach(v => {
+    const name = v.visited_by || 'Unknown';
+    empCounts[name] = (empCounts[name] || 0) + 1;
+  });
+  const sortedEmps = Object.entries(empCounts).sort((a,b) => b[1] - a[1]);
+
+  document.getElementById('siteVisitSummary').innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">📊 Site Visit Summary</div>
+        <span class="badge b-navy">${totalVisits} Total Visits</span>
+      </div>
+      <div class="panel-body" style="display:flex;flex-wrap:wrap;gap:10px">
+        ${!sortedEmps.length ? '<div style="color:var(--muted);font-size:13px">No visits recorded yet</div>' :
+          sortedEmps.map(([name, count]) => `
+            <div style="display:flex;align-items:center;gap:8px;background:var(--bg);padding:8px 14px;border-radius:8px">
+              <div class="av" style="width:26px;height:26px;font-size:10px;background:var(--navy)">${esc(name).substring(0,2).toUpperCase()}</div>
+              <span style="font-size:12px;font-weight:600;color:var(--navy)">${esc(name)}</span>
+              <span class="badge b-blue" style="font-size:11px">${count} visit${count>1?'s':''}</span>
+            </div>
+          `).join('')}
+      </div>
+    </div>
+  `;
+
   if (!data?.length) {
     document.getElementById('clientVisitsList').innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-title">No site visits yet</div></div>';
     return;
   }
-  document.getElementById('clientVisitsList').innerHTML = data.map(v => `
+document.getElementById('clientVisitsList').innerHTML = data.map(v => `
     <div class="panel" style="margin-bottom:14px">
       <div class="panel-head">
 <div class="panel-title">🏗️ ${esc(v.clients?.name||'-')} <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">${fmtDate(v.visit_date)}</span></div>
