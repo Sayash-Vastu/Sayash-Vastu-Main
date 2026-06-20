@@ -1827,10 +1827,33 @@ async function loadEmpDashboard() {
     `).join('');
   }
 
+  // Payment Follow-ups Due (Ritika/Alisha/CEO only)
+  const showPayFollowWidget = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+  if (showPayFollowWidget) {
+    const { data: pendingFollowupsEmp } = await sbClient.from('followups').select('*, clients(name)').eq('done', false).eq('type', 'Payment Follow-up').order('next_followup', {ascending: true});
+    const empPayFollowEl = document.getElementById('empPayFollowups');
+    if (empPayFollowEl) {
+      const overdueFollowsEmp = (pendingFollowupsEmp||[]).filter(f => f.next_followup && f.next_followup <= today);
+      if (!overdueFollowsEmp.length) {
+        empPayFollowEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No payment follow-ups due</div>';
+      } else {
+        empPayFollowEl.innerHTML = overdueFollowsEmp.map(f => {
+          const isOverdueEmp = f.next_followup < today;
+          return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa">
+            <div>
+              <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(f.clients?.name||'-')}</div>
+              <div style="font-size:11px;color:${isOverdueEmp?'var(--red)':'var(--muted)'};font-weight:${isOverdueEmp?'700':'400'}">${fmtDate(f.next_followup)}${isOverdueEmp?' ⚠️ Overdue':' (Today)'}</div>
+            </div>
+            <button class="btn btn-outline btn-sm" onclick="showView('pendingPayments')">View →</button>
+          </div>`;
+        }).join('');
+      }
+    }
+  }
+
   // Today's attendance log
   loadTodayAttendanceWidget();
-
-  // Team Today - all members attendance
+   // Team Today - all members attendance
   const { data: teamToday } = await sb.from('attendance')
     .select('*')
     .eq('date', today)
