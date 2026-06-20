@@ -1141,6 +1141,36 @@ sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
   });
 }
 window._avgClientRecords = [];
+window._atClientRecords = [];
+
+async function loadProjectsForClientAssign(clientId) {
+  const sel = document.getElementById('at-project');
+  const subSel = document.getElementById('at-subproject');
+  if (!sel) return;
+  if (!clientId) { sel.innerHTML = '<option value="">Select Project</option>'; if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
+
+  const { data } = await sbClient.from('project_records').select('project_name, sub_project_name').eq('client_id', clientId);
+  window._atClientRecords = data || [];
+  const projectNames = [...new Set(window._atClientRecords.map(r => r.project_name).filter(Boolean))];
+
+  if (!projectNames.length) { sel.innerHTML = '<option value="">No projects found</option>'; if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
+  sel.innerHTML = '<option value="">Select Project</option>' + projectNames.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+  if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>';
+}
+
+function loadSubProjectsForProjectAssign(projectName) {
+  const subSel = document.getElementById('at-subproject');
+  if (!subSel) return;
+  if (!projectName) { subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
+
+  const subNames = [...new Set((window._atClientRecords || [])
+    .filter(r => r.project_name === projectName)
+    .map(r => r.sub_project_name)
+    .filter(Boolean))];
+
+  if (!subNames.length) { subSel.innerHTML = '<option value="">No sub projects</option>'; return; }
+  subSel.innerHTML = '<option value="">Select Sub Project</option>' + subNames.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
+}
 
 async function loadProjectsForClient(clientId) {
   const sel = document.getElementById('avg-project');
@@ -2503,10 +2533,17 @@ async function loadEmployeeAutocomplete() {
   }
   const helpList = document.getElementById('helpNameList');
   if (helpList) helpList.innerHTML = data.filter(e=>e.email!==(currentUser&&currentUser.email)).map(e=>`<option value="${esc(e.name)}" data-email="${esc(e.email)}">`).join('');
-  const tkList = document.getElementById('tkAssignList');
+const tkList = document.getElementById('tkAssignList');
   if (tkList) tkList.innerHTML = data.map(e=>`<option value="${esc(e.name)}">`).join('');
+
+  // Load clients for Assign Task client dropdown
+  const atClientSel = document.getElementById('at-client');
+  if (atClientSel) {
+    const { data: clientsData } = await sbClient.from('clients').select('id, name').order('name');
+    atClientSel.innerHTML = '<option value="">Select Client</option>' + (clientsData||[]).map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+  }
 }
-function previewAssignFile(input) {
+  function previewAssignFile(input) {
   const file = input.files[0];
   if (!file) return;
   document.getElementById('at-file-preview').innerHTML = `
