@@ -1217,14 +1217,14 @@ async function saveVisitGlobal() {
   const isMaxHealthcare = clientName === 'MAX Healthcare';
   const isSignatureGlobal = clientName === 'Signature Global';
 
-  let trackerPayload = {
+let trackerPayload = {
     client_id: clientId,
     project_name: projectName || 'Site Visit',
     sub_project_name: subName || null,
     tracker_status: 'Pending',
     hyperlink: attachmentUrl,
+    assigned_to_name: assignedToName || null,
   };
-
   if (isMaxHealthcare) {
     trackerPayload.coordinator = visitedBy;
     trackerPayload.site_visit_date = visitDate;
