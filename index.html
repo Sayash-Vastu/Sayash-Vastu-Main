@@ -509,9 +509,17 @@
                 </div>
                 <div id="at-selected-count" style="font-size:11px;color:var(--gold);font-weight:600;margin-top:4px"></div>
               </div>
+<div class="field" style="grid-column:1/-1">
+                <label>Client</label>
+                <select id="at-client" onchange="loadProjectsForClientAssign(this.value)"><option value="">Select Client</option></select>
+              </div>
               <div class="field">
                 <label>Project Name</label>
-                <input type="text" id="at-project" placeholder="e.g. CKPC Project"/>
+                <select id="at-project" onchange="loadSubProjectsForProjectAssign(this.value)"><option value="">Select Project</option></select>
+              </div>
+              <div class="field">
+                <label>Sub Project</label>
+                <select id="at-subproject"><option value="">Select Sub Project</option></select>
               </div>
               <div class="field" style="grid-column:1/-1">
                 <label>Task Detail</label>
