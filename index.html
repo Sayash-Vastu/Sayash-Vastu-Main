@@ -145,8 +145,8 @@
   <button class="nav-btn" onclick="showView('clientVisits')" id="nav-client-visits" style="padding-left:32px">
     <span class="ni">🏗️</span><span>Site Visit / MOM</span>
   </button>
-  <button class="nav-btn" id="nav-payments-link" onclick="window.open('https://sayash-client-crm.vercel.app','_blank')" style="padding-left:32px;display:none">
-    <span class="ni">💰</span><span>Payments →</span>
+<button class="nav-btn" id="nav-payments-link" onclick="showView('pendingPayments')" style="padding-left:32px;display:none">
+    <span class="ni">💰</span><span>Pending Payments</span>
   </button>
 </div>
 
@@ -1385,10 +1385,11 @@
           </div>
         </div>
       </div>
-      <div class="view" id="view-clientsList"></div>
+<div class="view" id="view-clientsList"></div>
 <div class="view" id="view-clientProjects"></div>
 <div class="view" id="view-clientVisits"></div>
-            <!-- COMPLIANCE VIEW -->
+<div class="view" id="view-pendingPayments"></div>
+      <!-- COMPLIANCE VIEW -->
       <div class="view" id="view-compliance">
         <div class="page-header">
           <h2>Compliance Checklist</h2>
