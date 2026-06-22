@@ -1341,6 +1341,19 @@ async function savePaymentFollowup(clientId) {
 
   if (!outcome) { showToast('⚠️ Outcome select karo', 'warn'); return; }
 
+  // Record the actual payment if an amount was collected
+  if (amountCollected > 0) {
+    const { error: payErr } = await sbClient.from('payments').insert({
+      client_id: clientId,
+      amount: amountCollected,
+      date: new Date().toISOString().split('T')[0],
+      mode: 'Other',
+      note: 'Collected via follow-up — ' + outcome,
+    });
+    if (payErr) {
+      showToast('⚠️ Payment record failed: ' + payErr.message, 'warn');
+    }
+  }
   // Mark any existing pending followup as done with this outcome
   const existingFollowups = (window._followupsByClient || {})[clientId] || [];
   const pendingFollowup = existingFollowups.find(f => !f.done);
