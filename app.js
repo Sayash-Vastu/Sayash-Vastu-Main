@@ -1052,7 +1052,13 @@ if (name === 'clientProjects') loadClientProjectsAll();
 if (name === 'clientVisits') loadClientVisitsAll();
 if (name === 'pendingPayments') loadPendingPayments();
 }
-    async function loadClientVisitsAll() {
+function openClientCrmWithRole() {
+  const fullAccessEmails = ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'];
+  const accessLevel = (currentUser.role === 'ceo' || fullAccessEmails.includes(currentUser.email)) ? 'full' : 'limited';
+  window.open(`https://sayash-client-crm.vercel.app?access=${accessLevel}`, '_blank');
+}
+
+async function loadClientVisitsAll() {
   const el = document.getElementById('view-clientVisits');
   el.innerHTML = `
     <div class="page-header"><h2>🏗️ Site Visit / MOM</h2><p>All client site visits</p></div>
