@@ -6858,7 +6858,7 @@ function closeModal(id) {
   if (el) {
     el.classList.remove('open');
     // Dynamically added modals remove karo
-    if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal'].includes(id)) {
+if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal'].includes(id)) {
       el.remove();
     }
   }
