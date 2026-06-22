@@ -1199,15 +1199,18 @@ window._atClientRecords = [];
 
 async function loadPendingPayments() {
   const el = document.getElementById('view-pendingPayments');
-  el.innerHTML = `
+el.innerHTML = `
     <div class="page-header"><h2>💰 Pending Payments</h2><p>Track outstanding payments and follow-ups</p></div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-gold btn-sm" id="ppTabPending" onclick="switchPaymentTab('pending')">⏳ Pending</button>
+        <button class="btn btn-outline btn-sm" id="ppTabCompleted" onclick="switchPaymentTab('completed')">✅ Completed</button>
+      </div>
       <button class="btn btn-gold" onclick="openAddPendingPaymentModal()">➕ Add Pending Payment</button>
     </div>
     <div id="pendingPaymentsStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px"></div>
     <div id="pendingPaymentsList"></div>
-  `;
-  
+  `;  
   const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }] = await Promise.all([
     sbClient.from('clients').select('id, name'),
     sbClient.from('projects').select('*'),
@@ -1223,7 +1226,7 @@ const paidByClient = {};
     paidByClient[p.client_id] = (paidByClient[p.client_id] || 0) + (p.amount || 0);
   });
 
-const pendingRows = (projects || []).map(p => {
+const allPaymentRows = (projects || []).map(p => {
     const total = p.total_amount || 0;
     const paid = paidByClient[p.client_id] || 0;
     const balance = total - paid;
@@ -1234,7 +1237,10 @@ const pendingRows = (projects || []).map(p => {
       projectTitle: p.title,
       total, paid, balance,
     };
-  }).filter(r => r.balance > 0);
+  });
+  const pendingRows = allPaymentRows.filter(r => r.balance > 0);
+  const completedRows = allPaymentRows.filter(r => r.balance <= 0 && r.total > 0);
+  window._completedPaymentRows = completedRows;
   const followupsByClient = {};
   (followups || []).forEach(f => {
     if (!followupsByClient[f.client_id]) followupsByClient[f.client_id] = [];
@@ -1293,13 +1299,57 @@ function renderPendingPaymentsList() {
                   <button class="btn btn-outline btn-sm" onclick="openPaymentHistoryModal('${r.clientId}','${esc(r.clientName).replace(/'/g,"\\'")}')">👁️</button>
                 </div>
               </td>
-            </tr>`;
+</tr>`;
           }).join('')}
         </tbody>
       </table>
     </div>
   `;
 }
+
+function switchPaymentTab(tab) {
+  const pendingBtn = document.getElementById('ppTabPending');
+  const completedBtn = document.getElementById('ppTabCompleted');
+  if (tab === 'pending') {
+    pendingBtn.className = 'btn btn-gold btn-sm';
+    completedBtn.className = 'btn btn-outline btn-sm';
+    renderPendingPaymentsList();
+  } else {
+    pendingBtn.className = 'btn btn-outline btn-sm';
+    completedBtn.className = 'btn btn-gold btn-sm';
+    renderCompletedPaymentsList();
+  }
+}
+
+function renderCompletedPaymentsList() {
+  const rows = window._completedPaymentRows || [];
+  const el = document.getElementById('pendingPaymentsList');
+  if (!rows.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No completed payments yet</div></div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Client</th><th>Project</th><th>Total</th><th>Received</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `<tr>
+              <td><strong>${esc(r.clientName)}</strong></td>
+              <td>${esc(r.projectTitle)}</td>
+              <td>₹${r.total.toLocaleString()}</td>
+              <td style="color:var(--green);font-weight:700">₹${r.paid.toLocaleString()}</td>
+              <td><span class="badge b-green">✅ Fully Paid</span></td>
+              <td>
+                <button class="btn btn-outline btn-sm" onclick="openPaymentHistoryModal('${r.clientId}','${esc(r.clientName).replace(/'/g,"\\'")}')">👁️ History</button>
+              </td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function openPaymentFollowupModal(clientId, clientName, balanceDue) {
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="paymentFollowupModal">
