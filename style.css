@@ -606,3 +606,22 @@ tbody tr:hover{background:#fafbff}
   /* Table fix */
   table{min-width:500px}
 }
+@media(max-width:600px){
+  /* ... existing rules ... */
+
+  .main-content {
+    margin-left: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+  body, html, #appPage, .app-layout {
+    overflow-x: hidden !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+  .view {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+}
