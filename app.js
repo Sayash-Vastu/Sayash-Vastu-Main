@@ -1196,23 +1196,16 @@ async function loadPendingPayments() {
   const clientMap = {};
   (clients || []).forEach(c => { clientMap[c.id] = c.name; });
 
-  const paidByProject = {};
-  (payments || []).forEach(p => {
-    if (!p.project_id) return;
-    paidByProject[p.project_id] = (paidByProject[p.project_id] || 0) + (p.amount || 0);
-  });
-
-  // Also sum payments by client_id for projects without project_id linkage
-  const paidByClient = {};
+const paidByClient = {};
   (payments || []).forEach(p => {
     paidByClient[p.client_id] = (paidByClient[p.client_id] || 0) + (p.amount || 0);
   });
 
   const pendingRows = (projects || []).map(p => {
     const total = p.total_amount || 0;
-    const paid = paidByProject[p.id] != null && paidByProject[p.id] > 0 ? paidByProject[p.id] : (p.paid_amount || 0);
+    const paid = paidByClient[p.client_id] || 0;
     const balance = total - paid;
-    return {
+  return {
       clientId: p.client_id,
       clientName: clientMap[p.client_id] || '—',
       projectTitle: p.title,
