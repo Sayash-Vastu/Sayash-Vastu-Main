@@ -1362,9 +1362,79 @@ async function savePaymentFollowup(clientId) {
       'General', 'pendingPayments'
     );
   }
-
-  showToast('✅ Follow-up saved!', 'ok');
+showToast('✅ Follow-up saved!', 'ok');
   closeModal('paymentFollowupModal');
+  loadPendingPayments();
+}
+
+function openAddPendingPaymentModal() {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addPendingPaymentModal">
+      <div class="modal">
+        <div class="modal-title">➕ Add Pending Payment</div>
+        <div class="form-grid cols-2">
+          <div class="field" style="grid-column:1/-1"><label>Client *</label>
+            <input id="app-client" list="appClientList" placeholder="Type or select client...">
+            <datalist id="appClientList"></datalist>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Project Name</label><input id="app-project" placeholder="e.g. Vastu Consultation"></div>
+          <div class="field"><label>Total Amount (₹) *</label><input type="number" id="app-total" placeholder="0"></div>
+          <div class="field"><label>Already Received (₹)</label><input type="number" id="app-received" placeholder="0"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addPendingPaymentModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveAddPendingPayment()">💾 Save</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
+    window._appAllClients = data || [];
+    const dl = document.getElementById('appClientList');
+    if (dl) dl.innerHTML = (data||[]).map(c => `<option value="${esc(c.name)}">`).join('');
+  });
+}
+
+async function saveAddPendingPayment() {
+  const clientName = document.getElementById('app-client').value.trim();
+  const projectName = document.getElementById('app-project').value.trim() || 'Payment Tracking';
+  const total = parseFloat(document.getElementById('app-total').value) || 0;
+  const received = parseFloat(document.getElementById('app-received').value) || 0;
+
+  if (!clientName || total <= 0) { showToast('⚠️ Client aur Total Amount required', 'warn'); return; }
+
+  let clientId = (window._appAllClients || []).find(c => c.name.toLowerCase() === clientName.toLowerCase())?.id;
+
+  if (!clientId) {
+    const { data: newClient } = await sbClient.from('clients').insert({ name: clientName, status: 'Active' }).select().single();
+    if (newClient) clientId = newClient.id;
+  }
+
+  if (!clientId) { showToast('❌ Client create nahi ho saka', 'err'); return; }
+
+  const { error } = await sbClient.from('projects').insert({
+    client_id: clientId,
+    title: projectName,
+    total_amount: total,
+    paid_amount: 0,
+    status: 'In Progress',
+  });
+
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+
+  if (received > 0) {
+    await sbClient.from('payments').insert({
+      client_id: clientId,
+      amount: received,
+      date: new Date().toISOString().split('T')[0],
+      mode: 'Other',
+      note: 'Initial amount recorded',
+    });
+  }
+
+  showToast('✅ Pending payment entry created!', 'ok');
+  closeModal('addPendingPaymentModal');
   loadPendingPayments();
 }
 let _atResolvedClientId = null;
