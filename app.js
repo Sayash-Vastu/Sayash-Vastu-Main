@@ -70,15 +70,37 @@ setInterval(async function() {
       }
     }
     
-  }, 60000); // Check every minute
+}, 60000); // Check every minute
+
+  // Payment follow-up reminder check (once per day, for CEO/Alisha/Ritika)
+setInterval(async function() {
+  if (!currentUser) return;
+  const isPayFollowUser = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+  if (!isPayFollowUser) return;
+  const todayStr2 = new Date().toISOString().split('T')[0];
+  const remKey = 'sv_payfollow_reminded_' + todayStr2;
+  if (localStorage.getItem(remKey)) return;
+
+  const { data: dueFollowups } = await sbClient.from('followups').select('*, clients(name)').eq('done', false).eq('type', 'Payment Follow-up').eq('next_followup', todayStr2);
+  if (dueFollowups && dueFollowups.length) {
+    for (const f of dueFollowups) {
+      await createNotification(
+        currentUser.email,
+        `💰 Payment Follow-up Due Today — ${f.clients?.name || 'Client'}`,
+        `Follow-up scheduled for today. ${f.notes ? 'Notes: ' + f.notes : ''}`,
+        'General', 'pendingPayments'
+      );
+    }
+    localStorage.setItem(remKey, 'true');
+  }
+}, 60000);
 
   // Auto summary emails + birthday check
 setInterval(async function() {
   if (!currentUser) return;
     const now = new Date();
     const hr = now.getHours(); const min = now.getMinutes();
-    const today = now.toDateString();
-    
+    const today = now.toDateString();    
     // Morning birthday wish at 9am
     if (hr === 9 && min < 5 && localStorage.getItem('sv_bday_sent_' + today) === null) {
       loadBirthdaySection();
@@ -2015,11 +2037,13 @@ const overdueFollowsEmp = (pendingFollowupsEmp||[]).filter(f => f.next_followup)
         empPayFollowEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No payment follow-ups due</div>';
       } else {
         empPayFollowEl.innerHTML = overdueFollowsEmp.map(f => {
-          const isOverdueEmp = f.next_followup < today;
+const isOverdueEmp = f.next_followup < today;
+          const isTodayEmp = f.next_followup === today;
+          const dueLabel = isOverdueEmp ? '⚠️ Overdue' : isTodayEmp ? '📅 Due today' : '📅 Upcoming';
           return `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa">
             <div>
-              <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(f.clients?.name||'-')}</div>
-              <div style="font-size:11px;color:${isOverdueEmp?'var(--red)':'var(--muted)'};font-weight:${isOverdueEmp?'700':'400'}">${fmtDate(f.next_followup)}${isOverdueEmp?' ⚠️ Overdue':' (Today)'}</div>
+              <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(f.clients?.name||'-')} — ₹${(f.amount_collected||0)>0?'':''}call for payment follow-up</div>
+              <div style="font-size:11px;color:${isOverdueEmp?'var(--red)':'var(--muted)'};font-weight:${isOverdueEmp?'700':'400'}">${fmtDate(f.next_followup)} · ${dueLabel}</div>
             </div>
             <button class="btn btn-outline btn-sm" onclick="showView('pendingPayments')">View →</button>
           </div>`;
