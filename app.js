@@ -2842,10 +2842,12 @@ async function openTaskModal(taskId) {
     </div>
     <div id="approval-field" style="margin-bottom:14px;display:none">
       <label style="display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:5px">Approval Type</label>
-      <select id="modal-approval" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
+<select id="modal-approval" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;outline:none">
         <option value="">— Select Approval —</option>
         <option value="Approval for SG">Approval for SG</option>
         <option value="Approval for YG">Approval for YG</option>
+        <option value="Approval for Rajendra">Approval for Rajendra</option>
+        <option value="Approval for Alisha">Approval for Alisha</option>
       </select>
     </div>
     <div id="send-to-field" style="margin-bottom:14px;display:block">
