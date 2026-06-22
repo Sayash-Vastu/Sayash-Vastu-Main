@@ -824,10 +824,6 @@ function doLogout() {
 function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appPage').style.display = 'block';
-if (window.innerWidth > 600) {
-    document.querySelector('.main-content').style.setProperty('margin-left', '230px', 'important');
-    document.querySelector('.main-content').style.setProperty('width', 'calc(100% - 230px)', 'important');
-  }
   const av = currentUser.name.substring(0,2).toUpperCase();
   const sidebarAvEl = document.getElementById('sidebarAv');
   if (currentUser.photo_url) {
