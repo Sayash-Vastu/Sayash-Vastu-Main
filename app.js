@@ -1201,18 +1201,18 @@ const paidByClient = {};
     paidByClient[p.client_id] = (paidByClient[p.client_id] || 0) + (p.amount || 0);
   });
 
-  const pendingRows = (projects || []).map(p => {
+const pendingRows = (projects || []).map(p => {
     const total = p.total_amount || 0;
     const paid = paidByClient[p.client_id] || 0;
     const balance = total - paid;
-  return {
+    return {
       clientId: p.client_id,
       clientName: clientMap[p.client_id] || '—',
+      projectId: p.id,
       projectTitle: p.title,
       total, paid, balance,
     };
   }).filter(r => r.balance > 0);
-
   const followupsByClient = {};
   (followups || []).forEach(f => {
     if (!followupsByClient[f.client_id]) followupsByClient[f.client_id] = [];
@@ -1264,7 +1264,13 @@ function renderPendingPaymentsList() {
               <td style="color:var(--red);font-weight:700">₹${r.balance.toLocaleString()}</td>
               <td style="font-size:12px;${isOverdue ? 'color:var(--red);font-weight:700' : ''}">${pendingFollowup ? fmtDate(pendingFollowup.next_followup) + (isOverdue ? ' ⚠️ Overdue' : '') : '—'}</td>
               <td style="font-size:12px;color:var(--muted)">${lastDone ? esc(lastDone.outcome || 'Followed up') + ' (' + fmtDate(lastDone.date||lastDone.created_at) + ')' : '—'}</td>
-              <td><button class="btn btn-gold btn-sm" onclick="openPaymentFollowupModal('${r.clientId}','${esc(r.clientName).replace(/'/g,"\\'")}', ${r.balance})">📞 Follow-up</button></td>
+<td>
+                <div style="display:flex;gap:4px">
+                  <button class="btn btn-gold btn-sm" onclick="openPaymentFollowupModal('${r.clientId}','${esc(r.clientName).replace(/'/g,"\\'")}', ${r.balance})">📞 Follow-up</button>
+                  <button class="btn btn-outline btn-sm" onclick="openEditPendingPaymentModal('${r.projectId}','${esc(r.projectTitle).replace(/'/g,"\\'")}',${r.total})">✏️</button>
+                  <button class="btn btn-outline btn-sm" onclick="openPaymentHistoryModal('${r.clientId}','${esc(r.clientName).replace(/'/g,"\\'")}')">👁️</button>
+                </div>
+              </td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -1425,11 +1431,85 @@ async function saveAddPendingPayment() {
       note: 'Initial amount recorded',
     });
   }
-
-  showToast('✅ Pending payment entry created!', 'ok');
+showToast('✅ Pending payment entry created!', 'ok');
   closeModal('addPendingPaymentModal');
   loadPendingPayments();
 }
+
+function openEditPendingPaymentModal(projectId, projectTitle, currentTotal) {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="editPendingPaymentModal">
+      <div class="modal">
+        <div class="modal-title">✏️ Edit Pending Payment</div>
+        <div class="form-grid cols-2">
+          <div class="field" style="grid-column:1/-1"><label>Project Name</label><input id="epp-project" value="${esc(projectTitle)}"></div>
+          <div class="field"><label>Total Amount (₹)</label><input type="number" id="epp-total" value="${currentTotal}"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-red" onclick="deletePendingPaymentProject('${projectId}')">🗑️ Delete</button>
+          <button class="btn btn-outline" onclick="closeModal('editPendingPaymentModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveEditPendingPayment('${projectId}')">💾 Update</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function saveEditPendingPayment(projectId) {
+  const title = document.getElementById('epp-project').value.trim();
+  const total = parseFloat(document.getElementById('epp-total').value) || 0;
+  const { error } = await sbClient.from('projects').update({ title, total_amount: total }).eq('id', projectId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Updated!', 'ok');
+  closeModal('editPendingPaymentModal');
+  loadPendingPayments();
+}
+
+async function deletePendingPaymentProject(projectId) {
+  if (!confirm('Delete this pending payment entry? (Payment history will remain)')) return;
+  const { error } = await sbClient.from('projects').delete().eq('id', projectId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Deleted!', 'ok');
+  closeModal('editPendingPaymentModal');
+  loadPendingPayments();
+}
+
+async function openPaymentHistoryModal(clientId, clientName) {
+  const { data: history } = await sbClient.from('payments').select('*').eq('client_id', clientId).order('date', { ascending: false });
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="paymentHistoryModal">
+      <div class="modal">
+        <div class="modal-title">👁️ Payment History — ${esc(clientName)}</div>
+        <div id="paymentHistoryList">
+          ${!history?.length ? '<div style="text-align:center;color:var(--muted);padding:20px">No payments recorded yet</div>' :
+            history.map(p => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f5f6fa">
+                <div>
+                  <div style="font-weight:700;color:var(--green)">₹${(p.amount||0).toLocaleString()}</div>
+                  <div style="font-size:11px;color:var(--muted)">${fmtDate(p.date)} · ${esc(p.note||p.mode||'')}</div>
+                </div>
+                <button class="btn btn-sm" onclick="deletePaymentHistoryEntry('${p.id}','${clientId}','${esc(clientName).replace(/'/g,"\\'")}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
+              </div>
+            `).join('')}
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('paymentHistoryModal')">Close</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function deletePaymentHistoryEntry(paymentId, clientId, clientName) {
+  if (!confirm('Delete this payment record?')) return;
+  const { error } = await sbClient.from('payments').delete().eq('id', paymentId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Payment deleted!', 'ok');
+  closeModal('paymentHistoryModal');
+  openPaymentHistoryModal(clientId, clientName);
+  loadPendingPayments();
+}
+
 let _atResolvedClientId = null;
 let _atResolvedClientName = null;
 
@@ -6851,8 +6931,8 @@ function closeModal(id) {
   if (el) {
     el.classList.remove('open');
     // Dynamically added modals remove karo
-if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal'].includes(id)) {
-      el.remove();
+if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal'].includes(id)) {
+    el.remove();
     }
   }
 }
