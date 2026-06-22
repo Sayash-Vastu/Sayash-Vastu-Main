@@ -1856,10 +1856,12 @@ async function loadEmpDashboard() {
     `).join('');
   }
 
-  // Payment Follow-ups Due (Ritika/Alisha/CEO only)
+// Payment Follow-ups Due (Ritika/Alisha/CEO only)
   const showPayFollowWidget = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+  const payFollowPanelEl = document.getElementById('empPayFollowupsPanel');
+  if (payFollowPanelEl) payFollowPanelEl.style.display = showPayFollowWidget ? 'block' : 'none';
   if (showPayFollowWidget) {
-    const { data: pendingFollowupsEmp } = await sbClient.from('followups').select('*, clients(name)').eq('done', false).eq('type', 'Payment Follow-up').order('next_followup', {ascending: true});
+  const { data: pendingFollowupsEmp } = await sbClient.from('followups').select('*, clients(name)').eq('done', false).eq('type', 'Payment Follow-up').order('next_followup', {ascending: true});
     const empPayFollowEl = document.getElementById('empPayFollowups');
     if (empPayFollowEl) {
       const overdueFollowsEmp = (pendingFollowupsEmp||[]).filter(f => f.next_followup && f.next_followup <= today);
