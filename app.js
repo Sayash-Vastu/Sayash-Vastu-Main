@@ -1179,10 +1179,13 @@ async function loadPendingPayments() {
   const el = document.getElementById('view-pendingPayments');
   el.innerHTML = `
     <div class="page-header"><h2>💰 Pending Payments</h2><p>Track outstanding payments and follow-ups</p></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <button class="btn btn-gold" onclick="openAddPendingPaymentModal()">➕ Add Pending Payment</button>
+    </div>
     <div id="pendingPaymentsStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px"></div>
     <div id="pendingPaymentsList"></div>
   `;
-
+  
   const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }] = await Promise.all([
     sbClient.from('clients').select('id, name'),
     sbClient.from('projects').select('*'),
