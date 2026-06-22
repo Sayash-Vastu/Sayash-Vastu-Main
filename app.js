@@ -2010,7 +2010,7 @@ async function loadEmpDashboard() {
   const { data: pendingFollowupsEmp } = await sbClient.from('followups').select('*, clients(name)').eq('done', false).eq('type', 'Payment Follow-up').order('next_followup', {ascending: true});
     const empPayFollowEl = document.getElementById('empPayFollowups');
     if (empPayFollowEl) {
-      const overdueFollowsEmp = (pendingFollowupsEmp||[]).filter(f => f.next_followup && f.next_followup <= today);
+const overdueFollowsEmp = (pendingFollowupsEmp||[]).filter(f => f.next_followup);
       if (!overdueFollowsEmp.length) {
         empPayFollowEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No payment follow-ups due</div>';
       } else {
@@ -2275,7 +2275,7 @@ document.getElementById('ceoDashStats').innerHTML = `
   const { data: pendingFollowupsCeo } = await sbClient.from('followups').select('*, clients(name)').eq('done', false).eq('type', 'Payment Follow-up').order('next_followup', {ascending: true});
   const ceoPayFollowEl = document.getElementById('ceoPayFollowups');
   if (ceoPayFollowEl) {
-    const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup && f.next_followup <= todayStr);
+const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
     if (!overdueFollows.length) {
       ceoPayFollowEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:16px">No payment follow-ups due</div>';
     } else {
