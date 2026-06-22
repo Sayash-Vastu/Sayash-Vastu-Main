@@ -6791,9 +6791,8 @@ function closeModal(id) {
 function showToast(msg, type) {
   const t=document.getElementById('toast');
   t.textContent=msg; t.className='toast show '+(type||'');
-  setTimeout(()=>t.className='toast',4000);
+  setTimeout(()=>t.className='toast',10000);
 }
-
 document.querySelectorAll('.modal-overlay').forEach(el=>{
   el.addEventListener('click',function(e){ if(e.target===this) this.classList.remove('open'); });
 });
