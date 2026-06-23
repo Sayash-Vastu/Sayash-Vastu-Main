@@ -218,8 +218,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
   display:flex;align-items:center;justify-content:space-between;
   position:sticky;top:0;z-index:100;
 }
-.topbar-left h3{font-size:16px;font-weight:700;color:var(--navy)}
-.topbar-left p{font-size:11px;color:var(--muted);margin-top:1px}
+.topbar-left h3{display:none}
+.topbar-left p{display:none}
 .topbar-right{display:flex;align-items:center;gap:10px}
 .date-pill{
   background:var(--navy);color:var(--gold);
