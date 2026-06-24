@@ -6395,11 +6395,12 @@ const isCEO = currentUser.role === 'ceo';
 const { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
     const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
     const { data: allAtt } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
-    const { data: allVisits } = await sbClient.from('site_visits').select('visited_by');
-    const visitCounts = {};
-    (allVisits || []).forEach(v => {
-      if (!v.visited_by) return;
-      visitCounts[v.visited_by] = (visitCounts[v.visited_by] || 0) + 1;
+const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigned_to_name, status, lead_converted_at').not('assigned_to_name', 'is', null);
+    const leadCounts = {};
+    const convertedCounts = {};
+    (allLeadsForPerf || []).forEach(l => {
+      leadCounts[l.assigned_to_name] = (leadCounts[l.assigned_to_name] || 0) + 1;
+      if (l.lead_converted_at) convertedCounts[l.assigned_to_name] = (convertedCounts[l.assigned_to_name] || 0) + 1;
     });
     const tbody = document.getElementById('perfTableBody');
     if (!emps || !emps.length) {
