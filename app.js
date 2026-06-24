@@ -2049,12 +2049,8 @@ async function loadEmpDashboard() {
   // Clear CEO stats — employee dashboard nahi dikhne chahiye
   document.getElementById('ceoDashStats').innerHTML = '';
 
-  // Quote of the Day
-const quoteEl = document.getElementById('dailyQuoteText');
-  if (quoteEl) {
-    const q = getTodaysQuote();
-    quoteEl.innerHTML = `"${esc(q.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(q.author)}</div>`;
-  }
+// Quote of the Day (check DB first for custom post, fallback to automatic list)
+await loadDailyQuoteWithOverride();
   // Greeting
   const h = new Date().getHours();
   const greet = h < 12 ? 'Good Morning' : h < 17 ? 'Good Afternoon' : 'Good Evening';
