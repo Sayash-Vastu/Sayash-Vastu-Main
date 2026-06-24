@@ -1189,6 +1189,79 @@ async function deleteSiteVisitGlobal(visitId) {
   showToast('✅ Site visit deleted!', 'ok');
   loadClientVisitsAll();
 }
+// ═══════════════════════════════════════════
+//  VOICE NOTES RECORDING
+// ═══════════════════════════════════════════
+window._voiceRecordings = {};
+window._mediaRecorder = null;
+window._recordingChunks = [];
+
+async function toggleVoiceRecording(prefix) {
+  const btn = document.getElementById(prefix + 'RecordBtn');
+  if (!window._mediaRecorder || window._mediaRecorder.state === 'inactive') {
+    // Start recording
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      window._mediaRecorder = new MediaRecorder(stream);
+      window._recordingChunks = [];
+
+      window._mediaRecorder.ondataavailable = (e) => window._recordingChunks.push(e.data);
+      window._mediaRecorder.onstop = () => {
+        const blob = new Blob(window._recordingChunks, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        if (!window._voiceRecordings[prefix]) window._voiceRecordings[prefix] = [];
+        window._voiceRecordings[prefix].push({ blob, url, id: Date.now() });
+        renderVoiceNotesList(prefix);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      window._mediaRecorder.start();
+      btn.textContent = '⏹️ Stop Recording';
+      btn.classList.add('btn-red');
+      btn.classList.remove('btn-outline');
+    } catch (err) {
+      showToast('❌ Microphone access denied or unavailable', 'err');
+    }
+  } else {
+    // Stop recording
+    window._mediaRecorder.stop();
+    btn.textContent = '🎙️ Record Voice Note';
+    btn.classList.remove('btn-red');
+    btn.classList.add('btn-outline');
+  }
+}
+
+function renderVoiceNotesList(prefix) {
+  const listEl = document.getElementById(prefix + 'VoiceList');
+  if (!listEl) return;
+  const recordings = window._voiceRecordings[prefix] || [];
+  listEl.innerHTML = recordings.map((r, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:#f8f9fc;border-radius:8px">
+      <audio src="${r.url}" controls style="height:32px;flex:1"></audio>
+      <button type="button" onclick="deleteVoiceNote('${prefix}', ${r.id})" style="background:#fdf0ee;color:var(--red);border:1px solid var(--red-bg);border-radius:6px;padding:4px 8px;font-size:11px;cursor:pointer">🗑️</button>
+    </div>
+  `).join('');
+}
+
+function deleteVoiceNote(prefix, id) {
+  window._voiceRecordings[prefix] = (window._voiceRecordings[prefix] || []).filter(r => r.id !== id);
+  renderVoiceNotesList(prefix);
+}
+
+async function uploadVoiceNotes(prefix) {
+  const recordings = window._voiceRecordings[prefix] || [];
+  if (!recordings.length) return [];
+  const urls = [];
+  for (const r of recordings) {
+    const path = `voice-notes/${Date.now()}_${Math.random().toString(36).substring(7)}.webm`;
+    const { error } = await sbClient.storage.from('client-documents').upload(path, r.blob);
+    if (!error) {
+      const { data: urlData } = sbClient.storage.from('client-documents').getPublicUrl(path);
+      urls.push(urlData.publicUrl);
+    }
+  }
+  return urls;
+}
 function openAddVisitEmpGlobal() {
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="addVisitGlobalModal">
@@ -1226,6 +1299,12 @@ function openAddVisitEmpGlobal() {
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
 <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
+          <div class="field" style="grid-column:1/-1">
+            <label>🎙️ Voice Notes (Optional)</label>
+            <div id="avgVoiceList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
+            <button type="button" class="btn btn-outline btn-sm" id="avgRecordBtn" onclick="toggleVoiceRecording('avg')">🎙️ Record Voice Note</button>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Jaldi mein ho to bol kar record karo, jisko task assign hoga woh sun sakega</div>
+          </div>
           <div class="field" style="grid-column:1/-1"><label>Upload Report File (Optional)</label>
             <div class="upload-zone" onclick="document.getElementById('avgFile').click()">
               <input type="file" id="avgFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="document.getElementById('avgFileName').textContent = this.files[0] ? '✅ ' + this.files[0].name : ''">
@@ -1776,6 +1855,8 @@ async function saveVisitGlobal() {
     }
   }
 
+const voiceNoteUrls = await uploadVoiceNotes('avg');
+
   const { error } = await sbClient.from('site_visits').insert({
     client_id: clientId,
     visit_date: visitDate,
@@ -1786,6 +1867,7 @@ async function saveVisitGlobal() {
     discussion: discussion,
     suggestions: suggestions,
     remarks: document.getElementById('avg-remarks').value.trim(),
+    voice_notes: voiceNoteUrls,
   });
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
 
@@ -1838,10 +1920,11 @@ let trackerPayload = {
     const assignedName = empMatch?.name || assignedToName;
 
     if (assignedEmail) {
+const voiceNoteText = voiceNoteUrls.length ? `\n\n🎙️ Voice Notes:\n${voiceNoteUrls.map((u,i) => `Note ${i+1}: ${u}`).join('\n')}` : '';
       await sb.from('tasks').insert({
         project: clientName,
-        task_detail: `Site visit report pending — ${clientName}${projectName ? ' / ' + projectName : ''}${subName ? ' / ' + subName : ''}. ${discussion || ''}`.trim(),
-        assigned_to_email: assignedEmail.toLowerCase(),
+        task_detail: `Site visit report pending — ${clientName}${projectName ? ' / ' + projectName : ''}${subName ? ' / ' + subName : ''}. ${discussion || ''}${voiceNoteText}`.trim(),
+      assigned_to_email: assignedEmail.toLowerCase(),
         assigned_to_name: assignedName,
         assigned_by_email: currentUser.email,
         assigned_by_name: currentUser.name,
