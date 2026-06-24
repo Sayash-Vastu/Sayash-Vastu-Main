@@ -2957,8 +2957,10 @@ async function renderMyTasks() {
 <td style="min-width:100px">
         ${files.length ? renderFileChips(files) : ''}
         ${t.file_url ? `<div class="file-chip">📎 <a href="${t.file_url}" target="_blank">${esc((t.file_name||'File').length > 16 ? (t.file_name||'File').substring(0,16)+'…' : (t.file_name||'File'))}</a></div>` : ''}
-        ${(t.voice_notes && t.voice_notes.length) ? t.voice_notes.map((url, vi) => `<audio src="${url}" controls style="height:26px;width:140px;display:block;margin-top:3px"></audio>`).join('') : ''}
-        ${!files.length && !t.file_url && !(t.voice_notes && t.voice_notes.length) ? '<span style="color:var(--muted);font-size:11px">—</span>' : ''}
+        ${!files.length && !t.file_url ? '<span style="color:var(--muted);font-size:11px">—</span>' : ''}
+      </td>
+      <td style="min-width:160px">
+        ${(t.voice_notes && t.voice_notes.length) ? t.voice_notes.map((url, vi) => `<audio src="${url}" controls style="height:26px;width:150px;display:block;margin-bottom:4px"></audio>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}
       </td>
       <td style="display:flex;gap:5px">
         <button class="btn btn-outline btn-sm" onclick="openTaskViewModal('${t.id}')">👁️</button>
