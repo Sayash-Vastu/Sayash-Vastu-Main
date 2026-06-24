@@ -1293,7 +1293,7 @@ function openAddVisitEmpGlobal() {
           </div>
           <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
           <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
-<div class="field" style="grid-column:1/-1"><label>Visited By (1 ya zyada select karo)</label>
+<div class="field" style="grid-column:1/-1"><label>Visited By</label>
   <div id="avg-by-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;background:#fff">
     <span style="font-size:12px;color:var(--muted)">Loading...</span>
   </div>
