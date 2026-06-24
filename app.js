@@ -2891,19 +2891,34 @@ async function openTaskModal(taskId) {
   currentTaskRow = t;
   const locked = t.work_status === 'Completed';
   document.getElementById('taskModalContent').innerHTML = `
-    <div style="margin-bottom:16px;padding:14px;background:#f8f9fc;border-radius:10px;border:1px solid var(--border)">
+<div style="margin-bottom:16px;padding:14px;background:#f8f9fc;border-radius:10px;border:1px solid var(--border)">
       <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(t.project)}</div>
-      <div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">${esc(t.task_detail)}</div>
-      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+      <div style="margin-top:8px">
         ${statusBadge(t.work_status)}
-        <span style="font-size:11px;color:var(--muted)">End: ${fmtDate(t.end_date)}</span>
-        <div class="field" style="margin-bottom:14px">
-  <label>Extend End Date</label>
-  <input type="date" id="modal-end-date" value="${t.end_date||''}" min="${new Date().toISOString().split('T')[0]}"/>
-</div>
-        ${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 Pending with: ${esc(t.pending_with_name)}</span>`:''}
+        ${t.pending_with_name?`<span style="font-size:11px;font-weight:600;color:var(--purple);margin-left:8px">📌 Pending with: ${esc(t.pending_with_name)}</span>`:''}
       </div>
     </div>
+    ${!locked ? `
+    <div class="field" style="margin-bottom:14px">
+      <label>Task Detail</label>
+      <textarea id="modal-task-detail">${esc(t.task_detail)}</textarea>
+    </div>
+    <div class="form-grid cols-2" style="margin-bottom:14px">
+      <div class="field">
+        <label>Start Date</label>
+        <input type="date" id="modal-start-date" value="${t.start_date||''}"/>
+      </div>
+      <div class="field">
+        <label>End Date</label>
+        <input type="date" id="modal-end-date" value="${t.end_date||''}"/>
+      </div>
+    </div>
+    ` : `
+    <div style="margin-bottom:16px;padding:14px;background:#f8f9fc;border-radius:10px;border:1px solid var(--border)">
+      <div style="font-size:12px;color:var(--muted);line-height:1.5">${esc(t.task_detail)}</div>
+      <div style="margin-top:8px;font-size:11px;color:var(--muted)">End: ${fmtDate(t.end_date)}</div>
+    </div>
+    `}
     ${locked ? '<div class="badge b-green" style="margin-bottom:12px">✅ Task Completed — locked</div>' : `
     <div class="field" style="margin-bottom:14px">
       <label>Update Status</label>
@@ -3027,9 +3042,13 @@ async function saveTaskUpdate() {
     return;
   }
 
-  const newEndDate = document.getElementById('modal-end-date')?.value;
+const newEndDate = document.getElementById('modal-end-date')?.value;
+const newStartDate = document.getElementById('modal-start-date')?.value;
+const newTaskDetail = document.getElementById('modal-task-detail')?.value?.trim();
 const updates = { work_status: status, comments, updated_at: new Date().toISOString() };
 if (newEndDate) updates.end_date = newEndDate;
+if (newStartDate) updates.start_date = newStartDate;
+if (newTaskDetail) updates.task_detail = newTaskDetail;
   if (status === 'Sent for Review' && approvalVal) {
     updates.ceo_approval = approvalVal;
     updates.approval_type = approvalVal;
