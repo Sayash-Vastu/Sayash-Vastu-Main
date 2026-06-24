@@ -328,18 +328,18 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 .panel-body{padding:16px 18px}
 
 /* TABLE */
-.tbl-wrap{overflow-x:auto}
+.tbl-wrap{overflow-x:auto;max-height:65vh;overflow-y:auto}
 table{width:100%;border-collapse:collapse;font-size:13px}
 thead th{
   padding:10px 14px;background:#f8f9fc;
   color:var(--muted);font-weight:700;font-size:10px;
   text-transform:uppercase;letter-spacing:0.6px;
   text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;
+  position:sticky;top:0;z-index:10;
 }
 tbody td{padding:11px 14px;border-bottom:1px solid #f5f6fa;color:var(--text);vertical-align:middle}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover{background:#fafbff}
-
 /* BADGES */
 .badge{
   display:inline-flex;align-items:center;gap:4px;
