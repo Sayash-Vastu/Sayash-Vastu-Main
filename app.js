@@ -65,6 +65,62 @@ function getTodaysQuote() {
   return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
 }
 
+async function loadDailyQuoteWithOverride() {
+  const quoteEl = document.getElementById('dailyQuoteText');
+  if (!quoteEl) return;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { data: customQuote } = await sb.from('daily_quotes').select('*').eq('quote_date', todayStr).maybeSingle();
+
+  if (customQuote) {
+    quoteEl.innerHTML = `"${esc(customQuote.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(customQuote.author || customQuote.posted_by_name)}</div>`;
+  } else {
+    const q = getTodaysQuote();
+    quoteEl.innerHTML = `"${esc(q.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(q.author)}</div>`;
+  }
+}
+
+function openPostQuoteModal() {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="postQuoteModal">
+      <div class="modal">
+        <div class="modal-title">💡 Post Today's Quote</div>
+        <div class="field" style="margin-bottom:14px">
+          <label>Quote Text *</label>
+          <textarea id="pq-text" placeholder="Write an inspiring quote..." style="min-height:80px"></textarea>
+        </div>
+        <div class="field">
+          <label>Author (Optional — leave blank to use your name)</label>
+          <input id="pq-author" placeholder="e.g. Steve Jobs">
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('postQuoteModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="postTodaysQuote()">💾 Post Quote</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function postTodaysQuote() {
+  const text = document.getElementById('pq-text').value.trim();
+  const author = document.getElementById('pq-author').value.trim();
+  if (!text) { showToast('⚠️ Quote text required', 'warn'); return; }
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { error } = await sb.from('daily_quotes').upsert({
+    quote_date: todayStr,
+    text,
+    author: author || currentUser.name,
+    posted_by_name: currentUser.name,
+    posted_by_email: currentUser.email,
+  }, { onConflict: 'quote_date' });
+
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Quote posted for today!', 'ok');
+  closeModal('postQuoteModal');
+  loadDailyQuoteWithOverride();
+}
 // ═══════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════
