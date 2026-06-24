@@ -7089,9 +7089,10 @@ function openAddLeadModal() {
       <div class="modal">
         <div class="modal-title">🎯 Add New Lead</div>
         <div class="form-grid cols-2">
-          <div class="field"><label>Full Name *</label><input id="lead-name" placeholder="Lead name"></div>
+          <div class="field"><label>Full Name *</label><input id="lead-name" placeholder="Client name"></div>
           <div class="field"><label>Phone</label><input id="lead-phone" placeholder="Phone number"></div>
           <div class="field"><label>Email</label><input id="lead-email" placeholder="Email address"></div>
+          <div class="field"><label>Birthday</label><input type="date" id="lead-birthday"></div>
           <div class="field"><label>State</label><input id="lead-state" placeholder="State"></div>
           <div class="field"><label>City</label><input id="lead-city" placeholder="City"></div>
           <div class="field"><label>Property Type</label>
@@ -7109,8 +7110,32 @@ function openAddLeadModal() {
           <div class="field"><label>Assigned To *</label>
             <select id="lead-assigned"><option value="">Select Employee</option></select>
           </div>
+          <div class="field" style="grid-column:1/-1"><label>📍 Location</label><input id="lead-location" placeholder="Site address or Google Maps link"></div>
         </div>
-        <div class="field" style="margin-top:14px"><label>Notes</label><textarea id="lead-notes" placeholder="Any notes about this lead..."></textarea></div>
+        <div class="field" style="margin-top:14px">
+          <label>Upload File (Optional)</label>
+          <div class="upload-zone" onclick="document.getElementById('leadFile').click()">
+            <input type="file" id="leadFile" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onchange="document.getElementById('leadFileName').textContent = this.files[0] ? '✅ ' + this.files[0].name : ''">
+            <div style="font-size:24px;margin-bottom:6px">📎</div>
+            <div style="font-size:13px;color:var(--muted)">Click to upload file</div>
+            <div id="leadFileName" style="font-size:12px;color:var(--green);font-weight:600;margin-top:6px"></div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Or OneDrive / SharePoint Link (Optional)</label>
+          <input id="lead-onedrive" placeholder="https://sayashvastucorp-my.sharepoint.com/...">
+        </div>
+        <div class="section-div"><div class="sd-line"></div><div class="sd-label">🎂 BIRTHDAYS & ANNIVERSARIES</div><div class="sd-line"></div></div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Spouse Birthday</label><input type="date" id="lead-spouse-bday"></div>
+          <div class="field"><label>Anniversary</label><input type="date" id="lead-anniversary"></div>
+          <div class="field"><label>Child 1 Name</label><input id="lead-child1-name" placeholder="Child name"></div>
+          <div class="field"><label>Child 1 Birthday</label><input type="date" id="lead-child1-bday"></div>
+          <div class="field"><label>Child 2 Name</label><input id="lead-child2-name" placeholder="Child name"></div>
+          <div class="field"><label>Child 2 Birthday</label><input type="date" id="lead-child2-bday"></div>
+          <div class="field"><label>Child 3 Name</label><input id="lead-child3-name" placeholder="Child name"></div>
+          <div class="field"><label>Child 3 Birthday</label><input type="date" id="lead-child3-bday"></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Notes</label><textarea id="lead-notes" placeholder="Any notes..."></textarea></div>
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeModal('addLeadModal')">Cancel</button>
           <button class="btn btn-gold" onclick="saveLead()">💾 Save Lead</button>
@@ -7126,7 +7151,6 @@ function openAddLeadModal() {
     }
   });
 }
-
 async function saveLead() {
   const name = document.getElementById('lead-name').value.trim();
   const assignedSel = document.getElementById('lead-assigned');
@@ -7136,10 +7160,22 @@ async function saveLead() {
   if (!name) { showToast('⚠️ Name required', 'warn'); return; }
   if (!assignedEmail) { showToast('⚠️ Assign to someone', 'warn'); return; }
 
+  let leadFileUrl = document.getElementById('lead-onedrive')?.value?.trim() || null;
+  const leadFile = document.getElementById('leadFile')?.files[0];
+  if (leadFile) {
+    const path = `leads/${Date.now()}_${leadFile.name}`;
+    const { error: uploadErr } = await sbClient.storage.from('client-documents').upload(path, leadFile);
+    if (!uploadErr) {
+      const { data: urlData } = sbClient.storage.from('client-documents').getPublicUrl(path);
+      leadFileUrl = urlData.publicUrl;
+    }
+  }
+
   const { data: newLead, error } = await sbClient.from('clients').insert({
     name,
     phone: document.getElementById('lead-phone').value.trim(),
     email: document.getElementById('lead-email').value.trim(),
+    birthday: document.getElementById('lead-birthday').value || null,
     state: document.getElementById('lead-state').value.trim(),
     city: document.getElementById('lead-city').value.trim(),
     property_type: document.getElementById('lead-property').value,
@@ -7147,9 +7183,18 @@ async function saveLead() {
     status: 'Lead',
     assigned_to_name: assignedName,
     assigned_to_email: assignedEmail,
+    location_link: document.getElementById('lead-location')?.value?.trim() || null,
+    file_url: leadFileUrl,
+    spouse_birthday: document.getElementById('lead-spouse-bday').value || null,
+    anniversary: document.getElementById('lead-anniversary').value || null,
+    child1_name: document.getElementById('lead-child1-name').value.trim(),
+    child1_birthday: document.getElementById('lead-child1-bday').value || null,
+    child2_name: document.getElementById('lead-child2-name').value.trim(),
+    child2_birthday: document.getElementById('lead-child2-bday').value || null,
+    child3_name: document.getElementById('lead-child3-name').value.trim(),
+    child3_birthday: document.getElementById('lead-child3-bday').value || null,
     notes: document.getElementById('lead-notes').value.trim(),
   }).select().single();
-
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
 
   // Auto-create a follow-up task for the assigned employee
