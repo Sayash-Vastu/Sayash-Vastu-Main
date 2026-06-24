@@ -6701,7 +6701,58 @@ async function loadFollowUp() {
   showToast('✅ Task deleted!', 'ok');
   loadFollowUp();
 }
+async function openFollowUpEditModal(taskId) {
+  const { data: t } = await sb.from('tasks').select('*').eq('id', taskId).single();
+  if (!t) return;
+  currentTaskRow = t;
 
+  document.getElementById('taskModalContent').innerHTML = `
+    <div style="margin-bottom:16px;padding:14px;background:#f8f9fc;border-radius:10px;border:1px solid var(--border)">
+      <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(t.project)}</div>
+      <div style="margin-top:8px">
+        ${statusBadge(t.work_status)}
+        <span style="font-size:11px;color:var(--muted);margin-left:8px">👤 Assigned to: ${esc(t.assigned_to_name)}</span>
+      </div>
+    </div>
+    <div class="field" style="margin-bottom:14px">
+      <label>Task Detail</label>
+      <textarea id="modal-task-detail">${esc(t.task_detail)}</textarea>
+    </div>
+    <div class="form-grid cols-2" style="margin-bottom:14px">
+      <div class="field">
+        <label>Start Date</label>
+        <input type="date" id="modal-start-date" value="${t.start_date||''}"/>
+      </div>
+      <div class="field">
+        <label>End Date</label>
+        <input type="date" id="modal-end-date" value="${t.end_date||''}"/>
+      </div>
+    </div>
+    <div id="modalMsg" style="font-size:12px;font-weight:600;margin-top:8px"></div>
+  `;
+  document.getElementById('taskModal').classList.add('open');
+  document.getElementById('taskModalSaveBtn').setAttribute('onclick', 'saveFollowUpEdit()');
+}
+
+async function saveFollowUpEdit() {
+  if (!currentTaskRow) return;
+  const newTaskDetail = document.getElementById('modal-task-detail')?.value?.trim();
+  const newStartDate = document.getElementById('modal-start-date')?.value;
+  const newEndDate = document.getElementById('modal-end-date')?.value;
+
+  const updates = { updated_at: new Date().toISOString() };
+  if (newTaskDetail) updates.task_detail = newTaskDetail;
+  if (newStartDate) updates.start_date = newStartDate;
+  if (newEndDate) updates.end_date = newEndDate;
+
+  const { error } = await sb.from('tasks').update(updates).eq('id', currentTaskRow.id);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+
+  showToast('✅ Task updated!', 'ok');
+  closeModal('taskModal');
+  document.getElementById('taskModalSaveBtn').setAttribute('onclick', 'saveTaskUpdate()');
+  loadFollowUp();
+}
 async function loadFollowUpBadge() {
   try {
     const { count } = await sb.from('tasks').select('*', {count: 'exact'})
