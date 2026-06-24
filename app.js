@@ -1890,10 +1890,10 @@ async function loadEmpDashboard() {
   document.getElementById('ceoDashStats').innerHTML = '';
 
   // Quote of the Day
-  const quoteEl = document.getElementById('dailyQuoteText');
+const quoteEl = document.getElementById('dailyQuoteText');
   if (quoteEl) {
     const q = getTodaysQuote();
-    quoteEl.innerHTML = `"${esc(q.text)}" <span style="color:var(--muted);font-weight:400">— ${esc(q.author)}</span>`;
+    quoteEl.innerHTML = `"${esc(q.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(q.author)}</div>`;
   }
   // Greeting
   const h = new Date().getHours();
