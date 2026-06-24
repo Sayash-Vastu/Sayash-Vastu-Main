@@ -1262,6 +1262,20 @@ async function uploadVoiceNotes(prefix) {
   }
   return urls;
 }
+function toggleVisitorSelect(checkbox) {
+  window._avgSelectedVisitors = window._avgSelectedVisitors || [];
+  const name = checkbox.value;
+  const chipId = 'visitor-chip-' + name.replace(/[^a-z0-9]/gi,'_');
+  const chip = document.getElementById(chipId);
+
+  if (checkbox.checked) {
+    if (!window._avgSelectedVisitors.includes(name)) window._avgSelectedVisitors.push(name);
+    if (chip) { chip.style.background='var(--gold)'; chip.style.borderColor='var(--gold)'; chip.style.color='var(--navy)'; chip.style.fontWeight='700'; }
+  } else {
+    window._avgSelectedVisitors = window._avgSelectedVisitors.filter(n => n !== name);
+    if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
+  }
+}
 function openAddVisitEmpGlobal() {
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="addVisitGlobalModal">
@@ -1279,9 +1293,10 @@ function openAddVisitEmpGlobal() {
           </div>
           <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
           <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
-<div class="field"><label>Visited By</label>
-  <input id="avg-by" value="${currentUser.name}" list="avgByList" placeholder="Type or select...">
-  <datalist id="avgByList"></datalist>
+<div class="field" style="grid-column:1/-1"><label>Visited By (1 ya zyada select karo)</label>
+  <div id="avg-by-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;background:#fff">
+    <span style="font-size:12px;color:var(--muted)">Loading...</span>
+  </div>
 </div>
 <div class="field"><label>Assign Report To *</label>
   <input id="avg-assigned" list="avgAssignedList" placeholder="Type or select employee...">
@@ -1329,13 +1344,22 @@ sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
     const sel = document.getElementById('avg-client');
     if (sel && data) sel.innerHTML = '<option value="">Select Client</option>' + data.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
   });
-
-  sb.from('employees').select('name').eq('is_active', true).order('name').then(({ data }) => {
-    const byList = document.getElementById('avgByList');
+sb.from('employees').select('name').eq('is_active', true).order('name').then(({ data }) => {
     const assignedList = document.getElementById('avgAssignedList');
     const opts = (data || []).map(e => `<option value="${esc(e.name)}">`).join('');
-    if (byList) byList.innerHTML = opts;
     if (assignedList) assignedList.innerHTML = opts;
+
+    window._avgSelectedVisitors = [currentUser.name];
+    const byListEl = document.getElementById('avg-by-list');
+    if (byListEl && data) {
+      byListEl.innerHTML = data.map(e => {
+        const isMe = e.name === currentUser.name;
+        return `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:${isMe?'var(--gold)':'var(--bg)'};border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid ${isMe?'var(--gold)':'var(--border)'};color:${isMe?'var(--navy)':'var(--text)'};font-weight:${isMe?'700':'400'}" id="visitor-chip-${e.name.replace(/[^a-z0-9]/gi,'_')}">
+          <input type="checkbox" value="${esc(e.name)}" ${isMe?'checked':''} onchange="toggleVisitorSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
+          ${esc(e.name)}
+        </label>`;
+      }).join('');
+    }
   });
 }
 window._avgClientRecords = [];
@@ -1834,7 +1858,8 @@ async function saveVisitGlobal() {
   const projectName = document.getElementById('avg-project').value;
   const subName = document.getElementById('avg-subproject').value;
   const assignedToName = document.getElementById('avg-assigned').value.trim();
-  const visitedBy = document.getElementById('avg-by').value.trim();
+const visitedBy = (window._avgSelectedVisitors || []).join(', ');
+  if (!visitedBy) { showToast('⚠️ Kam se kam ek visitor select karo', 'warn'); return; }
   const visitType = document.getElementById('avg-type').value;
   const discussion = document.getElementById('avg-discussion').value.trim();
   const location = document.getElementById('avg-location').value.trim();
