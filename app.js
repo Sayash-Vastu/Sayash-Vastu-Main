@@ -939,8 +939,13 @@ document.getElementById('sidebarRole').textContent = (currentUser.displayRole ||
     }
 
     // Show Follow-up for employees
-    const navFollowup = document.getElementById('nav-followup');
+const navFollowup = document.getElementById('nav-followup');
     if (navFollowup) navFollowup.style.display = 'flex';
+
+    // Leads section — only Harshita and Ritika
+    const isLeadHandler = ['harshita@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+    const navLeads = document.getElementById('nav-leads');
+    if (navLeads) navLeads.style.display = isLeadHandler ? 'flex' : 'none';
     // Senior Review removed
   }
     loadEmployeeAutocomplete();
@@ -1110,6 +1115,7 @@ if (name === 'clientsList') loadClientsList();
 if (name === 'clientProjects') loadClientProjectsAll();
 if (name === 'clientVisits') loadClientVisitsAll();
 if (name === 'pendingPayments') loadPendingPayments();
+  if (name === 'leadsManagement') loadLeadsManagement();    
 }
 function openClientCrmWithRole() {
   const fullAccessEmails = ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'];
