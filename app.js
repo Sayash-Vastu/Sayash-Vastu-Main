@@ -6823,12 +6823,22 @@ async function loadReportsApproval() {
     .eq('approval_status', 'Pending')
     .order('updated_at', {ascending: false});
 
-  let myApprovalType = null;
+let myApprovalType = null;
   if (currentUser.email === 'alisha@sayashvastu.com') myApprovalType = 'Approval for Alisha';
   else if (currentUser.email === 'rajendra@sayashvastu.com') myApprovalType = 'Approval for Rajendra';
 
   allReports = myApprovalType ? (tasks || []).filter(t => t.approval_type === myApprovalType) : (tasks || []);
-const total = allReports.length;
+
+  const titleEl = document.getElementById('ra-page-title');
+  const subtitleEl = document.getElementById('ra-page-subtitle');
+  if (myApprovalType) {
+    if (titleEl) titleEl.textContent = 'Your Pending Approvals';
+    if (subtitleEl) subtitleEl.textContent = 'Tasks waiting for your review';
+  } else {
+    if (titleEl) titleEl.textContent = 'Reports Approval';
+    if (subtitleEl) subtitleEl.textContent = 'Tasks pending approval — SG & YG';
+  }
+  const total = allReports.length;
   document.getElementById('ra-total').textContent = total;
 
   if (myApprovalType) {
