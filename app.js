@@ -7022,6 +7022,158 @@ async function loadMyReportsBadge() {
 }
 
 // ═══════════════════════════════════════════
+//  LEADS MANAGEMENT (Harshita/Ritika)
+// ═══════════════════════════════════════════
+async function loadLeadsManagement() {
+  const el = document.getElementById('view-leadsManagement');
+  el.innerHTML = `
+    <div class="page-header"><h2>🎯 Leads</h2><p>Manage and track incoming leads</p></div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <button class="btn btn-gold" onclick="openAddLeadModal()">➕ Add Lead</button>
+    </div>
+    <div id="leadsStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px"></div>
+    <div id="leadsListWrap"></div>
+  `;
+
+  const { data: leads } = await sbClient.from('clients').select('*').eq('status', 'Lead').order('created_at', { ascending: false });
+  const { data: convertedLeads } = await sbClient.from('clients').select('*').not('lead_converted_at', 'is', null).order('lead_converted_at', { ascending: false });
+
+  const allLeads = leads || [];
+  const allConverted = convertedLeads || [];
+  const myLeads = allLeads.filter(l => l.assigned_to_email === currentUser.email);
+
+  window._allLeadsData = allLeads;
+  window._allConvertedLeadsData = allConverted;
+
+  document.getElementById('leadsStats').innerHTML = `
+    <div class="stat-card sc-amber"><div class="stat-icon">🎯</div><div class="stat-num">${allLeads.length}</div><div class="stat-lbl">Total Active Leads</div></div>
+    <div class="stat-card sc-blue"><div class="stat-icon">👤</div><div class="stat-num">${myLeads.length}</div><div class="stat-lbl">Assigned to Me</div></div>
+    <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num">${allConverted.length}</div><div class="stat-lbl">Converted</div></div>
+    <div class="stat-card sc-navy"><div class="stat-icon">📊</div><div class="stat-num">${allLeads.length + allConverted.length > 0 ? Math.round(allConverted.length / (allLeads.length + allConverted.length) * 100) : 0}%</div><div class="stat-lbl">Conversion Rate</div></div>
+  `;
+
+  renderLeadsList(allLeads);
+}
+
+function renderLeadsList(leads) {
+  const el = document.getElementById('leadsListWrap');
+  if (!leads.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-title">No leads yet</div></div>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>Property Type</th><th>Source</th><th>Assigned To</th><th>Added</th><th>Action</th></tr></thead>
+        <tbody>
+          ${leads.map(l => `<tr>
+            <td><strong>${esc(l.name)}</strong></td>
+            <td>${esc(l.phone) || '-'}</td>
+            <td>${esc(l.property_type) || '-'}</td>
+            <td><span class="badge b-amber">${esc(l.source) || '-'}</span></td>
+            <td>${l.assigned_to_name ? `<span class="badge b-blue">${esc(l.assigned_to_name)}</span>` : '<span style="color:var(--muted);font-size:11px">Unassigned</span>'}</td>
+            <td style="font-size:11px">${fmtDate(l.created_at)}</td>
+            <td>
+              <button class="btn btn-outline btn-sm" onclick="openEditLeadModal('${l.id}')">✏️ Edit</button>
+              <button class="btn btn-green btn-sm" onclick="markLeadConverted('${l.id}','${esc(l.name).replace(/'/g,"\\'")}')">✅ Convert</button>
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+function openAddLeadModal() {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addLeadModal">
+      <div class="modal">
+        <div class="modal-title">🎯 Add New Lead</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Full Name *</label><input id="lead-name" placeholder="Lead name"></div>
+          <div class="field"><label>Phone</label><input id="lead-phone" placeholder="Phone number"></div>
+          <div class="field"><label>Email</label><input id="lead-email" placeholder="Email address"></div>
+          <div class="field"><label>State</label><input id="lead-state" placeholder="State"></div>
+          <div class="field"><label>City</label><input id="lead-city" placeholder="City"></div>
+          <div class="field"><label>Property Type</label>
+            <select id="lead-property">
+              <option value="">Select</option>
+              <option>Residential</option><option>Commercial</option><option>Plot</option><option>Office</option><option>Villa</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Source</label>
+            <select id="lead-source">
+              <option value="">Select</option>
+              <option>Google</option><option>Referral</option><option>Walk-in</option><option>Social Media</option><option>Phone</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Assigned To *</label>
+            <select id="lead-assigned"><option value="">Select Employee</option></select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Notes</label><textarea id="lead-notes" placeholder="Any notes about this lead..."></textarea></div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addLeadModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveLead()">💾 Save Lead</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  sb.from('employees').select('name,email').eq('is_active', true).order('name').then(({ data }) => {
+    const sel = document.getElementById('lead-assigned');
+    if (sel && data) {
+      sel.innerHTML = '<option value="">Select Employee</option>' + data.map(e => `<option value="${esc(e.email)}" data-name="${esc(e.name)}">${esc(e.name)}</option>`).join('');
+    }
+  });
+}
+
+async function saveLead() {
+  const name = document.getElementById('lead-name').value.trim();
+  const assignedSel = document.getElementById('lead-assigned');
+  const assignedEmail = assignedSel.value;
+  const assignedName = assignedSel.options[assignedSel.selectedIndex]?.dataset.name || '';
+
+  if (!name) { showToast('⚠️ Name required', 'warn'); return; }
+  if (!assignedEmail) { showToast('⚠️ Assign to someone', 'warn'); return; }
+
+  const { data: newLead, error } = await sbClient.from('clients').insert({
+    name,
+    phone: document.getElementById('lead-phone').value.trim(),
+    email: document.getElementById('lead-email').value.trim(),
+    state: document.getElementById('lead-state').value.trim(),
+    city: document.getElementById('lead-city').value.trim(),
+    property_type: document.getElementById('lead-property').value,
+    source: document.getElementById('lead-source').value,
+    status: 'Lead',
+    assigned_to_name: assignedName,
+    assigned_to_email: assignedEmail,
+    notes: document.getElementById('lead-notes').value.trim(),
+  }).select().single();
+
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+
+  // Auto-create a follow-up task for the assigned employee
+  await sb.from('tasks').insert({
+    project: name,
+    task_detail: `Follow up with lead: ${name}${document.getElementById('lead-phone').value.trim() ? ' (📞 ' + document.getElementById('lead-phone').value.trim() + ')' : ''}`,
+    assigned_to_email: assignedEmail.toLowerCase(),
+    assigned_to_name: assignedName,
+    assigned_by_email: currentUser.email,
+    assigned_by_name: currentUser.name,
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: new Date().toISOString().split('T')[0],
+    work_status: 'Not Started',
+    ceo_approval: 'Pending',
+    linked_client_id: newLead.id,
+  });
+
+  await createNotification(assignedEmail.toLowerCase(), `🎯 New lead assigned — ${name}`, `Follow up with this lead as soon as possible.`, 'task', 'tasks');
+
+  showToast('✅ Lead added & task assigned!', 'ok');
+  closeModal('addLeadModal');
+  loadLeadsManagement();
+}
+// ═══════════════════════════════════════════
 //  CEO MY TASKS
 // ═══════════════════════════════════════════
 async function loadCeoMyTasks() {
