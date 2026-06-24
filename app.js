@@ -1282,14 +1282,17 @@ function openAddVisitEmpGlobal() {
       <div class="modal">
         <div class="modal-title">🏗️ Add Site Visit</div>
         <div class="form-grid cols-2">
-          <div class="field" style="grid-column:1/-1"><label>Client *</label>
-            <select id="avg-client" onchange="loadProjectsForClient(this.value)"><option value="">Select Client</option></select>
+<div class="field" style="grid-column:1/-1"><label>Client *</label>
+            <input id="avg-client" list="avgClientList" placeholder="Type or select client..." onchange="loadProjectsForClientByName(this.value)">
+            <datalist id="avgClientList"></datalist>
           </div>
-          <div class="field" style="grid-column:1/-1"><label>Project</label>
-            <select id="avg-project" onchange="loadSubProjectsForProject(this.value)"><option value="">Select Project</option></select>
+<div class="field" style="grid-column:1/-1"><label>Project</label>
+            <input id="avg-project" list="avgProjectList" placeholder="Type or select project...">
+            <datalist id="avgProjectList"></datalist>
           </div>
           <div class="field" style="grid-column:1/-1"><label>Sub Project</label>
-            <select id="avg-subproject"><option value="">Select Sub Project</option></select>
+            <input id="avg-subproject" list="avgSubProjectList" placeholder="Type or select sub project...">
+            <datalist id="avgSubProjectList"></datalist>
           </div>
           <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
           <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
@@ -1341,10 +1344,11 @@ function openAddVisitEmpGlobal() {
     </div>
   `);
 sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
-    const sel = document.getElementById('avg-client');
-    if (sel && data) sel.innerHTML = '<option value="">Select Client</option>' + data.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('');
+    window._avgAllClients = data || [];
+    const dl = document.getElementById('avgClientList');
+    if (dl) dl.innerHTML = (data||[]).map(c => `<option value="${esc(c.name)}">`).join('');
   });
-sb.from('employees').select('name').eq('is_active', true).order('name').then(({ data }) => {
+  sb.from('employees').select('name').eq('is_active', true).order('name').then(({ data }) => {
     const assignedList = document.getElementById('avgAssignedList');
     const opts = (data || []).map(e => `<option value="${esc(e.name)}">`).join('');
     if (assignedList) assignedList.innerHTML = opts;
@@ -1821,21 +1825,46 @@ function loadSubProjectsForProjectAssign(projectName) {
   subSel.innerHTML = '<option value="">Select Sub Project</option>' + subNames.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
 }
 
+let _avgResolvedClientId = null;
+let _avgResolvedClientName = null;
+
+async function loadProjectsForClientByName(clientName) {
+  if (!clientName || !clientName.trim()) {
+    _avgResolvedClientId = null; _avgResolvedClientName = null;
+    document.getElementById('avgProjectList').innerHTML = '';
+    document.getElementById('avgSubProjectList').innerHTML = '';
+    return;
+  }
+  const trimmedName = clientName.trim();
+  const existing = (window._avgAllClients || []).find(c => c.name.toLowerCase() === trimmedName.toLowerCase());
+
+  if (existing) {
+    _avgResolvedClientId = existing.id;
+    _avgResolvedClientName = existing.name;
+    await loadProjectsForClient(existing.id);
+  } else {
+    // New client — no existing projects, datalists stay empty (user can type new project)
+    _avgResolvedClientId = null;
+    _avgResolvedClientName = trimmedName;
+    document.getElementById('avgProjectList').innerHTML = '';
+    document.getElementById('avgSubProjectList').innerHTML = '';
+    window._avgClientRecords = [];
+  }
+}
+
 async function loadProjectsForClient(clientId) {
-  const sel = document.getElementById('avg-project');
-  const subSel = document.getElementById('avg-subproject');
-  if (!sel) return;
-  if (!clientId) { sel.innerHTML = '<option value="">Select Project</option>'; if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
+  const dl = document.getElementById('avgProjectList');
+  const subDl = document.getElementById('avgSubProjectList');
+  if (!dl) return;
+  if (!clientId) { dl.innerHTML = ''; if (subDl) subDl.innerHTML = ''; return; }
 
   const { data } = await sbClient.from('project_records').select('project_name, sub_project_name').eq('client_id', clientId);
   window._avgClientRecords = data || [];
   const projectNames = [...new Set(window._avgClientRecords.map(r => r.project_name).filter(Boolean))];
 
-  if (!projectNames.length) { sel.innerHTML = '<option value="">No projects found</option>'; if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
-  sel.innerHTML = '<option value="">Select Project</option>' + projectNames.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
-  if (subSel) subSel.innerHTML = '<option value="">Select Sub Project</option>';
+  dl.innerHTML = projectNames.map(name => `<option value="${esc(name)}">`).join('');
+  if (subDl) subDl.innerHTML = [...new Set(window._avgClientRecords.map(r => r.sub_project_name).filter(Boolean))].map(name => `<option value="${esc(name)}">`).join('');
 }
-
 function loadSubProjectsForProject(projectName) {
   const subSel = document.getElementById('avg-subproject');
   if (!subSel) return;
@@ -1850,12 +1879,29 @@ function loadSubProjectsForProject(projectName) {
   subSel.innerHTML = '<option value="">Select Sub Project</option>' + subNames.map(name => `<option value="${esc(name)}">${esc(name)}</option>`).join('');
 }
 async function saveVisitGlobal() {
-  const clientId = document.getElementById('avg-client').value;
-  if (!clientId) { showToast('⚠️ Client required', 'warn'); return; }
+  const clientInput = document.getElementById('avg-client');
+  let clientId = _avgResolvedClientId;
+  let clientName = _avgResolvedClientName || clientInput.value.trim();
 
-  const clientSel = document.getElementById('avg-client');
-  const clientName = clientSel.options[clientSel.selectedIndex]?.text || '';
-  const projectName = document.getElementById('avg-project').value;
+  if (!clientName) { showToast('⚠️ Client required', 'warn'); return; }
+
+  // If client name typed but doesn't exist, create it
+  if (!clientId) {
+    const { data: newClient, error: newClientErr } = await sbClient.from('clients').insert({
+      name: clientName,
+      status: 'Active',
+    }).select().single();
+    if (!newClientErr && newClient) {
+      clientId = newClient.id;
+      window._avgAllClients = window._avgAllClients || [];
+      window._avgAllClients.push(newClient);
+      showToast('✅ New client "' + clientName + '" created!', 'ok');
+    } else {
+      showToast('❌ Client create nahi ho saka', 'err');
+      return;
+    }
+  }
+const projectName = document.getElementById('avg-project').value;
   const subName = document.getElementById('avg-subproject').value;
   const assignedToName = document.getElementById('avg-assigned').value.trim();
 const visitedBy = (window._avgSelectedVisitors || []).join(', ');
