@@ -12,6 +12,59 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzVaC0hQXJLb-HN
 emailjs.init(EJS_PUBLIC_KEY);
 
 const STORAGE_BUCKET = 'Task-Files';
+
+// ═══════════════════════════════════════════
+//  DAILY QUOTES
+// ═══════════════════════════════════════════
+const DAILY_QUOTES = [
+  { text: "You don't have to be great to start, but you have to start to be great.", author: "Zig Ziglar" },
+  { text: "Excellence is not a skill, it's an attitude.", author: "Ralph Marston" },
+  { text: "If you want to shine like a sun, first burn like one.", author: "APJ Abdul Kalam" },
+  { text: "The future belongs to those who prepare for it today.", author: "APJ Abdul Kalam" },
+  { text: "Stay hungry, stay foolish.", author: "Steve Jobs" },
+  { text: "Your work is going to fill a large part of your life — the only way to be truly satisfied is to do great work.", author: "Steve Jobs" },
+  { text: "None of us is as good as all of us.", author: "Ray Kroc" },
+  { text: "Take up one idea. Make that one idea your life — dream of it, think of it, live on that idea.", author: "Swami Vivekananda" },
+  { text: "I never dreamt of success. I worked for it.", author: "Estée Lauder" },
+  { text: "We cannot all do great things, but we can do small things with great love.", author: "Mother Teresa" },
+  { text: "An investment in knowledge pays the best interest.", author: "Benjamin Franklin" },
+  { text: "It is during our darkest moments that we must focus to see the light.", author: "Aristotle" },
+  { text: "Quality means doing it right when no one is looking.", author: "Henry Ford" },
+  { text: "If you really look closely, most overnight successes took a long time.", author: "Steve Jobs" },
+  { text: "Don't watch the clock; do what it does. Keep going.", author: "Sam Levenson" },
+  { text: "The only way to do great work is to love what you do.", author: "Steve Jobs" },
+  { text: "Believe you can and you're halfway there.", author: "Theodore Roosevelt" },
+  { text: "Action is the foundational key to all success.", author: "Pablo Picasso" },
+  { text: "Dream big and dare to fail.", author: "Norman Vaughan" },
+  { text: "Opportunities don't happen, you create them.", author: "Chris Grosser" },
+  { text: "The harder you work for something, the greater you'll feel when you achieve it.", author: "Unknown" },
+  { text: "Don't be afraid to give up the good to go for the great.", author: "John D. Rockefeller" },
+  { text: "Success usually comes to those who are too busy to be looking for it.", author: "Henry David Thoreau" },
+  { text: "All progress takes place outside the comfort zone.", author: "Michael John Bobak" },
+  { text: "Try not to become a person of success, but rather try to become a person of value.", author: "Albert Einstein" },
+  { text: "Great things never come from comfort zones.", author: "Unknown" },
+  { text: "Push yourself, because no one else is going to do it for you.", author: "Unknown" },
+  { text: "Sometimes later becomes never. Do it now.", author: "Unknown" },
+  { text: "If opportunity doesn't knock, build a door.", author: "Milton Berle" },
+  { text: "Dreams don't work unless you do.", author: "John C. Maxwell" },
+  { text: "Successful people are not gifted; they just work hard, then succeed on purpose.", author: "G.K. Nielson" },
+  { text: "There is no substitute for hard work.", author: "Thomas Edison" },
+  { text: "Excellence is doing ordinary things extraordinarily well.", author: "John W. Gardner" },
+  { text: "Wake up with determination, go to bed with satisfaction.", author: "Unknown" },
+  { text: "If you are not willing to risk the usual, you will have to settle for the ordinary.", author: "Jim Rohn" },
+  { text: "Don't limit your challenges, challenge your limits.", author: "Unknown" },
+  { text: "Strive not to be a success, but rather to be of value.", author: "Albert Einstein" },
+  { text: "I find that the harder I work, the more luck I seem to have.", author: "Thomas Jefferson" },
+  { text: "The way to get started is to quit talking and begin doing.", author: "Walt Disney" },
+  { text: "Either you run the day, or the day runs you.", author: "Jim Rohn" },
+];
+
+function getTodaysQuote() {
+  const today = new Date();
+  const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
+  return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
+}
+const STORAGE_BUCKET = 'Task-Files';
 // ═══════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════
