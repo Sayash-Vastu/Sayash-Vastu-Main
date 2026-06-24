@@ -6457,6 +6457,8 @@ const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigne
           </div>
 </td>
 <td style="text-align:center;font-weight:700;color:var(--navy)">${visitCounts[emp.name] || '—'}</td>
+        <td style="text-align:center;font-weight:700;color:var(--amber)">${leadCounts[emp.name] || '—'}</td>
+        <td style="text-align:center;font-weight:700;color:var(--green)">${convertedCounts[emp.name] || '—'}</td>
         <td><span class="badge ${statusClass}" style="font-size:10px;white-space:nowrap">${status}</span></td>
       </tr>`;
     }).join('');
