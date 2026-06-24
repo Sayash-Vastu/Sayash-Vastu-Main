@@ -858,7 +858,7 @@ document.getElementById('sidebarRole').textContent = (currentUser.displayRole ||
     if (navMyRep) navMyRep.style.display = 'none';
     const navFU = document.getElementById('nav-followup');
     if (navFU) navFU.style.display = 'flex';
- } else {
+} else {
     ['nav-all-tasks-work','nav-employees','nav-att-report','nav-leave-approve','nav-regularization'].forEach(id => {
       document.getElementById(id).style.display = 'none';
     });
@@ -872,15 +872,24 @@ document.getElementById('sidebarRole').textContent = (currentUser.displayRole ||
     const navLeaves = document.getElementById('nav-leaves');
     if (navAtt) navAtt.style.display = 'flex';
     if (navLeaves) navLeaves.style.display = 'flex';
-    // Show My Reports for employees
+
+    // Alisha/Rajendra get Reports Approval instead of My Reports
+    const isApprover = ['alisha@sayashvastu.com', 'rajendra@sayashvastu.com'].includes(currentUser.email);
     const navMyReports = document.getElementById('nav-my-reports');
-    if (navMyReports) navMyReports.style.display = 'flex';
+    const navReportsApproval = document.getElementById('nav-reports-approval');
+    if (isApprover) {
+      if (navMyReports) navMyReports.style.display = 'none';
+      if (navReportsApproval) navReportsApproval.style.display = 'flex';
+    } else {
+      if (navMyReports) navMyReports.style.display = 'flex';
+      if (navReportsApproval) navReportsApproval.style.display = 'none';
+    }
+
     // Show Follow-up for employees
     const navFollowup = document.getElementById('nav-followup');
     if (navFollowup) navFollowup.style.display = 'flex';
     // Senior Review removed
   }
-
     loadEmployeeAutocomplete();
   loadHome();
   showView('home');
@@ -6814,16 +6823,26 @@ async function loadReportsApproval() {
     .eq('approval_status', 'Pending')
     .order('updated_at', {ascending: false});
 
-  allReports = tasks || [];
+  let myApprovalType = null;
+  if (currentUser.email === 'alisha@sayashvastu.com') myApprovalType = 'Approval for Alisha';
+  else if (currentUser.email === 'rajendra@sayashvastu.com') myApprovalType = 'Approval for Rajendra';
 
-  const total = allReports.length;
-  const sg = allReports.filter(t => t.approval_type === 'Approval for SG').length;
-  const yg = allReports.filter(t => t.approval_type === 'Approval for YG').length;
-
+  allReports = myApprovalType ? (tasks || []).filter(t => t.approval_type === myApprovalType) : (tasks || []);
+const total = allReports.length;
   document.getElementById('ra-total').textContent = total;
-  document.getElementById('ra-sg').textContent = sg;
-  document.getElementById('ra-yg').textContent = yg;
 
+  if (myApprovalType) {
+    // Alisha/Rajendra view — hide SG/YG specific cards, just show total
+    const sgCard = document.getElementById('ra-sg')?.closest('.stat-card');
+    const ygCard = document.getElementById('ra-yg')?.closest('.stat-card');
+    if (sgCard) sgCard.style.display = 'none';
+    if (ygCard) ygCard.style.display = 'none';
+  } else {
+    const sg = allReports.filter(t => t.approval_type === 'Approval for SG').length;
+    const yg = allReports.filter(t => t.approval_type === 'Approval for YG').length;
+    document.getElementById('ra-sg').textContent = sg;
+    document.getElementById('ra-yg').textContent = yg;
+  }
   // Update badge
   const badge = document.getElementById('nb-reports');
   if (badge) {
