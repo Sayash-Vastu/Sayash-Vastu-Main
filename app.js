@@ -64,7 +64,7 @@ function getTodaysQuote() {
   const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
   return DAILY_QUOTES[dayOfYear % DAILY_QUOTES.length];
 }
-const STORAGE_BUCKET = 'Task-Files';
+
 // ═══════════════════════════════════════════
 //  STATE
 // ═══════════════════════════════════════════
