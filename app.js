@@ -6684,8 +6684,9 @@ async function loadFollowUp() {
 + (t.comments ? '<div style="margin-top:8px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--muted)">💬 ' + esc(t.comments) + '</div>' : '')
 + (t.file_url ? '<div style="margin-top:8px"><a href="' + t.file_url + '" target="_blank" class="btn btn-outline btn-sm">📎 ' + esc(t.file_name || 'View Attachment') + '</a></div>' : '')
       + '</div>'
-      + '<div style="padding:10px 18px;border-top:1px solid var(--border);background:#fafbff;display:flex;gap:8px">'
++ '<div style="padding:10px 18px;border-top:1px solid var(--border);background:#fafbff;display:flex;gap:8px">'
       + '<button class="btn btn-primary btn-sm" onclick="openTaskViewModal(\'' + t.id + '\')">👁️ View Details</button>'
+      + '<button class="btn btn-gold btn-sm" onclick="openFollowUpEditModal(\'' + t.id + '\')">✏️ Edit</button>'
       + '<button class="btn btn-sm" onclick="deleteFollowUpTask(\'' + t.id + '\')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️ Delete</button>'
       + '</div>'
       + '</div>'
