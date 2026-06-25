@@ -2432,14 +2432,14 @@ const annEl = document.getElementById('empAnniversary');
       if (empMatch?.email) {
         const title = years === 0 ? `🌟 Welcome to Sayash Vastu, ${e.name}!` : `🎊 Happy Work Anniversary, ${e.name}!`;
         // Check if this exact notification was already sent today
-        const { data: existingNotif } = await sb.from('notifications')
+const { data: existingNotifs } = await sb.from('notifications')
           .select('id')
           .eq('to_email', empMatch.email)
           .eq('title', title)
           .gte('created_at', todayDateStr)
-          .maybeSingle();
-        if (!existingNotif) {
-          await createNotification(
+          .limit(1);
+        if (!existingNotifs || existingNotifs.length === 0) {
+        await createNotification(
             empMatch.email,
             title,
             years === 0 ? `Welcome to the family! We're excited to have you on board.` : `Celebrating ${years} incredible year${years!==1?'s':''} together! Thank you for your dedication.`,
