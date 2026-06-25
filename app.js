@@ -323,9 +323,9 @@ async function sendDailySummaryEmail(period) {
 let notifChannel = null;
 
 function renderNotifList(notifs) {
-  const typeIcons = {
+const typeIcons = {
     'task':'📋','leave':'🏖️','ticket':'🎫','policy':'📜',
-    'notice':'📢','birthday':'🎂','forwarded':'📌',
+    'notice':'📢','birthday':'🎂','anniversary':'🎊','forwarded':'📌',
     'General':'🔔','default':'🔔'
   };
   const listEl = document.getElementById('notifList');
@@ -2312,25 +2312,32 @@ const annEl = document.getElementById('empAnniversary');
       </div>`;
     }).join('');
 
-    // Notify each anniversary person (once per day)
-    const annKey = 'sv_anniversary_notified_' + new Date().toDateString();
-    if (!localStorage.getItem(annKey)) {
-      for (const e of anniversaries) {
-        const years = new Date().getFullYear() - new Date(e.joining_date).getFullYear();
-        const { data: empMatch } = await sb.from('employees').select('email').eq('name', e.name).maybeSingle();
-        if (empMatch?.email) {
+// Notify each anniversary person (once per day) — check DB instead of localStorage for reliability
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    for (const e of anniversaries) {
+      const years = new Date().getFullYear() - new Date(e.joining_date).getFullYear();
+      const { data: empMatch } = await sb.from('employees').select('email').eq('name', e.name).maybeSingle();
+      if (empMatch?.email) {
+        const title = years === 0 ? `🌟 Welcome to Sayash Vastu, ${e.name}!` : `🎊 Happy Work Anniversary, ${e.name}!`;
+        // Check if this exact notification was already sent today
+        const { data: existingNotif } = await sb.from('notifications')
+          .select('id')
+          .eq('to_email', empMatch.email)
+          .eq('title', title)
+          .gte('created_at', todayDateStr)
+          .maybeSingle();
+        if (!existingNotif) {
           await createNotification(
             empMatch.email,
-            years === 0 ? `🌟 Welcome to Sayash Vastu, ${e.name}!` : `🎊 Happy Work Anniversary, ${e.name}!`,
+            title,
             years === 0 ? `Welcome to the family! We're excited to have you on board.` : `Celebrating ${years} incredible year${years!==1?'s':''} together! Thank you for your dedication.`,
-            'birthday', 'home'
+            'anniversary', 'home'
           );
         }
       }
-      localStorage.setItem(annKey, 'true');
     }
   }
-  // Upcoming Birthdays (this month)
+    // Upcoming Birthdays (this month)
   const { data: allEmps } = await sb.from('employees').select('name,designation,date_of_birth').eq('is_active', true);
   const upcomingBdays = (allEmps || []).filter(e => {
     if (!e.date_of_birth) return false;
