@@ -3522,10 +3522,12 @@ for (const emp of empsToAssign) {
     if (assignedEmails.has(emp.email)) continue;
     assignedEmails.add(emp.email);
 
-    // Create a Project Tracker record in Client CRM if a client was selected
+// Create a Project Tracker record in Client CRM if a client was selected — only if task is site-visit/report related
     let linkedRecordId = null;
-    if (clientId) {
-      const isMaxHealthcareAT = clientName === 'MAX Healthcare';
+    const detailLower = (detail || '').toLowerCase();
+    const isSiteVisitRelated = detailLower.includes('site visit') || detailLower.includes('report') || detailLower.includes('vastu report') || detailLower.includes('mom');
+    if (clientId && isSiteVisitRelated) {
+  const isMaxHealthcareAT = clientName === 'MAX Healthcare';
       const isSignatureGlobalAT = clientName === 'Signature Global';
 
       let atTrackerPayload = {
