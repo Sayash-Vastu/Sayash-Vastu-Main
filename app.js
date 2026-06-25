@@ -2306,7 +2306,7 @@ await loadDailyQuoteWithOverride();
           <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>
           ${years===0
             ? `<div style="font-size:11px;color:var(--navy);margin-top:4px;line-height:1.6">A warm welcome to the Sayash Vastu family! 🌟 We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.<br><em>Best Regards, Team Sayash Vastu</em></div>`
-            : `<div style="font-size:11px;color:var(--muted)">${years} year${years!==1?'s':''} with Sayash Vastu! 🎊</div>`
+: `<div style="font-size:11px;color:var(--navy);font-weight:600">🎉 Celebrating ${years} incredible year${years!==1?'s':''} together!</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Thank you for your dedication and hard work. Here's to many more milestones ahead!</div>`
           }
         </div>
       </div>`;
