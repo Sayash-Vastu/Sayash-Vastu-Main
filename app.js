@@ -1697,7 +1697,18 @@ function openAddPaymentFollowupRecordModal() {
           </div>
           <div class="field"><label>Invoice Date</label><input type="date" id="apfr-invoicedate"></div>
           <div class="field"><label>Coordinate Person Name</label><input id="apfr-coordinator" placeholder="Who to contact"></div>
-          <div class="field" style="grid-column:1/-1"><label>Description</label><textarea id="apfr-description" placeholder="What this follow-up is about..."></textarea></div>
+<div class="field" style="grid-column:1/-1"><label>Description</label><textarea id="apfr-description" placeholder="What this follow-up is about..."></textarea></div>
+          <div class="field"><label>Outcome of this contact (Optional)</label>
+            <select id="apfr-outcome">
+              <option value="">— Select —</option>
+              <option>Promised to pay — Rescheduled</option>
+              <option>Paid Partial</option>
+              <option>Paid Full</option>
+              <option>No Response</option>
+              <option>Refused / Disputed</option>
+            </select>
+          </div>
+          <div class="field"><label>Amount Collected Now (₹) — Optional</label><input type="number" id="apfr-amount" placeholder="0"></div>
           <div class="field"><label>Task Assigned To *</label>
             <select id="apfr-assigned"><option value="">Select Employee</option></select>
           </div>
