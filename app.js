@@ -2294,7 +2294,7 @@ await loadDailyQuoteWithOverride();
     const jd = new Date(e.joining_date);
     return String(jd.getMonth()+1).padStart(2,'0') === mm && String(jd.getDate()).padStart(2,'0') === dd;
   });
-  const annEl = document.getElementById('empAnniversary');
+const annEl = document.getElementById('empAnniversary');
   if (!anniversaries.length) {
     annEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No work anniversaries today</div>';
   } else {
@@ -2306,13 +2306,30 @@ await loadDailyQuoteWithOverride();
           <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>
           ${years===0
             ? `<div style="font-size:11px;color:var(--navy);margin-top:4px;line-height:1.6">A warm welcome to the Sayash Vastu family! 🌟 We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.<br><em>Best Regards, Team Sayash Vastu</em></div>`
-: `<div style="font-size:11px;color:var(--navy);font-weight:600">🎉 Celebrating ${years} incredible year${years!==1?'s':''} together!</div><div style="font-size:10px;color:var(--muted);margin-top:3px">Thank you for your dedication and hard work. Here's to many more milestones ahead!</div>`
+            : `<div style="font-size:13px;color:var(--navy);font-weight:700">🎉 Celebrating ${years} incredible year${years!==1?'s':''} together!</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">Thank you for your dedication and hard work. Here's to many more milestones ahead!</div>`
           }
         </div>
       </div>`;
     }).join('');
-  }
 
+    // Notify each anniversary person (once per day)
+    const annKey = 'sv_anniversary_notified_' + new Date().toDateString();
+    if (!localStorage.getItem(annKey)) {
+      for (const e of anniversaries) {
+        const years = new Date().getFullYear() - new Date(e.joining_date).getFullYear();
+        const { data: empMatch } = await sb.from('employees').select('email').eq('name', e.name).maybeSingle();
+        if (empMatch?.email) {
+          await createNotification(
+            empMatch.email,
+            years === 0 ? `🌟 Welcome to Sayash Vastu, ${e.name}!` : `🎊 Happy Work Anniversary, ${e.name}!`,
+            years === 0 ? `Welcome to the family! We're excited to have you on board.` : `Celebrating ${years} incredible year${years!==1?'s':''} together! Thank you for your dedication.`,
+            'birthday', 'home'
+          );
+        }
+      }
+      localStorage.setItem(annKey, 'true');
+    }
+  }
   // Upcoming Birthdays (this month)
   const { data: allEmps } = await sb.from('employees').select('name,designation,date_of_birth').eq('is_active', true);
   const upcomingBdays = (allEmps || []).filter(e => {
@@ -6095,16 +6112,14 @@ P.S. Your team is lucky to have you!`,
         'https://sayash-vastu-portal.vercel.app',
         'Visit Portal →'
       );
-      // Also notify CEO
+// Also notify CEO
       if (emp.email !== CEO_EMAIL) {
         await sendEmail(
           CEO_EMAIL,
           'CEO Admin',
           'Birthday Reminder - ' + emp.name,
           `Today is ${emp.name}'s birthday!
-
 Don't forget to wish them! A birthday wish from the CEO means a lot to the team.
-
 Employee: ${emp.name}
 Designation: ${emp.designation||'—'}`,
           'Birthday Reminder',
@@ -6112,11 +6127,17 @@ Designation: ${emp.designation||'—'}`,
           'View Portal →'
         );
       }
+      // Notify the birthday person themselves
+      await createNotification(
+        emp.email,
+        `🎂 Happy Birthday, ${emp.name}!`,
+        `Wishing you a wonderful birthday from the entire Sayash Vastu family! 🎉`,
+        'birthday', 'home'
+      );
     }
     localStorage.setItem(bdayKey, 'true');
   }
 }
-
 async function deleteAttendance(attId) {
   if (!confirm('Delete this attendance record?')) return;
   const { error } = await sb.from('attendance').update({is_archived: true}).eq('id', attId);
