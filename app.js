@@ -1440,7 +1440,7 @@ el.innerHTML = `
         <button class="btn btn-gold btn-sm" id="ppTabPending" onclick="switchPaymentTab('pending')">⏳ Pending</button>
         <button class="btn btn-outline btn-sm" id="ppTabCompleted" onclick="switchPaymentTab('completed')">✅ Completed</button>
       </div>
-      <button class="btn btn-gold" onclick="openAddPendingPaymentModal()">➕ Add Pending Payment</button>
+<button class="btn btn-gold" onclick="openAddPaymentFollowupRecordModal()">➕ Add Follow Up</button>
     </div>
     <div id="pendingPaymentsStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px"></div>
     <div id="pendingPaymentsList"></div>
@@ -1685,6 +1685,107 @@ showToast('✅ Follow-up saved!', 'ok');
   loadPendingPayments();
 }
 
+function openAddPaymentFollowupRecordModal() {
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addPaymentFollowupRecordModal">
+      <div class="modal">
+        <div class="modal-title">➕ Add Follow Up</div>
+        <div class="form-grid cols-2">
+          <div class="field" style="grid-column:1/-1"><label>Company Name *</label>
+            <input id="apfr-company" list="apfrCompanyList" placeholder="Type or select company...">
+            <datalist id="apfrCompanyList"></datalist>
+          </div>
+          <div class="field"><label>Invoice Date</label><input type="date" id="apfr-invoicedate"></div>
+          <div class="field"><label>Coordinate Person Name</label><input id="apfr-coordinator" placeholder="Who to contact"></div>
+          <div class="field" style="grid-column:1/-1"><label>Description</label><textarea id="apfr-description" placeholder="What this follow-up is about..."></textarea></div>
+          <div class="field"><label>Task Assigned To *</label>
+            <select id="apfr-assigned"><option value="">Select Employee</option></select>
+          </div>
+          <div class="field"><label>Follow Up Date *</label><input type="date" id="apfr-followupdate"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addPaymentFollowupRecordModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="savePaymentFollowupRecord()">💾 Save</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
+    const dl = document.getElementById('apfrCompanyList');
+    if (dl) dl.innerHTML = (data||[]).map(c => `<option value="${esc(c.name)}">`).join('');
+  });
+
+  sb.from('employees').select('name,email').eq('is_active', true).order('name').then(({ data }) => {
+    const sel = document.getElementById('apfr-assigned');
+    if (sel && data) {
+      sel.innerHTML = '<option value="">Select Employee</option>' + data.map(e => `<option value="${esc(e.email)}" data-name="${esc(e.name)}">${esc(e.name)}</option>`).join('');
+    }
+  });
+}
+async function savePaymentFollowupRecord() {
+  const companyName = document.getElementById('apfr-company').value.trim();
+  const invoiceDate = document.getElementById('apfr-invoicedate').value || null;
+  const coordinator = document.getElementById('apfr-coordinator').value.trim();
+  const description = document.getElementById('apfr-description').value.trim();
+  const assignedSel = document.getElementById('apfr-assigned');
+  const assignedEmail = assignedSel.value;
+  const assignedName = assignedSel.options[assignedSel.selectedIndex]?.dataset.name || '';
+  const followupDate = document.getElementById('apfr-followupdate').value;
+
+  if (!companyName) { showToast('⚠️ Company name required', 'warn'); return; }
+  if (!assignedEmail) { showToast('⚠️ Assign to someone', 'warn'); return; }
+  if (!followupDate) { showToast('⚠️ Follow up date required', 'warn'); return; }
+
+  // Find or create client
+  const { data: allClientsList } = await sbClient.from('clients').select('id, name');
+  let matchedClient = (allClientsList || []).find(cl => cl.name.toLowerCase() === companyName.toLowerCase());
+  let clientId = matchedClient ? matchedClient.id : null;
+
+  if (!clientId) {
+    const { data: newClient } = await sbClient.from('clients').insert({ name: companyName, status: 'Active' }).select().single();
+    if (newClient) clientId = newClient.id;
+  }
+
+  if (!clientId) { showToast('❌ Client create nahi ho saka', 'err'); return; }
+
+  // Save followup record
+  const { error } = await sbClient.from('followups').insert({
+    client_id: clientId,
+    type: 'Payment Follow-up',
+    next_followup: followupDate,
+    notes: description,
+    done: false,
+    date: new Date().toISOString(),
+    coordinator_name: coordinator || null,
+    invoice_date: invoiceDate,
+    assigned_to_email: assignedEmail,
+    assigned_to_name: assignedName,
+  });
+
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+
+  // Create task for assigned employee
+  await sb.from('tasks').insert({
+    project: companyName,
+    task_detail: `Payment follow-up — ${companyName}. ${description || ''}${coordinator ? ' (Contact: ' + coordinator + ')' : ''}`.trim(),
+    assigned_to_email: assignedEmail.toLowerCase(),
+    assigned_to_name: assignedName,
+    assigned_by_email: currentUser.email,
+    assigned_by_name: currentUser.name,
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: followupDate,
+    work_status: 'Not Started',
+    ceo_approval: 'Pending',
+    linked_client_id: clientId,
+  });
+
+  await createNotification(assignedEmail.toLowerCase(), `💰 Payment follow-up assigned — ${companyName}`, `Follow up on ${followupDate}. ${description || ''}`, 'task', 'tasks');
+
+  showToast('✅ Follow-up created & task assigned!', 'ok');
+  closeModal('addPaymentFollowupRecordModal');
+  loadPendingPayments();
+}
 function openAddPendingPaymentModal() {
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="addPendingPaymentModal">
