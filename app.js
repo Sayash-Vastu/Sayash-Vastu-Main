@@ -2592,6 +2592,18 @@ async function loadCeoDashboard() {
   document.getElementById('homeGreeting').textContent = greet + ', ' + currentUser.name + '! 👋';
   document.getElementById('homeSubtitle').textContent = "Here's your company overview for today";
 
+  // Quote of the Day for CEO
+  const ceoQuoteEl = document.getElementById('ceoDailyQuoteText');
+  if (ceoQuoteEl) {
+    const todayStrQ = new Date().toISOString().split('T')[0];
+    const { data: customQuoteCeo } = await sb.from('daily_quotes').select('*').eq('quote_date', todayStrQ).maybeSingle();
+    if (customQuoteCeo) {
+      ceoQuoteEl.innerHTML = `"${esc(customQuoteCeo.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(customQuoteCeo.author || customQuoteCeo.posted_by_name)}</div>`;
+    } else {
+      const qCeo = getTodaysQuote();
+      ceoQuoteEl.innerHTML = `"${esc(qCeo.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(qCeo.author)}</div>`;
+    }
+  }
   const { count: totalEmp } = await sb.from('employees').select('*',{count:'exact'}).eq('is_active',true);
   const { count: totalTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false);
   const { count: pendingLeaves } = await sb.from('leaves').select('*',{count:'exact'}).eq('status','Pending');
