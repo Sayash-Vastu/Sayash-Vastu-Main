@@ -393,10 +393,25 @@
 
         <!-- CEO DASHBOARD -->
         <div id="ceoDashboard" style="display:none">
-          <div class="page-header">
+<div class="page-header">
             <h2 id="homeGreeting">Good Afternoon! 👋</h2>
             <p id="homeSubtitle">Here's your company overview</p>
           </div>
+
+          <!-- QUOTE OF THE DAY (CEO) -->
+          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:12px;padding:18px 24px;margin-bottom:16px;position:relative;overflow:hidden">
+            <div style="position:absolute;font-size:60px;color:rgba(201,168,76,0.12);top:-10px;left:14px;font-family:'DM Serif Display',serif;line-height:1">"</div>
+            <div style="position:relative;z-index:1">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:2px">
+                  Quote of the Day
+                </div>
+                <button onclick="openPostQuoteModal()" style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Post Yours</button>
+              </div>
+              <div id="ceoDailyQuoteText" style="font-size:18px;color:#fff;font-weight:500;line-height:1.6;font-family:'DM Serif Display',serif;font-style:italic">Loading...</div>
+            </div>
+          </div>
+
           <div class="stat-grid" id="homeStats"></div>
           <div id="ceoActivitySection" style="display:none;margin-bottom:20px">
             <div class="panel">
