@@ -1498,7 +1498,7 @@
             <option value="Y">Yearly</option>
           </select>
 
-          <select id="comp-cat-filter" onchange="loadCompliance()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none">
+<select id="comp-cat-filter" onchange="loadCompliance()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none">
             <option value="all">All Categories</option>
             <option value="Bills">Bills</option>
             <option value="Invoice">Invoice</option>
@@ -1512,6 +1512,13 @@
             <option value="Other">Other</option>
           </select>
 
+          <select id="comp-status-filter" onchange="loadCompliance()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none">
+            <option value="all">All Status</option>
+            <option value="Pending">⏳ Pending</option>
+            <option value="Done">✅ Done</option>
+          </select>
+
+        </div>
         </div>
                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
           <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num" id="comp-done">0</div><div class="stat-lbl">Done</div></div>
