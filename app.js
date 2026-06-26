@@ -8138,10 +8138,11 @@ const now = new Date();
 if (!monthEl.value) monthEl.value = defaultMonth;
 const personEl = document.getElementById('comp-person-filter');
 if (!personEl.value) personEl.value = 'all';  
-  const monthVal = monthEl ? monthEl.value : defaultMonth;
+const monthVal = monthEl ? monthEl.value : defaultMonth;
   const personVal = document.getElementById('comp-person-filter')?.value || 'all';
   const freqVal = document.getElementById('comp-freq-filter')?.value || 'all';
 const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
+  const statusVal = document.getElementById('comp-status-filter')?.value || 'all';
   
   // Alisha sirf apni tasks dekhe
   const isAlisha = currentUser.email === 'alisha@sayashvastu.com';
@@ -8151,9 +8152,9 @@ const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
   if (personVal !== 'all') query = query.eq('assigned_to_name', personVal);
   if (freqVal !== 'all') query = query.eq('frequency', freqVal);
   if (catVal !== 'all') query = query.eq('category', catVal);
+  if (statusVal !== 'all') query = query.eq('status', statusVal);
   const { data: tasks } = await query;
   const allTasks = tasks || [];
-
   const done = allTasks.filter(t => t.status === 'Done').length;
   const pending = allTasks.filter(t => t.status !== 'Done').length;
   document.getElementById('comp-done').textContent = done;
