@@ -8733,15 +8733,15 @@ async function resetCompliance(id) {
 }
 
 async function addComplianceTask() {
-  const particulars = document.getElementById('comp-particulars').value.trim();
-  const frequency = document.getElementById('comp-frequency').value;
-  const lastDate = document.getElementById('comp-last-date').value;
-  const assignedTo = document.getElementById('comp-assigned-to').value.trim();
-  const category = document.getElementById('comp-category').value;
+  const particulars = document.getElementById('comp-add-particulars').value.trim();
+  const frequency = document.getElementById('comp-add-frequency').value;
+  const lastDate = document.getElementById('comp-add-date').value;
+  const assignedTo = document.getElementById('comp-add-person').value.trim();
+  const category = document.getElementById('comp-add-category').value;
   const monthYear = document.getElementById('comp-month-filter').value;
-  const msgEl = document.getElementById('compAddMsg');
+  const msgEl = document.getElementById('comp-add-msg');
   if (!particulars || !assignedTo) { msgEl.textContent='⚠️ Fill required fields'; msgEl.style.color='var(--red)'; return; }
-  const { error } = await sb.from('compliance_tasks').insert({
+const { error } = await sb.from('compliance_tasks').insert({
     particulars, frequency, last_date: lastDate||null,
     assigned_to_name: assignedTo, category,
     month_year: monthYear, status: 'Pending'
@@ -8749,9 +8749,9 @@ async function addComplianceTask() {
   if (error) { msgEl.textContent='❌ '+error.message; msgEl.style.color='var(--red)'; return; }
   msgEl.textContent='✅ Task added!'; msgEl.style.color='var(--green)';
   showToast('✅ Compliance task added!','ok');
-  document.getElementById('comp-particulars').value='';
-  document.getElementById('comp-last-date').value='';
-  document.getElementById('comp-assigned-to').value='';
+document.getElementById('comp-add-particulars').value='';
+  document.getElementById('comp-add-date').value='';
+  document.getElementById('comp-add-person').value='';
   loadCompliance();
   setTimeout(()=>msgEl.textContent='',3000);
 }
