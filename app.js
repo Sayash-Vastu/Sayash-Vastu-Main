@@ -1720,17 +1720,14 @@ function openAddPaymentFollowupRecordModal() {
           <div class="field"><label>Invoice Date</label><input type="date" id="apfr-invoicedate"></div>
           <div class="field"><label>Coordinate Person Name</label><input id="apfr-coordinator" placeholder="Who to contact"></div>
 <div class="field" style="grid-column:1/-1"><label>Description</label><textarea id="apfr-description" placeholder="What this follow-up is about..."></textarea></div>
-          <div class="field"><label>Outcome of this contact (Optional)</label>
-            <select id="apfr-outcome">
+          <div class="field"><label>Status</label>
+            <select id="apfr-status">
               <option value="">— Select —</option>
-              <option>Promised to pay — Rescheduled</option>
-              <option>Paid Partial</option>
-              <option>Paid Full</option>
-              <option>No Response</option>
-              <option>Refused / Disputed</option>
+              <option value="Received">✅ Received</option>
+              <option value="Not Received">❌ Not Received</option>
             </select>
           </div>
-          <div class="field"><label>Amount Collected Now (₹) — Optional</label><input type="number" id="apfr-amount" placeholder="0"></div>
+          <div class="field" style="grid-column:1/-1"><label>Comment / Remarks</label><textarea id="apfr-remarks" placeholder="Any comments or remarks..."></textarea></div>
           <div class="field"><label>Task Assigned To *</label>
             <select id="apfr-assigned"><option value="">Select Employee</option></select>
           </div>
@@ -1761,6 +1758,8 @@ async function savePaymentFollowupRecord() {
   const invoiceDate = document.getElementById('apfr-invoicedate').value || null;
   const coordinator = document.getElementById('apfr-coordinator').value.trim();
   const description = document.getElementById('apfr-description').value.trim();
+  const statusVal = document.getElementById('apfr-status').value;
+  const remarks = document.getElementById('apfr-remarks').value.trim();
   const assignedSel = document.getElementById('apfr-assigned');
   const assignedEmail = assignedSel.value;
   const assignedName = assignedSel.options[assignedSel.selectedIndex]?.dataset.name || '';
@@ -1788,7 +1787,8 @@ async function savePaymentFollowupRecord() {
     type: 'Payment Follow-up',
     next_followup: followupDate,
     notes: description,
-    done: false,
+    done: statusVal ? true : false,
+    outcome: statusVal || null,
     date: new Date().toISOString(),
     coordinator_name: coordinator || null,
     invoice_date: invoiceDate,
@@ -1798,10 +1798,18 @@ async function savePaymentFollowupRecord() {
 
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
 
-  // Create task for assigned employee
+  // If status is Received, update matching contract's status to reflect payment received
+  if (statusVal === 'Received') {
+    const { data: matchedContract } = await sbClient.from('contracts').select('id, notes').ilike('project', companyName).maybeSingle();
+    if (matchedContract) {
+      const updatedNotes = (matchedContract.notes ? matchedContract.notes + '\n' : '') + `Payment Received (via follow-up) — ${remarks || 'No remarks'} [${new Date().toLocaleDateString('en-IN')}]`;
+      await sbClient.from('contracts').update({ notes: updatedNotes }).eq('id', matchedContract.id);
+    }
+  }
+// Create task for assigned employee
   await sb.from('tasks').insert({
     project: companyName,
-    task_detail: `Payment follow-up — ${companyName}. ${description || ''}${coordinator ? ' (Contact: ' + coordinator + ')' : ''}`.trim(),
+    task_detail: `Payment follow-up — ${companyName}. ${description || ''}${coordinator ? ' (Contact: ' + coordinator + ')' : ''}${remarks ? ' | Remarks: ' + remarks : ''}`.trim(),
     assigned_to_email: assignedEmail.toLowerCase(),
     assigned_to_name: assignedName,
     assigned_by_email: currentUser.email,
@@ -1812,7 +1820,6 @@ async function savePaymentFollowupRecord() {
     ceo_approval: 'Pending',
     linked_client_id: clientId,
   });
-
   await createNotification(assignedEmail.toLowerCase(), `💰 Payment follow-up assigned — ${companyName}`, `Follow up on ${followupDate}. ${description || ''}`, 'task', 'tasks');
 
   showToast('✅ Follow-up created & task assigned!', 'ok');
