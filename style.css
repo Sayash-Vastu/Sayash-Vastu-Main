@@ -287,8 +287,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min
 }
 
 /* VIEWS */
-.view{display:none;padding:26px 28px}
-.view.active{display:block}
+.view{display:none !important;padding:26px 28px}
+.view.active{display:block !important}
 
 /* PAGE HEADER */
 .page-header{margin-bottom:22px}
