@@ -228,6 +228,28 @@ if (hr === 9 && min < 5 && new Date().getDate() === 1) {
     );
   }
 }
+  // Compliance due-in-3-days reminder (checked once per day, sent only to Alisha)
+    if (hr === 9 && min < 10) {
+      const compReminderKey = 'sv_comp_due3_' + today;
+      if (!localStorage.getItem(compReminderKey)) {
+        localStorage.setItem(compReminderKey, 'true');
+        const todayDateOnly = new Date(); todayDateOnly.setHours(0,0,0,0);
+        const { data: dueTasks } = await sb.from('compliance_tasks').select('*').eq('status', 'Pending').not('last_date', 'is', null);
+        const due3Days = (dueTasks || []).filter(t => {
+          const due = new Date(t.last_date);
+          const diff = Math.ceil((due - todayDateOnly) / 86400000);
+          return diff === 3;
+        });
+        if (due3Days.length > 0) {
+          await createNotification(
+            'alisha@sayashvastu.com',
+            `⚠️ ${due3Days.length} Compliance task(s) due in 3 days!`,
+            due3Days.map(t => `${t.particulars} — ${t.last_date}`).join(', '),
+            'General', 'compliance'
+          );
+        }
+      }
+    }
     if (hr === 8 && min < 5 && localStorage.getItem('sv_last_morning') !== today) {
       localStorage.setItem('sv_last_morning', today);
       sendDailySummaryEmail('Morning');
