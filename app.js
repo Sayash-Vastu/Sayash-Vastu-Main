@@ -1110,9 +1110,9 @@ compliance: ['Compliance Checklist','Monthly finance and compliance tasks'],
   salaryStructure: ['Salary Setup','Set monthly salary for employees'],
   pendingPayments: ['Pending Payments','Track outstanding payments and follow-ups'],
 };
-  function showView(name) {
-  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => { v.classList.remove('active'); v.style.display = 'none'; });
+document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   // Auto open parent menus
   if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval','myReports','followUp','ceoMyTasks'].includes(name)) {
     document.getElementById('workMenu').style.display = 'block';
@@ -1145,8 +1145,8 @@ if (['allTasks','employees','attReport','leaveApprove'].includes(name)) {
     const parr = document.getElementById('payroll-arrow');
     if (parr) parr.style.transform = 'rotate(90deg)';
   }
-  const el = document.getElementById('view-' + name);
-  if (el) el.classList.add('active');
+const el = document.getElementById('view-' + name);
+  if (el) { el.classList.add('active'); el.style.display = 'block'; }
   const navBtn = document.querySelector(`[onclick="showView('${name}')"]`);
   if (navBtn) navBtn.classList.add('active');
   const titles = viewTitles[name] || [name,''];
