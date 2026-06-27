@@ -8172,31 +8172,78 @@ async function deleteCalEvent(id) {
 // ═══════════════════════════════════════════
 let currentComplianceId = null;
 
-async function loadCompliance() {
-const now = new Date();
-  const defaultMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-  const monthEl = document.getElementById('comp-month-filter');
-if (!monthEl.value) monthEl.value = defaultMonth;
-const personEl = document.getElementById('comp-person-filter');
-if (!personEl.value) personEl.value = 'all';  
-const monthVal = monthEl ? monthEl.value : defaultMonth;
-  const personVal = document.getElementById('comp-person-filter')?.value || 'all';
-  const freqVal = document.getElementById('comp-freq-filter')?.value || 'all';
-const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
-  const statusVal = document.getElementById('comp-status-filter')?.value || 'all';
-  
-  // Alisha sirf apni tasks dekhe
-  const isAlisha = currentUser.email === 'alisha@sayashvastu.com';
-  const isCEO = currentUser.role === 'ceo';
-  let query = sb.from('compliance_tasks').select('*').order('assigned_to_name').order('category');
-  if (monthVal) query = query.eq('month_year', monthVal);
-  if (personVal !== 'all') query = query.eq('assigned_to_name', personVal);
-  if (freqVal !== 'all') query = query.eq('frequency', freqVal);
-  if (catVal !== 'all') query = query.eq('category', catVal);
-  if (statusVal !== 'all') query = query.eq('status', statusVal);
-  const { data: tasks } = await query;
-  const allTasks = tasks || [];
-  const done = allTasks.filter(t => t.status === 'Done').length;
+async function ensureComplianceRollover(targetMonthYear) {
+  // Check if any task already exists for target month — if so, skip (already rolled over)
+  const { data: existing } = await sb.from('compliance_tasks').select('id').eq('month_year', targetMonthYear).limit(1);
+  if (existing && existing.length > 0) return; // already done
+
+  const [tYear, tMonth] = targetMonthYear.split('-').map(Number);
+
+  // Get most recent prior month's tasks as template (any frequency)
+  const { data: allPast } = await sb.from('compliance_tasks').select('*').order('month_year', { ascending: false });
+  if (!allPast || !allPast.length) return;
+
+  // Group by particulars+frequency+category+assigned_to_name, take latest record of each as template
+  const templates = {};
+  allPast.forEach(t => {
+    const key = t.particulars + '|' + t.frequency + '|' + t.category + '|' + t.assigned_to_name;
+    if (!templates[key] || t.month_year > templates[key].month_year) {
+      templates[key] = t;
+    }
+  });
+
+  const newRecords = [];
+  Object.values(templates).forEach(t => {
+    const freq = (t.frequency || '').toUpperCase();
+    let shouldRoll = false;
+    let newDate = null;
+
+    if (t.last_date) {
+      const origDate = new Date(t.last_date);
+      const day = origDate.getDate();
+
+      if (freq === 'M') {
+        // Monthly: roll every month
+        shouldRoll = true;
+        newDate = new Date(tYear, tMonth - 1, day);
+      } else if (freq === 'Q') {
+        // Quarterly: roll every 3 months from original
+        const monthsDiff = (tYear - origDate.getFullYear()) * 12 + (tMonth - 1 - origDate.getMonth());
+        if (monthsDiff > 0 && monthsDiff % 3 === 0) {
+          shouldRoll = true;
+          newDate = new Date(tYear, tMonth - 1, day);
+        }
+      } else if (freq === 'Y') {
+        // Yearly: roll every 12 months from original
+        const monthsDiff = (tYear - origDate.getFullYear()) * 12 + (tMonth - 1 - origDate.getMonth());
+        if (monthsDiff > 0 && monthsDiff % 12 === 0) {
+          shouldRoll = true;
+          newDate = new Date(tYear, tMonth - 1, day);
+        }
+      }
+    } else {
+      // No date — still roll monthly tasks forward so they don't disappear
+      if (freq === 'M') shouldRoll = true;
+    }
+
+    if (shouldRoll && t.month_year !== targetMonthYear) {
+      newRecords.push({
+        particulars: t.particulars,
+        frequency: t.frequency,
+        last_date: newDate ? newDate.toISOString().split('T')[0] : null,
+        assigned_to_name: t.assigned_to_name,
+        category: t.category,
+        month_year: targetMonthYear,
+        status: 'Pending'
+      });
+    }
+  });
+
+  if (newRecords.length > 0) {
+    await sb.from('compliance_tasks').insert(newRecords);
+  }
+}
+const done = allTasks.filter(t => t.status === 'Done').length;
   const pending = allTasks.filter(t => t.status !== 'Done').length;
   document.getElementById('comp-done').textContent = done;
   document.getElementById('comp-pending').textContent = pending;
