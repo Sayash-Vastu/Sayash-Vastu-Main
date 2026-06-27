@@ -8269,11 +8269,13 @@ const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
   const overrideMap = {};
   (monthOverrides || []).forEach(o => { if (o.master_id) overrideMap[o.master_id] = o; });
 
-  const [tYear, tMonth] = monthVal.split('-').map(Number);
+const [tYear, tMonth] = monthVal.split('-').map(Number);
   let allTasks = (masterTasks || []).map(m => {
+    // If this IS the master's own month, show its real saved data directly
+    if (m.month_year === monthVal) return { ...m, _isVirtual: false };
+
     const override = overrideMap[m.id];
     if (override) return { ...override, _isVirtual: false };
-
     let calcDate = null;
     let dueThisMonth = true;
     if (m.last_date) {
@@ -8297,8 +8299,8 @@ const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
     return {
       id: m.id, master_id: m.id, is_master: false,
       particulars: m.particulars, frequency: m.frequency,
-      last_date: calcDate ? calcDate.toISOString().split('T')[0] : null,
-      assigned_to_name: m.assigned_to_name, category: m.category,
+last_date: calcDate ? (calcDate.getFullYear() + '-' + String(calcDate.getMonth()+1).padStart(2,'0') + '-' + String(calcDate.getDate()).padStart(2,'0')) : null,
+assigned_to_name: m.assigned_to_name, category: m.category,
       month_year: monthVal, status: 'Pending', done_by_name: null, done_at: null, remarks: null,
       _isVirtual: true
     };
