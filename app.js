@@ -8362,10 +8362,10 @@ ${isOverdue?'<span style="color:var(--red);">●</span>':''}
       <td>
         <div style="display:flex;gap:5px">
   <button class="btn btn-outline btn-sm" onclick="openComplianceView('${t.id}','${esc(t.particulars)}','${esc(t.remarks||'')}','${esc(t.done_by_name||'')}','${t.done_at||''}')">👁️</button>
-  ${!isDone && currentUser.email === 'alisha@sayashvastu.com'
-    ? `<button class="btn btn-green btn-sm" onclick="openComplianceDone('${t.id}','${esc(t.particulars)}')">✅ Mark Done</button>`
+${!isDone && currentUser.email === 'alisha@sayashvastu.com'
+    ? `<button class="btn btn-green btn-sm" onclick="openComplianceDone('${t.id}','${esc(t.particulars)}','${t._isVirtual?'true':'false'}','${t.master_id||''}','${t.month_year}','${t.last_date||''}')">✅ Mark Done</button>`
     : isDone && currentUser.role === 'ceo'
-    ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
+? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
     : '—'}
       ${(currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? `<button class="btn btn-sm" onclick="deleteComplianceTask('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>` : ''}
 </div>
