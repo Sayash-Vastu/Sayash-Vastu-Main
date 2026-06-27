@@ -4388,7 +4388,7 @@ const { data: emps } = await sb.from('employees').select('name,email').eq('is_ac
       </div>
     `;
   }
-  tbody.innerHTML=emps.map(e=>{
+tbody.innerHTML=emps.map(e=>{
     const empAtt=(attData||[]).filter(a=>a.employee_email===e.email);
     const present=empAtt.filter(a=>a.status==='Present').length;
     const absent=empCalc[e.email]?.absent || 0;
@@ -4400,6 +4400,7 @@ const { data: emps } = await sb.from('employees').select('name,email').eq('is_ac
       const t = new Date(a.check_in);
       return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
     }).length;
+    const totalHrs = empAtt.reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
     return `<tr>
       <td style="font-weight:600">${esc(e.name)}</td>
       <td><span class="badge b-green">${present}</span></td>
@@ -4408,7 +4409,8 @@ const { data: emps } = await sb.from('employees').select('name,email').eq('is_ac
       <td><span class="badge b-blue">${leave}</span></td>
 <td><span class="badge ${late===0?'b-green':'b-red'}">${late}</span></td>
       <td style="font-weight:700">${totalDays}</td>
-      <td style="font-size:11px">
+      <td style="font-weight:700;color:var(--navy)">${totalHrs.toFixed(1)}h</td>
+    <td style="font-size:11px">
         ${empAtt.filter(a=>a.status==='Half Day').length > 0 ? `<span class="badge b-amber">Half Day: ${empAtt.filter(a=>a.status==='Half Day').map(a=>fmtDate(a.date)).join(', ')}</span>` : ''}
         ${empAtt.filter(a=>a.status==='Leave').length > 0 ? `<span class="badge b-blue">Leave: ${empAtt.filter(a=>a.status==='Leave').map(a=>fmtDate(a.date)).join(', ')}</span>` : ''}
         ${empAtt.filter(a=>a.status==='Half Day').length === 0 && empAtt.filter(a=>a.status==='Leave').length === 0 ? '—' : ''}
