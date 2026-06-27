@@ -716,7 +716,7 @@ const isWeekend = dateObj.getDay() === 0;
         const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
-        const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>15); })();
+const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>30); })();
         dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
       } else if (onLeave) {
         dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
@@ -5800,7 +5800,7 @@ const isWeekend = dateObj.getDay() === 0;
       const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
-const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>15); })();
+const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>30); })();
       dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
     } else if (onLeave) {
       dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
