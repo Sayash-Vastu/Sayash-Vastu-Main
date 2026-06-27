@@ -8260,18 +8260,59 @@ const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
   // Auto-rollover: ensure recurring tasks (Monthly/Quarterly/Yearly) exist for this month
   await ensureComplianceRollover(monthVal);
   
-  // Alisha sirf apni tasks dekhe
+// Live-calculate tasks for selected month from June master template
   const isAlisha = currentUser.email === 'alisha@sayashvastu.com';
   const isCEO = currentUser.role === 'ceo';
-  let query = sb.from('compliance_tasks').select('*').order('assigned_to_name').order('category');
-  if (monthVal) query = query.eq('month_year', monthVal);
-  if (personVal !== 'all') query = query.eq('assigned_to_name', personVal);
-  if (freqVal !== 'all') query = query.eq('frequency', freqVal);
-  if (catVal !== 'all') query = query.eq('category', catVal);
-  if (statusVal !== 'all') query = query.eq('status', statusVal);
-  const { data: tasks } = await query;
-  const allTasks = tasks || [];
-  const done = allTasks.filter(t => t.status === 'Done').length;
+
+  const { data: masterTasks } = await sb.from('compliance_tasks').select('*').eq('is_master', true).order('assigned_to_name').order('category');
+  const { data: monthOverrides } = await sb.from('compliance_tasks').select('*').eq('month_year', monthVal).eq('is_master', false);
+  const overrideMap = {};
+  (monthOverrides || []).forEach(o => { if (o.master_id) overrideMap[o.master_id] = o; });
+
+  const [tYear, tMonth] = monthVal.split('-').map(Number);
+  let allTasks = (masterTasks || []).map(m => {
+    const override = overrideMap[m.id];
+    if (override) return { ...override, _isVirtual: false };
+
+    let calcDate = null;
+    let dueThisMonth = true;
+    if (m.last_date) {
+      const masterDate = new Date(m.last_date);
+      const day = masterDate.getDate();
+      const freq = (m.frequency || '').toLowerCase();
+      if (freq === 'monthly') {
+        calcDate = new Date(tYear, tMonth - 1, day);
+      } else if (freq === 'quarterly') {
+        const monthsDiff = (tYear - masterDate.getFullYear()) * 12 + (tMonth - 1 - masterDate.getMonth());
+        if (monthsDiff % 3 === 0) calcDate = new Date(tYear, tMonth - 1, day);
+        else dueThisMonth = false;
+      } else if (freq === 'yearly') {
+        if (tMonth - 1 === masterDate.getMonth()) calcDate = new Date(tYear, tMonth - 1, day);
+        else dueThisMonth = false;
+      } else {
+        calcDate = masterDate;
+      }
+    }
+    if (!dueThisMonth) return null;
+    return {
+      id: m.id, master_id: m.id, is_master: false,
+      particulars: m.particulars, frequency: m.frequency,
+      last_date: calcDate ? calcDate.toISOString().split('T')[0] : null,
+      assigned_to_name: m.assigned_to_name, category: m.category,
+      month_year: monthVal, status: 'Pending', done_by_name: null, done_at: null, remarks: null,
+      _isVirtual: true
+    };
+  }).filter(Boolean);
+
+  if (personVal !== 'all') allTasks = allTasks.filter(t => t.assigned_to_name === personVal);
+  if (freqVal !== 'all') {
+    const freqFullMap = { 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly' };
+    const freqFull = freqFullMap[freqVal] || freqVal;
+    allTasks = allTasks.filter(t => t.frequency === freqFull);
+  }
+  if (catVal !== 'all') allTasks = allTasks.filter(t => t.category === catVal);
+  if (statusVal !== 'all') allTasks = allTasks.filter(t => t.status === statusVal);
+const done = allTasks.filter(t => t.status === 'Done').length;
   const pending = allTasks.filter(t => t.status !== 'Done').length;
   document.getElementById('comp-done').textContent = done;
   document.getElementById('comp-pending').textContent = pending;
@@ -8358,8 +8399,17 @@ ${isOverdue?'<span style="color:var(--red);">●</span>':''}
   }
 }
 
-function openComplianceDone(taskId, taskName) {
+let currentComplianceMasterId = null;
+let currentComplianceIsVirtual = false;
+let currentComplianceMonthYear = null;
+let currentComplianceLastDate = null;
+
+function openComplianceDone(taskId, taskName, isVirtual, masterId, monthYear, lastDate) {
   currentComplianceId = taskId;
+  currentComplianceMasterId = masterId;
+  currentComplianceIsVirtual = isVirtual === 'true' || isVirtual === true;
+  currentComplianceMonthYear = monthYear;
+  currentComplianceLastDate = lastDate;
   document.getElementById('compModalContent').innerHTML = `
     <div style="padding:12px;background:#f8f9fc;border-radius:8px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(taskName)}</div>
@@ -8374,13 +8424,36 @@ function openComplianceDone(taskId, taskName) {
 
 async function saveComplianceDone() {
   const remarks = document.getElementById('comp-remarks')?.value?.trim() || '';
-  const { error } = await sb.from('compliance_tasks').update({
-    status: 'Done',
-    done_by_name: currentUser.name,
-    done_at: new Date().toISOString(),
-    remarks: remarks || null
-  }).eq('id', currentComplianceId);
-  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+
+  if (currentComplianceIsVirtual) {
+    // This month's record doesn't exist in DB yet — create it now as a non-master override
+    const { data: master } = await sb.from('compliance_tasks').select('*').eq('id', currentComplianceMasterId).single();
+    if (!master) { showToast('❌ Master record not found', 'err'); return; }
+    const { error } = await sb.from('compliance_tasks').insert({
+      particulars: master.particulars,
+      frequency: master.frequency,
+      last_date: currentComplianceLastDate,
+      assigned_to_name: master.assigned_to_name,
+      category: master.category,
+      month_year: currentComplianceMonthYear,
+      status: 'Done',
+      done_by_name: currentUser.name,
+      done_at: new Date().toISOString(),
+      remarks: remarks || null,
+      master_id: currentComplianceMasterId,
+      is_master: false
+    });
+    if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  } else {
+    const { error } = await sb.from('compliance_tasks').update({
+      status: 'Done',
+      done_by_name: currentUser.name,
+      done_at: new Date().toISOString(),
+      remarks: remarks || null
+    }).eq('id', currentComplianceId);
+    if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  }
+
   showToast('✅ Task marked as done!', 'ok');
   closeModal('complianceModal');
   loadCompliance();
@@ -8395,7 +8468,6 @@ async function saveComplianceDone() {
     );
   }
 }
-
 async function deleteComplianceTask(id) {
   if (!confirm('Delete this compliance task?')) return;
   const { error } = await sb.from('compliance_tasks').delete().eq('id', id);
