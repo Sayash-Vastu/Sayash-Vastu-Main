@@ -5633,7 +5633,7 @@ async function uploadPolicy() {
   } else {
     urlData = sb.storage.from('task-files').getPublicUrl(path).data;
   }
-  const { error } = await sb.from('hr_policies').insert({
+const { error } = await sb.from('hr_policies').insert({
     title, description: desc,
     file_url: urlData.publicUrl,
     file_name: file.name,
@@ -5643,6 +5643,15 @@ async function uploadPolicy() {
   });
   if (error) { msgEl.textContent='❌ '+error.message; msgEl.style.color='var(--red)'; return; }
   msgEl.textContent='✅ Policy uploaded!'; msgEl.style.color='var(--green)';
+
+  // Notify all active employees
+  const { data: allEmpsForPolicy } = await sb.from('employees').select('email').eq('is_active', true);
+  for (const emp of (allEmpsForPolicy || [])) {
+    if (emp.email !== currentUser.email) {
+      await createNotification(emp.email, `📜 New Policy: ${title}`, desc || 'Please read and acknowledge this policy.', 'policy', 'hrPolicy');
+    }
+  }
+
   document.getElementById('pol-title').value='';
   document.getElementById('pol-desc').value='';
   document.getElementById('pol-file').value='';
@@ -5650,7 +5659,7 @@ async function uploadPolicy() {
   loadHRPolicies();
   setTimeout(()=>msgEl.textContent='',4000);
 }
-
+  
 // ═══════════════════════════════════════════
 //  ATTENDANCE - ENHANCED
 // ═══════════════════════════════════════════
