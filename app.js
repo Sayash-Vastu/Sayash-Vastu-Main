@@ -4350,10 +4350,10 @@ const { data: emps } = await sb.from('employees').select('name,email').eq('is_ac
   const totalAbsent = Object.values(empCalc).reduce((s,v)=>s+v.absent,0);
   const totalHalf = (attData||[]).filter(a=>a.status==='Half Day').length;
  const totalLeave = Object.values(empCalc).reduce((s,v)=>s+v.leave,0);
-  const totalLate = (attData||[]).filter(a=>{
+const totalLate = (attData||[]).filter(a=>{
     if (!a.check_in) return false;
     const t = new Date(a.check_in);
-    return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
+    return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 30);
   }).length;
   const avgAtt = emps.length > 0 ? Math.round((totalPresent / (emps.length * totalDays)) * 100) : 0;
 
@@ -4395,12 +4395,12 @@ tbody.innerHTML=emps.map(e=>{
     const half=empAtt.filter(a=>a.status==='Half Day').length;
     const leave=empCalc[e.email]?.leave || 0;
     const pct=totalDays>0?Math.round((present/totalDays)*100):0;
-     const late = empAtt.filter(a=>{
+const late = empAtt.filter(a=>{
       if (!a.check_in) return false;
       const t = new Date(a.check_in);
-      return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 15);
+      return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 30);
     }).length;
-    const totalHrs = empAtt.reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
+  const totalHrs = empAtt.reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
     return `<tr>
       <td style="font-weight:600">${esc(e.name)}</td>
       <td><span class="badge b-green">${present}</span></td>
