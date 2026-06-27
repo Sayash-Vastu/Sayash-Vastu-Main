@@ -4309,11 +4309,21 @@ async function loadAttReport() {
 const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true).neq('role','ceo');
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
+  const { data: holidaysReport } = await sb.from('holidays').select('date').gte('date',start).lte('date',end);
   const tbody=document.getElementById('attReportBody');
   if (!emps) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px">No data</td></tr>'; return; }
-  const totalDays=new Date(yr,mo,0).getDate();
+  const totalCalendarDays=new Date(yr,mo,0).getDate();
+  const holidayDatesSet = new Set((holidaysReport||[]).map(h => h.date));
+  let totalDays = 0;
+  const dCountIter = new Date(yr, mo-1, 1);
+  while (dCountIter.getMonth() === mo-1) {
+    const dsCount = dCountIter.getFullYear() + '-' + String(dCountIter.getMonth()+1).padStart(2,'0') + '-' + String(dCountIter.getDate()).padStart(2,'0');
+    const isSunCount = dCountIter.getDay() === 0;
+    const isHolidayCount = holidayDatesSet.has(dsCount);
+    if (!isSunCount && !isHolidayCount) totalDays++;
+    dCountIter.setDate(dCountIter.getDate()+1);
+  }
   const todayForReport = new Date(); todayForReport.setHours(0,0,0,0);
-
   // Calculate per-employee Absent/Leave properly
   const empCalc = {};
   emps.forEach(e => {
