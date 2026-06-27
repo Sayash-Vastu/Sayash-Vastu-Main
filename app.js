@@ -3618,8 +3618,10 @@ const atClientInput = document.getElementById('at-client');
   const subProjectName = document.getElementById('at-subproject') ? document.getElementById('at-subproject').value : '';
   const detail = document.getElementById('at-detail').value.trim();
 
-  // If a client name was typed but doesn't exist yet, create it
-  if (clientName && !clientId) {
+// If a client name was typed but doesn't exist yet, create it — only for site-visit/report related tasks
+  const detailLowerForClient = (detail || '').toLowerCase();
+  const isSiteVisitRelatedForClient = detailLowerForClient.includes('site visit') || detailLowerForClient.includes('report') || detailLowerForClient.includes('vastu report') || detailLowerForClient.includes('mom');
+  if (clientName && !clientId && isSiteVisitRelatedForClient) {
     const { data: newClient, error: newClientErr } = await sbClient.from('clients').insert({
       name: clientName,
       status: 'Active',
