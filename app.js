@@ -4042,8 +4042,8 @@ async function postNotice() {
   const target=document.getElementById('nt-target').value;
   const msg=document.getElementById('noticeMsg');
   if (!title||!content) { msg.textContent='⚠️ Fill all fields'; msg.style.color='var(--red)'; return; }
-  const expiryDate = new Date();
-  expiryDate.setDate(expiryDate.getDate() + 3);
+const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + 30);
   const { error } = await sb.from('notices').insert({
     title, content, priority, target,
     created_by_email: currentUser.email, created_by_name: currentUser.name,
