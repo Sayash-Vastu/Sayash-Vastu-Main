@@ -240,9 +240,10 @@
         <!-- EMPLOYEE DASHBOARD -->
         <div id="empDashboard" style="display:none">
 
-          <!-- ROW 1: Welcome Banner -->
-          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:14px;padding:24px 28px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;position:relative;overflow:hidden" class="emp-welcome">
-            <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:rgba(201,168,76,0.06);right:-40px;top:-60px;pointer-events:none"></div>
+<!-- ROW 1: Welcome Banner + Quote combined -->
+          <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px" class="emp-row1-combined">
+          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:14px;padding:24px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;position:relative;overflow:hidden" class="emp-welcome">
+          <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:rgba(201,168,76,0.06);right:-40px;top:-60px;pointer-events:none"></div>
             <div style="position:relative;z-index:1">
               <div style="font-size:22px;font-weight:700;color:#fff" id="empGreeting">Good Morning!</div>
               <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:4px" id="empDateSub">—</div>
@@ -270,7 +271,7 @@
           </div>
 
 <!-- QUOTE OF THE DAY -->
-          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:12px;padding:18px 24px;margin-bottom:16px;position:relative;overflow:hidden">
+          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:12px;padding:18px 24px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center">
             <div style="position:absolute;font-size:60px;color:rgba(201,168,76,0.12);top:-10px;left:14px;font-family:'DM Serif Display',serif;line-height:1">"</div>
             <div style="position:relative;z-index:1">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -279,11 +280,12 @@
                 </div>
                 <button onclick="openPostQuoteModal()" style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Post Yours</button>
               </div>
-              <div id="dailyQuoteText" style="font-size:18px;color:#fff;font-weight:500;line-height:1.6;font-family:'DM Serif Display',serif;font-style:italic">Loading...</div>
+<div id="dailyQuoteText" style="font-size:16px;color:#fff;font-weight:500;line-height:1.5;font-family:'DM Serif Display',serif;font-style:italic">Loading...</div>
             </div>
           </div>
+          </div>
           <!-- ROW 2: Profile + Task Stats -->
-                <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:16px" class="emp-row2">
+              <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:16px" class="emp-row2">
           <!-- Profile Card -->
             <div class="panel" style="margin-bottom:0">
               <div class="panel-body" style="text-align:center;padding:20px 16px">
