@@ -2994,11 +2994,40 @@ status: (() => {
     ip_address: ip_address
   });
   if (error) { showToast('❌ '+error.message, 'err'); return; }
-  const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
+const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
   showToast(`✅ Logged in (${typeLabel}) at `+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), 'ok');
+
+  // Early login appreciation (before 10 AM)
+  if (now.getHours() < 10) {
+    showEarlyLoginAppreciation();
+  }
+
   loadEmpDashboard();
 }
-async function markEmpLogout() {
+
+function showEarlyLoginAppreciation() {
+  const earlyQuotes = [
+    "Early birds build empires. Great start today! 🌅",
+    "Discipline like this is what sets top performers apart. Keep it up! 💪",
+    "You showed up early — that's leadership in action. 🌟",
+    "The best work happens before the world wakes up. Well done! ☀️",
+    "Consistency beats motivation. You're proving it today! 🔥",
+    "Early start, strong finish. Your future self thanks you. 🙌"
+  ];
+  const quote = earlyQuotes[Math.floor(Math.random() * earlyQuotes.length)];
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="earlyLoginModal" onclick="if(event.target===this) closeModal('earlyLoginModal')">
+      <div class="modal" style="max-width:420px;text-align:center;padding:36px 28px;background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%)">
+        <div style="font-size:44px;margin-bottom:14px">🌟</div>
+        <div style="font-size:13px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:2px;margin-bottom:12px">Early Bird!</div>
+        <div style="font-size:18px;color:#fff;font-weight:500;line-height:1.6;font-family:'DM Serif Display',serif;font-style:italic;margin-bottom:20px">"${quote}"</div>
+        <button class="btn btn-gold" onclick="closeModal('earlyLoginModal')" style="padding:10px 28px">Let's go! 🚀</button>
+      </div>
+    </div>
+  `);
+  setTimeout(() => { const el = document.getElementById('earlyLoginModal'); if (el) el.remove(); }, 6000);
+}
+  async function markEmpLogout() {
   const now = new Date();
   const today = now.toISOString().split('T')[0];
   const btn = document.getElementById('empLogoutBtn');
