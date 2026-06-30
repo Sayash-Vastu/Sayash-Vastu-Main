@@ -1432,7 +1432,7 @@ sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
     const dl = document.getElementById('avgClientList');
     if (dl) dl.innerHTML = (data||[]).map(c => `<option value="${esc(c.name)}">`).join('');
   });
-  sb.from('employees').select('name').eq('is_active', true).order('name').then(({ data }) => {
+sb.from('employees').select('name').eq('is_active', true).order('name').then(({ data }) => {
     const assignedList = document.getElementById('avgAssignedList');
     const opts = (data || []).map(e => `<option value="${esc(e.name)}">`).join('');
     if (assignedList) assignedList.innerHTML = opts;
@@ -1442,9 +1442,10 @@ sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
     if (byListEl && data) {
       byListEl.innerHTML = data.map(e => {
         const isMe = e.name === currentUser.name;
+        const dispName = getDisplayName(e.name, data);
         return `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:${isMe?'var(--gold)':'var(--bg)'};border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid ${isMe?'var(--gold)':'var(--border)'};color:${isMe?'var(--navy)':'var(--text)'};font-weight:${isMe?'700':'400'}" id="visitor-chip-${e.name.replace(/[^a-z0-9]/gi,'_')}">
           <input type="checkbox" value="${esc(e.name)}" ${isMe?'checked':''} onchange="toggleVisitorSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
-          ${esc(e.name)}
+          ${esc(dispName)}
         </label>`;
       }).join('');
     }
@@ -2593,11 +2594,12 @@ const isOverdueEmp = f.next_followup < today;
         const statusText = a.check_out
           ? 'Checked out ' + new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})
           : 'In since ' + new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
-        const initials = esc(a.employee_name).substring(0,2).toUpperCase();
+const initials = esc(a.employee_name).substring(0,2).toUpperCase();
         const avBg = isMe ? 'var(--gold)' : 'var(--navy)';
         const avColor = isMe ? 'var(--navy)' : '#fff';
         const rowStyle = isMe ? 'background:#fdf9ef;border-radius:6px;' : '';
-        const nameLabel = esc(a.employee_name) + (isMe ? ' (You)' : '');
+        const dispNameTeam = getDisplayName(a.employee_name, teamToday.map(x => ({name: x.employee_name})));
+        const nameLabel = esc(dispNameTeam) + (isMe ? ' (You)' : '');
         const photoUrl = photoMap[a.employee_email];
         const avHtml = (photoUrl && photoUrl !== 'null' && photoUrl !== '')
           ? `<img src="${photoUrl}?t=${Date.now()}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid ${isMe?'var(--gold)':'var(--border)'}" onerror="this.parentNode.innerHTML='<div class=av style=background:${avBg};width:28px;height:28px;font-size:10px;color:${avColor}>${initials}</div>'">`
@@ -3152,9 +3154,9 @@ const empEmail = empTasks[0]?.assigned_to_email || '';
     html += `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;${isLate?'border-left:3px solid var(--red)':delayedCount===0&&activeTasks.length===0?'border-left:3px solid var(--green)':'border-left:3px solid var(--blue)'}">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div style="display:flex;align-items:center;gap:10px">
-          <div class="av" style="background:var(--navy);width:34px;height:34px;font-size:12px">${esc(empName).substring(0,2).toUpperCase()}</div>
+<div class="av" style="background:var(--navy);width:34px;height:34px;font-size:12px">${esc(empName).substring(0,2).toUpperCase()}</div>
           <div>
-            <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(empName)}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(getDisplayName(empName, emps))}</div>
             <div style="font-size:10px;color:var(--muted)">${esc(empInfo?.designation||'')}</div>
           </div>
           ${attBadge}
@@ -3559,19 +3561,21 @@ if (currentUser.role === 'ceo') {
 async function loadEmployeeAutocomplete() {
   const { data } = await sb.from('employees').select('name,email').eq('is_active',true);
   if (!data) return;
+  window._allActiveEmployees = data;
   window._selectedAssignEmps = [];
   const atEmpList = document.getElementById('at-emp-list');
   if (atEmpList) {
     atEmpList.innerHTML = data.map(e => {
       const chipId = 'emp-chip-' + e.email.replace(/[@.]/g,'_');
+      const dispName = getDisplayName(e.name, data);
       return `<label id="${chipId}" style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid var(--border);transition:all 0.15s;user-select:none">
         <input type="checkbox" value="${esc(e.email)}" data-name="${esc(e.name)}" onchange="toggleAssignEmp(this)" style="cursor:pointer;accent-color:var(--gold)"/>
         <div class="av" style="width:20px;height:20px;font-size:8px;background:var(--navy);color:#fff;flex-shrink:0">${esc(e.name).substring(0,2).toUpperCase()}</div>
-        ${esc(e.name)}
+        ${esc(dispName)}
       </label>`;
     }).join('');
   }
-  const helpList = document.getElementById('helpNameList');
+const helpList = document.getElementById('helpNameList');
   if (helpList) helpList.innerHTML = data.filter(e=>e.email!==(currentUser&&currentUser.email)).map(e=>`<option value="${esc(e.name)}" data-email="${esc(e.email)}">`).join('');
 const tkList = document.getElementById('tkAssignList');
   if (tkList) tkList.innerHTML = data.map(e=>`<option value="${esc(e.name)}">`).join('');
@@ -4176,10 +4180,10 @@ const { data } = await sb.from('employees').select('*').order('employee_code',{a
     <td>
       <div style="display:flex;align-items:center;gap:10px">
         <div class="av" style="background:var(--navy)">${esc(e.name).substring(0,2).toUpperCase()}</div>
-        <span style="font-weight:600">${esc(e.name)}</span>
+        <span style="font-weight:600">${esc(getDisplayName(e.name, data))}</span>
       </div>
     </td>
-    <td style="font-size:12px">${esc(e.email)}</td>
+<td style="font-size:12px">${esc(e.email)}</td>
     <td style="font-size:12px">${esc(e.department||'—')}</td>
     <td style="font-size:12px">${esc(e.designation||'—')}</td>
     <td style="font-size:12px">${e.date_of_birth?fmtDate(e.date_of_birth):'—'}</td>
@@ -6726,8 +6730,8 @@ const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigne
         <td>
           <div style="display:flex;align-items:center;gap:8px">
             <div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px">${esc(emp.name).substring(0,2).toUpperCase()}</div>
-            <div>
-<div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--blue);text-decoration:underline" onclick="openEmpPerfReport('${emp.email}','${esc(emp.name)}')">${esc(emp.name)}</div>
+<div>
+<div style="font-weight:600;font-size:13px;cursor:pointer;color:var(--blue);text-decoration:underline" onclick="openEmpPerfReport('${emp.email}','${esc(emp.name)}')">${esc(getDisplayName(emp.name, emps))}</div>
               <div style="font-size:10px;color:var(--muted)">${esc(emp.designation||'')}</div>
             </div>
           </div>
