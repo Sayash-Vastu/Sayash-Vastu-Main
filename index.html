@@ -542,10 +542,13 @@
           <h2 id="assignTaskTitle">Assign Task</h2>
           <p id="assignTaskSub">Assign a new task to an employee</p>
         </div>
-        <div class="panel">
-          <div class="panel-head"><div class="panel-title">➕ New Task</div></div>
+<div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">➕ New Task</div>
+            <button class="btn btn-outline btn-sm" onclick="openAddVisitEmpGlobal()">📍 Add Site Visit</button>
+          </div>
           <div class="panel-body">
-            <div class="form-grid cols-2">
+        <div class="form-grid cols-2">
               <div class="field" style="grid-column:1/-1">
                 <label>Select Employees (1 ya zyada)</label>
                 <div id="at-emp-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--border);border-radius:8px;min-height:52px;background:#fff;align-items:center">
