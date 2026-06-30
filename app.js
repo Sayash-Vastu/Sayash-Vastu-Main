@@ -7289,13 +7289,13 @@ async function loadMyReports() {
             <div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px">❌ Rejection Reason:</div>
             <div style="font-size:12px;color:var(--text)">${esc(r.approval_note)}</div>
           </div>` : ''}
-        ${r.approval_status === 'Approved' ? `
+${r.approval_status === 'Approved' ? `
           <div style="margin-top:10px;padding:10px 14px;background:var(--green-bg);border-radius:8px">
-            <div style="font-size:12px;font-weight:600;color:var(--green)">✅ Approved by CEO — Task Completed!</div>
+            <div style="font-size:12px;font-weight:600;color:var(--green)">✅ Approved by ${esc((r.approval_type||'').replace('Approval for ','')) || 'CEO'} — Task Completed!</div>
           </div>` : ''}
         ${r.approval_status === 'Pending' ? `
           <div style="margin-top:10px;padding:10px 14px;background:var(--amber-bg);border-radius:8px">
-            <div style="font-size:12px;font-weight:600;color:var(--amber)">⏳ Waiting for CEO approval...</div>
+            <div style="font-size:12px;font-weight:600;color:var(--amber)">⏳ Waiting for ${esc((r.approval_type||'').replace('Approval for ','')) || 'CEO'}'s approval...</div>
           </div>` : ''}
       </div>
     </div>`;
