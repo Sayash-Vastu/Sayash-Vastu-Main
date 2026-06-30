@@ -7801,6 +7801,13 @@ function toggleSideMenu(menuId) {
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+function getDisplayName(empName, allEmployees) {
+  if (!empName) return '';
+  const firstName = empName.trim().split(' ')[0];
+  const initials = empName.trim().split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase();
+  return `${firstName} (${initials})`;
+}
+
 function fmtDate(d) {
   if (!d) return '—';
   const dt=new Date(d);
