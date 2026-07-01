@@ -4516,27 +4516,41 @@ const late = empAtt.filter(a=>{
 // ═══════════════════════════════════════════
 //  LEAVE APPROVALS CEO
 // ═══════════════════════════════════════════
+let _allLeaveApprovals = [];
+
 async function loadLeaveApprovals() {
   const { data } = await sb.from('leaves').select('*').eq('is_archived',false).order('created_at',{ascending:false});
-  const el=document.getElementById('leaveApproveList');
-  if (!data||!data.length) {
-    el.innerHTML='<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-title">No leave requests</div></div>'; return;
+  _allLeaveApprovals = data || [];
+
+  const pending = _allLeaveApprovals.filter(l=>l.status==='Pending');
+  const approved = _allLeaveApprovals.filter(l=>l.status==='Approved');
+  const rejected = _allLeaveApprovals.filter(l=>l.status==='Rejected');
+
+  document.getElementById('la-pending').textContent = pending.length;
+  document.getElementById('la-approved').textContent = approved.length;
+  document.getElementById('la-rejected').textContent = rejected.length;
+  document.getElementById('la-total').textContent = _allLeaveApprovals.length;
+
+  document.getElementById('nb-leave-approve').textContent = pending.length;
+  document.getElementById('nb-leave-approve').style.display = pending.length>0?'inline-block':'none';
+
+  const pendingEl = document.getElementById('pendingLeaveSection');
+  if (!pending.length) {
+    pendingEl.innerHTML = '';
+  } else {
+    pendingEl.innerHTML = `
+      <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        ⏳ Pending Requests <span class="badge b-amber">${pending.length}</span>
+      </div>
+      ${pending.map(l=>leaveCard(l)).join('')}
+    `;
   }
-  const pending=data.filter(l=>l.status==='Pending');
-  const others=data.filter(l=>l.status!=='Pending');
-  el.innerHTML=(pending.length?`
-    <div class="section-div"><div class="sd-line"></div><div class="sd-label">Pending Requests (${pending.length})</div><div class="sd-line"></div></div>
-    ${pending.map(l=>leaveCard(l,true)).join('')}
-  `:'')+(others.length?`
-    <div class="section-div"><div class="sd-line"></div><div class="sd-label">Processed Requests</div><div class="sd-line"></div></div>
-    ${others.map(l=>leaveCard(l,false)).join('')}
-  `:'');
-  document.getElementById('nb-leave-approve').textContent=pending.length;
-  document.getElementById('nb-leave-approve').style.display=pending.length>0?'inline-block':'none';
+
+  renderLeaveHistory();
 }
 
-function leaveCard(l, canApprove) {
-  return `<div class="leave-action-card">
+function leaveCard(l) {
+  return `<div class="leave-action-card" style="margin-bottom:12px">
     <div class="leave-action-head">
       <div>
         <div style="font-size:14px;font-weight:700;color:var(--navy)">${esc(l.employee_name)}</div>
@@ -4545,19 +4559,47 @@ function leaveCard(l, canApprove) {
           ${fmtDate(l.from_date)} → ${fmtDate(l.to_date)} · <strong>${l.total_days}</strong> day(s)
         </div>
         <div style="font-size:12px;margin-top:6px;color:var(--text)">${esc(l.reason||'—')}</div>
+        ${l.attachment_url ? `<div style="margin-top:6px">${l.attachment_url.split(',').map((url,idx)=>`<a href="${url.trim()}" target="_blank" style="font-size:11px;color:var(--blue);margin-right:10px">📎 File ${idx+1}</a>`).join('')}</div>` : ''}
       </div>
       <div>${leaveBadge(l.status)}</div>
     </div>
-    ${canApprove?`<div class="leave-action-actions">
+    <div class="leave-action-actions">
       <button class="btn btn-green btn-sm" onclick="approveLeave('${l.id}','Approved')">✅ Approve</button>
       <button class="btn btn-red btn-sm" onclick="approveLeave('${l.id}','Rejected')">❌ Reject</button>
       <button class="btn btn-sm" onclick="deleteLeaveRecord('${l.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-left:auto">🗑️ Delete</button>
-    </div>`:`<div class="leave-action-actions">
-      <button class="btn btn-sm" onclick="deleteLeaveRecord('${l.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️ Delete Record</button>
-    </div>`}
+    </div>
   </div>`;
 }
 
+function renderLeaveHistory() {
+  const search = (document.getElementById('la-search')?.value || '').toLowerCase();
+  const typeFilter = document.getElementById('la-type-filter')?.value || 'all';
+  const statusFilter = document.getElementById('la-status-filter')?.value || 'all';
+
+  let history = _allLeaveApprovals.filter(l => l.status !== 'Pending');
+  if (search) history = history.filter(l => l.employee_name.toLowerCase().includes(search));
+  if (typeFilter !== 'all') history = history.filter(l => l.leave_type === typeFilter);
+  if (statusFilter !== 'all') history = history.filter(l => l.status === statusFilter);
+
+  const tbody = document.getElementById('leaveHistoryBody');
+  if (!history.length) {
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:30px">No records found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = history.map(l => `<tr>
+    <td style="font-weight:600;color:var(--navy)">${esc(l.employee_name)}</td>
+    <td><span class="badge b-blue">${esc(l.leave_type)}</span></td>
+    <td style="font-size:12px">${fmtDate(l.from_date)}</td>
+    <td style="font-size:12px">${fmtDate(l.to_date)}</td>
+    <td style="font-weight:700;text-align:center">${l.total_days||1}</td>
+    <td style="font-size:12px;color:var(--muted);max-width:160px">${esc((l.reason||'—').substring(0,40))}</td>
+    <td>${l.attachment_url ? l.attachment_url.split(',').map((url,idx)=>`<a href="${url.trim()}" target="_blank" style="font-size:11px;color:var(--blue);display:block">📎 ${idx+1}</a>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
+    <td>${leaveBadge(l.status)}</td>
+    <td style="font-size:12px;color:var(--muted)">${esc(l.approved_by||'—')}</td>
+    <td><button class="btn btn-sm" onclick="deleteLeaveRecord('${l.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+  </tr>`).join('');
+}
 async function approveLeave(id, status) {
   const { data: leave } = await sb.from('leaves').select('*').eq('id',id).single();
   const { error } = await sb.from('leaves').update({
