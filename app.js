@@ -8412,7 +8412,7 @@ ${isOverdue?'<span style="color:var(--red);">●</span>':''}
       </td>
       <td style="font-size:11px;color:var(--muted)">${esc(t.done_by_name||'—')}</td>
       <td style="font-size:11px;color:var(--muted);max-width:120px">${esc((t.remarks||'').substring(0,30))}${(t.remarks||'').length>30?'...':''}</td>
-      <td>
+<td>
         <div style="display:flex;gap:5px">
   <button class="btn btn-outline btn-sm" onclick="openComplianceView('${t.id}','${esc(t.particulars)}','${esc(t.remarks||'')}','${esc(t.done_by_name||'')}','${t.done_at||''}')">👁️</button>
 ${!isDone && currentUser.email === 'alisha@sayashvastu.com'
@@ -8420,7 +8420,10 @@ ${!isDone && currentUser.email === 'alisha@sayashvastu.com'
     : isDone && currentUser.role === 'ceo'
 ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
     : '—'}
-      ${(currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? `<button class="btn btn-sm" onclick="deleteComplianceTask('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>` : ''}
+      ${(currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? `
+        <button class="btn btn-outline btn-sm" onclick="openComplianceEdit('${t.id}','${esc(t.particulars)}','${t.last_date||''}','${esc(t.assigned_to_name||'')}','${esc(t.category||'')}','${t.frequency||''}','${t._isVirtual?'true':'false'}','${t.master_id||''}','${t.month_year}')">✏️</button>
+        <button class="btn btn-sm" onclick="deleteComplianceTask('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
+      ` : ''}
 </div>
       </td>
     </tr>`;
@@ -8528,8 +8531,89 @@ async function deleteComplianceTask(id) {
   showToast('✅ Task deleted!', 'ok');
   loadCompliance();
 }
-function openComplianceView(id, particulars, remarks, doneBy, doneAt) {
+function openComplianceEdit(id, particulars, lastDate, assignedTo, category, frequency, isVirtual, masterId, monthYear) {
+  currentComplianceId = id;
+  currentComplianceMasterId = masterId;
+  currentComplianceIsVirtual = isVirtual === 'true';
+  currentComplianceMonthYear = monthYear;
+
   document.getElementById('compModalContent').innerHTML = `
+    <div style="padding:12px;background:#f8f9fc;border-radius:8px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(particulars)}</div>
+    </div>
+    <div class="form-grid cols-2">
+      <div class="field" style="grid-column:1/-1">
+        <label>Due Date</label>
+        <input type="date" id="ce-date" value="${lastDate}">
+      </div>
+      <div class="field">
+        <label>Assigned To</label>
+        <input id="ce-assigned" value="${esc(assignedTo)}" placeholder="Employee name">
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <select id="ce-category">
+          ${['Tax','GST','PF','ESI','Accounts','Bank','Invoice','Bills','Insurance','Other'].map(c =>
+            `<option ${c === category ? 'selected' : ''}>${c}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div class="field" style="grid-column:1/-1">
+        <label>Frequency</label>
+        <select id="ce-frequency">
+          <option ${frequency==='Monthly'?'selected':''}>Monthly</option>
+          <option ${frequency==='Quarterly'?'selected':''}>Quarterly</option>
+          <option ${frequency==='Yearly'?'selected':''}>Yearly</option>
+        </select>
+      </div>
+    </div>
+    <div id="ce-msg" style="font-size:12px;font-weight:600;margin-top:8px"></div>
+  `;
+  document.getElementById('complianceModal').classList.add('open');
+  document.querySelector('#complianceModal .btn-gold').setAttribute('onclick', 'saveComplianceEdit()');
+  document.querySelector('#complianceModal .btn-gold').textContent = '💾 Save Changes';
+}
+
+async function saveComplianceEdit() {
+  const newDate = document.getElementById('ce-date').value;
+  const assignedTo = document.getElementById('ce-assigned').value.trim();
+  const category = document.getElementById('ce-category').value;
+  const frequency = document.getElementById('ce-frequency').value;
+  const msgEl = document.getElementById('ce-msg');
+
+  if (!assignedTo) { msgEl.textContent = '⚠️ Assigned To required'; msgEl.style.color = 'var(--red)'; return; }
+
+  if (currentComplianceIsVirtual) {
+    const { data: master } = await sb.from('compliance_tasks').select('*').eq('id', currentComplianceMasterId).single();
+    if (!master) { showToast('❌ Master not found', 'err'); return; }
+    const { error } = await sb.from('compliance_tasks').insert({
+      particulars: master.particulars,
+      frequency, last_date: newDate || null,
+      assigned_to_name: assignedTo, category,
+      month_year: currentComplianceMonthYear,
+      status: 'Pending',
+      master_id: currentComplianceMasterId,
+      is_master: false
+    });
+    if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
+  } else {
+    const { error } = await sb.from('compliance_tasks').update({
+      last_date: newDate || null,
+      assigned_to_name: assignedTo,
+      category, frequency
+    }).eq('id', currentComplianceId);
+    if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
+  }
+
+  showToast('✅ Task updated!', 'ok');
+  closeModal('complianceModal');
+  document.querySelector('#complianceModal .btn-gold')?.setAttribute('onclick', 'saveComplianceDone()');
+  document.querySelector('#complianceModal .btn-gold') && (document.querySelector('#complianceModal .btn-gold').textContent = '✅ Mark as Done');
+  loadCompliance();
+}
+
+function openComplianceView(id, particulars, remarks, doneBy, doneAt) {
+document.getElementById('compModalContent').innerHTML = `
     <div style="padding:12px;background:#f8f9fc;border-radius:8px;margin-bottom:16px">
       <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(particulars)}</div>
     </div>
