@@ -8326,11 +8326,26 @@ const [tYear, tMonth] = monthVal.split('-').map(Number);
     const override = overrideMap[m.id];
     if (override) return { ...override, _isVirtual: false };
 let calcDate = null;
+    let dueThisMonth = true;
     if (m.last_date) {
       const masterDate = new Date(m.last_date);
       const day = masterDate.getDate();
-      calcDate = new Date(tYear, tMonth - 1, day);
+      const freq = (m.frequency || '').toLowerCase();
+      if (freq === 'monthly') {
+        calcDate = new Date(tYear, tMonth - 1, day);
+      } else if (freq === 'quarterly') {
+        const monthsDiff = (tYear - masterDate.getFullYear()) * 12 + (tMonth - 1 - masterDate.getMonth());
+        if (monthsDiff >= 0 && monthsDiff % 3 === 0) calcDate = new Date(tYear, tMonth - 1, day);
+        else dueThisMonth = false;
+      } else if (freq === 'yearly') {
+        if (tMonth - 1 === masterDate.getMonth() && tYear >= masterDate.getFullYear()) {
+          calcDate = new Date(tYear, tMonth - 1, day);
+        } else dueThisMonth = false;
+      } else {
+        calcDate = masterDate;
+      }
     }
+    if (!dueThisMonth) return null;
     return {
       id: m.id, master_id: m.id, is_master: false,
       particulars: m.particulars, frequency: m.frequency,
