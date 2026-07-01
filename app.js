@@ -3110,9 +3110,10 @@ async function loadCeoActivityFeed() {
     const empTasks = empMap[empKey];
     const empName = empTasks[0]?.assigned_to_name || empKey;
 const empEmail = empTasks[0]?.assigned_to_email || '';
-    const empExists = (emps||[]).find(e => e.email === empEmail || e.name === empName);
+const empExists = (emps||[]).find(e => e.email === empEmail || e.name === empName);
     if (!empExists) return;
-      const activeTasks = empTasks.filter(t => t.work_status !== 'Completed' && t.work_status !== 'Report Ready');
+    const canonicalName = empExists.name || empName;
+    const activeTasks = empTasks.filter(t => t.work_status !== 'Completed' && t.work_status !== 'Report Ready');
     const completedCount = empTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
     const delayedCount = activeTasks.filter(t => {
       const ed = t.end_date ? new Date(t.end_date) : null;
@@ -3154,9 +3155,9 @@ const empEmail = empTasks[0]?.assigned_to_email || '';
     html += `<div style="background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;${isLate?'border-left:3px solid var(--red)':delayedCount===0&&activeTasks.length===0?'border-left:3px solid var(--green)':'border-left:3px solid var(--blue)'}">
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
         <div style="display:flex;align-items:center;gap:10px">
-<div class="av" style="background:var(--navy);width:34px;height:34px;font-size:12px">${esc(empName).substring(0,2).toUpperCase()}</div>
+<div class="av" style="background:var(--navy);width:34px;height:34px;font-size:12px">${esc(canonicalName).substring(0,2).toUpperCase()}</div>
           <div>
-            <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(getDisplayName(empName, emps))}</div>
+            <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(getDisplayName(canonicalName, emps))}</div>
             <div style="font-size:10px;color:var(--muted)">${esc(empInfo?.designation||'')}</div>
           </div>
           ${attBadge}
