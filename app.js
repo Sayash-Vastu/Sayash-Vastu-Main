@@ -8308,9 +8308,7 @@ const monthVal = monthEl ? monthEl.value : defaultMonth;
 const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
   const statusVal = document.getElementById('comp-status-filter')?.value || 'all';
 
-  // Auto-rollover: ensure recurring tasks (Monthly/Quarterly/Yearly) exist for this month
-  await ensureComplianceRollover(monthVal);
-  
+
 // Live-calculate tasks for selected month from June master template
   const isAlisha = currentUser.email === 'alisha@sayashvastu.com';
   const isCEO = currentUser.role === 'ceo';
