@@ -813,13 +813,23 @@
                   </div>
                   <div class="field"><label>From Date</label><input type="date" id="lv-from"/></div>
                   <div class="field"><label>To Date</label><input type="date" id="lv-to"/></div>
-                  <div class="field">
+<div class="field">
                     <label>Reason</label>
                     <textarea id="lv-reason" placeholder="Reason for leave..." style="min-height:80px"></textarea>
                   </div>
+                  <div class="field">
+                    <label>Attach Document (Optional)</label>
+                    <div class="upload-zone" onclick="document.getElementById('lv-file').click()" style="padding:12px">
+                      <input type="file" id="lv-file" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="previewLeaveFile(this)"/>
+                      <div id="lv-file-preview">
+                        <div class="upload-zone-text">📎 Click to upload (exam admit card, medical certificate, etc.)</div>
+                        <div class="upload-zone-hint">PDF, JPG, PNG — up to 4 files, max 5MB each</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <button class="btn btn-gold" style="width:100%;margin-top:10px" onclick="applyLeave()">Apply Leave</button>
-                <span id="leaveMsg" style="display:block;margin-top:8px;font-size:12px;font-weight:600;text-align:center"></span>
+                  <span id="leaveMsg" style="display:block;margin-top:8px;font-size:12px;font-weight:600;text-align:center"></span>
               </div>
             </div>
 
