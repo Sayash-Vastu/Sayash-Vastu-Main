@@ -241,8 +241,8 @@
         <div id="empDashboard" style="display:none">
 
 <!-- ROW 1: Welcome Banner + Quote combined -->
-          <div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px" class="emp-row1-combined">
-          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:14px;padding:24px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;position:relative;overflow:hidden" class="emp-welcome">
+<div style="display:grid;grid-template-columns:1.3fr 1fr;gap:16px;margin-bottom:16px" class="emp-row1-combined">
+          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:14px;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;position:relative;overflow:hidden" class="emp-welcome">
           <div style="position:absolute;width:200px;height:200px;border-radius:50%;background:rgba(201,168,76,0.06);right:-40px;top:-60px;pointer-events:none"></div>
             <div style="position:relative;z-index:1">
               <div style="font-size:22px;font-weight:700;color:#fff" id="empGreeting">Good Morning!</div>
@@ -271,20 +271,20 @@
           </div>
 
 <!-- QUOTE OF THE DAY -->
-          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:12px;padding:18px 24px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center">
-            <div style="position:absolute;font-size:60px;color:rgba(201,168,76,0.12);top:-10px;left:14px;font-family:'DM Serif Display',serif;line-height:1">"</div>
+          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:12px;padding:12px 20px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center">
+            <div style="position:absolute;font-size:44px;color:rgba(201,168,76,0.12);top:-6px;left:12px;font-family:'DM Serif Display',serif;line-height:1">"</div>
             <div style="position:relative;z-index:1">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:2px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px">
                   Quote of the Day
                 </div>
-                <button onclick="openPostQuoteModal()" style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Post Yours</button>
+                <button onclick="openPostQuoteModal()" style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-size:9px;font-weight:600;padding:3px 8px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Post Yours</button>
               </div>
-<div id="dailyQuoteText" style="font-size:16px;color:#fff;font-weight:500;line-height:1.5;font-family:'DM Serif Display',serif;font-style:italic">Loading...</div>
+<div id="dailyQuoteText" style="font-size:13px;color:#fff;font-weight:500;line-height:1.4;font-family:'DM Serif Display',serif;font-style:italic">Loading...</div>
             </div>
           </div>
           </div>
-          <!-- ROW 2: Profile + Task Stats -->
+  <!-- ROW 2: Profile + Task Stats -->
               <div style="display:grid;grid-template-columns:280px 1fr;gap:16px;margin-bottom:16px" class="emp-row2">
           <!-- Profile Card -->
             <div class="panel" style="margin-bottom:0">
@@ -403,20 +403,19 @@
             <p id="homeSubtitle">Here's your company overview</p>
           </div>
 
-          <!-- QUOTE OF THE DAY (CEO) -->
-          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:12px;padding:18px 24px;margin-bottom:16px;position:relative;overflow:hidden">
-            <div style="position:absolute;font-size:60px;color:rgba(201,168,76,0.12);top:-10px;left:14px;font-family:'DM Serif Display',serif;line-height:1">"</div>
+<!-- QUOTE OF THE DAY (CEO) -->
+          <div style="background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%);border-radius:12px;padding:12px 20px;margin-bottom:16px;position:relative;overflow:hidden">
+            <div style="position:absolute;font-size:44px;color:rgba(201,168,76,0.12);top:-6px;left:12px;font-family:'DM Serif Display',serif;line-height:1">"</div>
             <div style="position:relative;z-index:1">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:2px">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+                <div style="font-size:10px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1.5px">
                   Quote of the Day
                 </div>
-                <button onclick="openPostQuoteModal()" style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-size:10px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Post Yours</button>
+                <button onclick="openPostQuoteModal()" style="background:rgba(201,168,76,0.15);border:1px solid rgba(201,168,76,0.3);color:var(--gold);font-size:9px;font-weight:600;padding:3px 8px;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">✏️ Post Yours</button>
               </div>
-              <div id="ceoDailyQuoteText" style="font-size:18px;color:#fff;font-weight:500;line-height:1.6;font-family:'DM Serif Display',serif;font-style:italic">Loading...</div>
+              <div id="ceoDailyQuoteText" style="font-size:14px;color:#fff;font-weight:500;line-height:1.4;font-family:'DM Serif Display',serif;font-style:italic">Loading...</div>
             </div>
           </div>
-
           <div class="stat-grid" id="homeStats"></div>
           <div id="ceoActivitySection" style="display:none;margin-bottom:20px">
             <div class="panel">
