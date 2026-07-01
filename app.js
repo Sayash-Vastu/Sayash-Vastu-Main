@@ -3937,17 +3937,37 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   if (!leaves.length) {
     tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No leave records</td></tr>'; return;
   }
-  tbody.innerHTML = leaves.map(l=>`<tr>
+tbody.innerHTML = leaves.map(l=>`<tr>
     <td><span class="badge b-blue">${esc(l.leave_type)}</span></td>
     <td style="font-size:12px">${fmtDate(l.from_date)}</td>
     <td style="font-size:12px">${fmtDate(l.to_date)}</td>
     <td style="font-weight:700">${l.total_days||1}</td>
     <td style="font-size:12px;color:var(--muted)">${esc(l.reason||'—')}</td>
+    <td>${l.attachment_url ? l.attachment_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" style="font-size:11px;color:var(--blue);display:block">📎 File ${idx+1}</a>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
     <td>${leaveBadge(l.status)}</td>
     <td>${l.status==='Pending'?`<button onclick="cancelLeave('${l.id}')" style="background:#fdf0ee;color:var(--red);border:1px solid var(--red-bg);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancel</button>`:'—'}</td>
   </tr>`).join('');
 }
 
+function previewLeaveFile(input) {
+  const files = input.files;
+  const preview = document.getElementById('lv-file-preview');
+  if (!files.length) return;
+  if (files.length > 4) {
+    showToast('⚠️ Max 4 files allowed', 'warn');
+    input.value = '';
+    return;
+  }
+  preview.innerHTML = Array.from(files).map(file => `
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f5f6fa">
+      <span style="font-size:16px">📄</span>
+      <div>
+        <div style="font-size:12px;font-weight:600;color:var(--navy)">${file.name}</div>
+        <div style="font-size:11px;color:var(--muted)">${(file.size/1024).toFixed(0)} KB</div>
+      </div>
+    </div>
+  `).join('');
+}
 async function applyLeave() {
   const btn = document.querySelector('#leaveForm button') || document.querySelector('[onclick="applyLeave()"]');
   if (btn && btn.disabled) return;
@@ -3963,15 +3983,43 @@ async function applyLeave() {
     if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
     return; 
   }
+
+  const lvFiles = document.getElementById('lv-file').files;
+  let attachmentUrls = []; let attachmentNames = [];
+  if (lvFiles && lvFiles.length) {
+    msg.textContent='⏳ Uploading files...'; msg.style.color='var(--muted)';
+    for (const file of lvFiles) {
+      if (file.size > 5*1024*1024) {
+        msg.textContent='❌ Max 5MB per file allowed';
+        msg.style.color='var(--red)';
+        if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
+        return;
+      }
+      const path = `leaves/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
+      const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
+      if (uploadErr) {
+        msg.textContent='❌ Upload failed: '+uploadErr.message;
+        msg.style.color='var(--red)';
+        if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
+        return;
+      }
+      const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
+      attachmentUrls.push(urlData.publicUrl);
+      attachmentNames.push(file.name);
+    }
+  }
+
 const days = type === 'Half Day' ? 0.5 : Math.ceil((new Date(to)-new Date(from))/86400000)+1;
   const { data: emp } = await sb.from('employees').select('id').eq('email',currentUser.email).single();
   const { error } = await sb.from('leaves').insert({
     employee_id: emp?.id, employee_email: currentUser.email,
     employee_name: currentUser.name,
     leave_type: type, from_date: from, to_date: to,
-    total_days: days, reason, status: 'Pending'
+    total_days: days, reason, status: 'Pending',
+    attachment_url: attachmentUrls.join(', ') || null,
+    attachment_name: attachmentNames.join(', ') || null
   });
-  if (error) { 
+if (error) { 
     msg.textContent='❌ '+error.message; 
     msg.style.color='var(--red)'; 
     if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
@@ -3988,9 +4036,11 @@ const days = type === 'Half Day' ? 0.5 : Math.ceil((new Date(to)-new Date(from))
   );
   await sendEmail(CEO_EMAIL,'CEO',`Leave Request — ${currentUser.name}`,
     `${currentUser.name} has applied for ${type} leave.\nFrom: ${from}\nTo: ${to}\nDays: ${days}\nReason: ${reason}\n\nLogin to approve:\nsayash-vastu-portal.vercel.app`);
-  document.getElementById('lv-from').value='';
+document.getElementById('lv-from').value='';
   document.getElementById('lv-to').value='';
   document.getElementById('lv-reason').value='';
+  document.getElementById('lv-file').value='';
+  document.getElementById('lv-file-preview').innerHTML = '<div class="upload-zone-text">📎 Click to upload (exam admit card, medical certificate, etc.)</div><div class="upload-zone-hint">PDF, JPG, PNG — up to 4 files, max 5MB each</div>';
   loadLeaves();
   setTimeout(()=>msg.textContent='',4000);
 }
