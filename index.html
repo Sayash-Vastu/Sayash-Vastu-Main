@@ -1881,14 +1881,44 @@
   </div>
   <div id="regularizationApproveList"></div>
 </div>
-      <div class="view" id="view-leaveApprove">
+<div class="view" id="view-leaveApprove">
         <div class="page-header">
           <h2>Leave Approvals</h2>
           <p>Approve or reject employee leave requests</p>
         </div>
-        <div id="leaveApproveList"></div>
-      </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px">
+          <div class="stat-card sc-gold"><div class="stat-icon">⏳</div><div class="stat-num" id="la-pending">0</div><div class="stat-lbl">Pending</div></div>
+          <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num" id="la-approved">0</div><div class="stat-lbl">Approved</div></div>
+          <div class="stat-card sc-red"><div class="stat-icon">❌</div><div class="stat-num" id="la-rejected">0</div><div class="stat-lbl">Rejected</div></div>
+          <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num" id="la-total">0</div><div class="stat-lbl">Total This Month</div></div>
+        </div>
 
+        <div id="pendingLeaveSection" style="margin-bottom:24px"></div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">📜 Leave History</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <input type="text" id="la-search" placeholder="🔍 Search employee..." style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;width:160px" oninput="renderLeaveHistory()">
+              <select id="la-type-filter" onchange="renderLeaveHistory()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none">
+                <option value="all">All Types</option>
+                <option>Casual</option><option>Sick</option><option>Earned</option><option>Half Day</option><option>Unpaid</option>
+              </select>
+              <select id="la-status-filter" onchange="renderLeaveHistory()" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none">
+                <option value="all">All Status</option>
+                <option>Approved</option><option>Rejected</option>
+              </select>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead><tr><th>Employee</th><th>Type</th><th>From</th><th>To</th><th>Days</th><th>Reason</th><th>Attachment</th><th>Status</th><th>Approved By</th><th>Action</th></tr></thead>
+              <tbody id="leaveHistoryBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    
     </div><!-- /main-content -->
   </div><!-- /app-layout -->
 </div><!-- /appPage -->
