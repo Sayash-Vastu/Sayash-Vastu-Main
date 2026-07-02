@@ -2877,7 +2877,7 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
   ? `<img src="${ceoPhotoMap[a.employee_email]}?t=${Date.now()}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:1px solid var(--border)" onerror="this.style.display='none'">`
       : `<div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px">${esc(a.employee_name).substring(0,2).toUpperCase()}</div>`
     }
-    <span style="font-weight:600;color:var(--navy)">${esc(a.employee_name)}</span>
+    <span style="font-weight:600;color:var(--navy)">${esc(getDisplayName(a.employee_name, todayAttAll.map(x => ({name: x.employee_name}))))}</span>
   </div>
 </td>
           <td style="padding:9px 14px">${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
