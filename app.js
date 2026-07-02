@@ -3943,7 +3943,7 @@ tbody.innerHTML = leaves.map(l=>`<tr>
     <td style="font-size:12px">${fmtDate(l.from_date)}</td>
     <td style="font-size:12px">${fmtDate(l.to_date)}</td>
     <td style="font-weight:700">${l.total_days||1}</td>
-    <td style="font-size:12px;color:var(--muted)">${esc(l.reason||'—')}</td>
+<td style="font-size:12px;color:var(--muted)">${esc(l.reason||'—')}${l.specific_dates ? `<div style="font-size:10.5px;color:var(--amber);font-weight:600;margin-top:3px">📅 ${esc(l.specific_dates)}</div>` : ''}</td>
     <td>${l.attachment_url ? l.attachment_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" style="font-size:11px;color:var(--blue);display:block">📎 File ${idx+1}</a>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
     <td>${leaveBadge(l.status)}</td>
     <td>${l.status==='Pending'?`<button onclick="cancelLeave('${l.id}')" style="background:#fdf0ee;color:var(--red);border:1px solid var(--red-bg);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancel</button>`:'—'}</td>
@@ -3973,10 +3973,11 @@ async function applyLeave() {
   const btn = document.querySelector('#leaveForm button') || document.querySelector('[onclick="applyLeave()"]');
   if (btn && btn.disabled) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Applying...'; }
-  const type=document.getElementById('lv-type').value;
+const type=document.getElementById('lv-type').value;
   const from=document.getElementById('lv-from').value;
   const to=document.getElementById('lv-to').value;
   const reason=document.getElementById('lv-reason').value.trim();
+  const specificDates=document.getElementById('lv-specific-dates').value.trim();
   const msg=document.getElementById('leaveMsg');
   if (!from||!to||!reason) { 
     msg.textContent='⚠️ Fill all fields'; 
@@ -4012,15 +4013,16 @@ async function applyLeave() {
 
 const days = type === 'Half Day' ? 0.5 : Math.ceil((new Date(to)-new Date(from))/86400000)+1;
   const { data: emp } = await sb.from('employees').select('id').eq('email',currentUser.email).single();
-  const { error } = await sb.from('leaves').insert({
+const { error } = await sb.from('leaves').insert({
     employee_id: emp?.id, employee_email: currentUser.email,
     employee_name: currentUser.name,
     leave_type: type, from_date: from, to_date: to,
     total_days: days, reason, status: 'Pending',
     attachment_url: attachmentUrls.join(', ') || null,
-    attachment_name: attachmentNames.join(', ') || null
+    attachment_name: attachmentNames.join(', ') || null,
+    specific_dates: specificDates || null
   });
-if (error) { 
+  if (error) { 
     msg.textContent='❌ '+error.message; 
     msg.style.color='var(--red)'; 
     if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
@@ -4040,6 +4042,7 @@ if (error) {
 document.getElementById('lv-from').value='';
   document.getElementById('lv-to').value='';
   document.getElementById('lv-reason').value='';
+  document.getElementById('lv-specific-dates').value='';
   document.getElementById('lv-file').value='';
   document.getElementById('lv-file-preview').innerHTML = '<div class="upload-zone-text">📎 Click to upload (exam admit card, medical certificate, etc.)</div><div class="upload-zone-hint">PDF, JPG, PNG — up to 4 files, max 5MB each</div>';
   loadLeaves();
