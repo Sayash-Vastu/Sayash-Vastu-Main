@@ -2443,15 +2443,15 @@ const annEl = document.getElementById('empAnniversary');
 annEl.innerHTML = anniversaries.map(e => {
       const years = new Date().getFullYear() - new Date(e.joining_date).getFullYear();
       const icon = years === 0 ? '👋' : '🏆';
-      return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa">
+return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa">
         <span style="font-size:20px">${icon}</span>
         <div>
-          <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>
+          ${years!==0 ? `<div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>` : ''}
 ${years===0
-? `<div style="font-size:11px;color:var(--navy);margin-top:4px;line-height:1.6"><strong>Hello ${esc(e.name)}! 👋</strong><br><br>A warm welcome to the Sayash Vastu family! We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.<br><br>Best Regards,<br>Team Sayash Vastu</div>`
-  : `<div style="font-size:13px;color:var(--navy);font-weight:700">Celebrating ${years} incredible year${years!==1?'s':''} together!</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">Thank you for your dedication and hard work. Here's to many more milestones ahead!</div>`
+            ? `<div style="font-size:11px;color:var(--navy);line-height:1.6"><strong>Hello ${esc(e.name)}! 👋</strong><br><br>A warm welcome to the Sayash Vastu family! We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.<br><br>Best Regards,<br>Team Sayash Vastu</div>`
+            : `<div style="font-size:13px;color:var(--navy);font-weight:700">Celebrating ${years} incredible year${years!==1?'s':''} together!</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">Thank you for your dedication and hard work. Here's to many more milestones ahead!</div>`
           }
-        </div>
+  </div>
       </div>`;
     }).join('');
     
