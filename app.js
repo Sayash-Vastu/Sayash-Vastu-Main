@@ -2440,20 +2440,21 @@ const annEl = document.getElementById('empAnniversary');
   if (!anniversaries.length) {
     annEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No work anniversaries today</div>';
   } else {
-    annEl.innerHTML = anniversaries.map(e => {
+annEl.innerHTML = anniversaries.map(e => {
       const years = new Date().getFullYear() - new Date(e.joining_date).getFullYear();
+      const icon = years === 0 ? '👋' : '🏆';
       return `<div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa">
-        <span style="font-size:20px">🎊</span>
+        <span style="font-size:20px">${icon}</span>
         <div>
           <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>
           ${years===0
-            ? `<div style="font-size:11px;color:var(--navy);margin-top:4px;line-height:1.6">A warm welcome to the Sayash Vastu family! 🌟 We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.<br><em>Best Regards, Team Sayash Vastu</em></div>`
-            : `<div style="font-size:13px;color:var(--navy);font-weight:700">🎉 Celebrating ${years} incredible year${years!==1?'s':''} together!</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">Thank you for your dedication and hard work. Here's to many more milestones ahead!</div>`
+            ? `<div style="font-size:11px;color:var(--navy);margin-top:4px;line-height:1.6">A warm welcome to the Sayash Vastu family! We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.<br><em>Best Regards, Team Sayash Vastu</em></div>`
+            : `<div style="font-size:13px;color:var(--navy);font-weight:700">Celebrating ${years} incredible year${years!==1?'s':''} together!</div><div style="font-size:12px;color:var(--muted);margin-top:4px;line-height:1.5">Thank you for your dedication and hard work. Here's to many more milestones ahead!</div>`
           }
         </div>
       </div>`;
     }).join('');
-
+    
 // Notify each anniversary person (once per day) — check DB instead of localStorage for reliability
     const todayDateStr = new Date().toISOString().split('T')[0];
     for (const e of anniversaries) {
@@ -2771,15 +2772,16 @@ document.getElementById('ceoDashStats').innerHTML = `
     if (!anniversaries.length) {
       annEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px">No anniversaries today</div>';
     } else {
-      annEl.innerHTML = anniversaries.map(e => {
+annEl.innerHTML = anniversaries.map(e => {
         const years = new Date().getFullYear() - new Date(e.joining_date).getFullYear();
+        const icon = years === 0 ? '👋' : '🏆';
         return `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid #f5f6fa">
-<span style="font-size:18px">🎊</span>
+<span style="font-size:18px">${icon}</span>
           <div>
             <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>
             ${years===0?`
 <div style="font-size:11px;font-weight:600;color:var(--gold);margin-top:2px">A warm welcome to the Sayash Vastu family!</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.</div>
+      <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.</div>
               <div style="font-size:10px;color:var(--muted);margin-top:3px;font-style:italic">Best Regards, Team Sayash Vastu</div>
             `:`<div style="font-size:10px;color:var(--muted)">${years} year${years!==1?'s':''} with Sayash Vastu! 🎊</div>`}
           </div>
