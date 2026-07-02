@@ -2430,13 +2430,17 @@ await loadDailyQuoteWithOverride();
   // Work Anniversary & Joinings
   const mm = String(new Date().getMonth()+1).padStart(2,'0');
   const dd = String(new Date().getDate()).padStart(2,'0');
-  const { data: emps } = await sb.from('employees').select('name,designation,joining_date,employee_code').eq('is_active', true);
+const { data: emps } = await sb.from('employees').select('name,designation,joining_date,employee_code').eq('is_active', true);
+  const todayForJoin = new Date(); todayForJoin.setHours(0,0,0,0);
   const anniversaries = (emps || []).filter(e => {
     if (!e.joining_date) return false;
-    const jd = new Date(e.joining_date);
-    return String(jd.getMonth()+1).padStart(2,'0') === mm && String(jd.getDate()).padStart(2,'0') === dd;
+    const jd = new Date(e.joining_date); jd.setHours(0,0,0,0);
+    const isAnniversaryToday = String(jd.getMonth()+1).padStart(2,'0') === mm && String(jd.getDate()).padStart(2,'0') === dd;
+    const daysSinceJoining = Math.floor((todayForJoin - jd) / 86400000);
+    const isNewJoineeWithinWeek = daysSinceJoining >= 0 && daysSinceJoining <= 6;
+    return isAnniversaryToday || isNewJoineeWithinWeek;
   });
-const annEl = document.getElementById('empAnniversary');
+  const annEl = document.getElementById('empAnniversary');
   if (!anniversaries.length) {
     annEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No work anniversaries today</div>';
   } else {
@@ -2761,11 +2765,15 @@ document.getElementById('ceoDashStats').innerHTML = `
   // Work Anniversary & New Joinings
   const mm = String(new Date().getMonth()+1).padStart(2,'0');
   const dd = String(new Date().getDate()).padStart(2,'0');
-  const { data: allEmpsAnn } = await sb.from('employees').select('name,designation,joining_date').eq('is_active',true);
+const { data: allEmpsAnn } = await sb.from('employees').select('name,designation,joining_date').eq('is_active',true);
+  const todayForJoinCeo = new Date(); todayForJoinCeo.setHours(0,0,0,0);
   const anniversaries = (allEmpsAnn||[]).filter(e => {
     if (!e.joining_date) return false;
-    const jd = new Date(e.joining_date);
-    return String(jd.getMonth()+1).padStart(2,'0')===mm && String(jd.getDate()).padStart(2,'0')===dd;
+    const jd = new Date(e.joining_date); jd.setHours(0,0,0,0);
+    const isAnniversaryToday = String(jd.getMonth()+1).padStart(2,'0')===mm && String(jd.getDate()).padStart(2,'0')===dd;
+    const daysSinceJoining = Math.floor((todayForJoinCeo - jd) / 86400000);
+    const isNewJoineeWithinWeek = daysSinceJoining >= 0 && daysSinceJoining <= 6;
+    return isAnniversaryToday || isNewJoineeWithinWeek;
   });
   const annEl = document.getElementById('ceoAnniversary');
   if (annEl) {
