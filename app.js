@@ -4563,11 +4563,12 @@ function leaveCard(l) {
           ${fmtDate(l.from_date)} → ${fmtDate(l.to_date)} · <strong>${l.total_days}</strong> day(s)
         </div>
         <div style="font-size:12px;margin-top:6px;color:var(--text)">${esc(l.reason||'—')}</div>
+        ${l.specific_dates ? `<div style="font-size:11.5px;color:var(--amber);font-weight:600;margin-top:5px">📅 ${esc(l.specific_dates)}</div>` : ''}
         ${l.attachment_url ? `<div style="margin-top:6px">${l.attachment_url.split(',').map((url,idx)=>`<a href="${url.trim()}" target="_blank" style="font-size:11px;color:var(--blue);margin-right:10px">📎 File ${idx+1}</a>`).join('')}</div>` : ''}
       </div>
       <div>${leaveBadge(l.status)}</div>
     </div>
-    <div class="leave-action-actions">
+<div class="leave-action-actions">
       <button class="btn btn-green btn-sm" onclick="approveLeave('${l.id}','Approved')">✅ Approve</button>
       <button class="btn btn-red btn-sm" onclick="approveLeave('${l.id}','Rejected')">❌ Reject</button>
       <button class="btn btn-sm" onclick="deleteLeaveRecord('${l.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-left:auto">🗑️ Delete</button>
@@ -4597,7 +4598,7 @@ function renderLeaveHistory() {
     <td style="font-size:12px">${fmtDate(l.from_date)}</td>
     <td style="font-size:12px">${fmtDate(l.to_date)}</td>
     <td style="font-weight:700;text-align:center">${l.total_days||1}</td>
-    <td style="font-size:12px;color:var(--muted);max-width:160px">${esc((l.reason||'—').substring(0,40))}</td>
+<td style="font-size:12px;color:var(--muted);max-width:160px">${esc((l.reason||'—').substring(0,40))}${l.specific_dates ? `<div style="font-size:10px;color:var(--amber);font-weight:600;margin-top:2px">📅 ${esc(l.specific_dates.substring(0,30))}</div>` : ''}</td>
     <td>${l.attachment_url ? l.attachment_url.split(',').map((url,idx)=>`<a href="${url.trim()}" target="_blank" style="font-size:11px;color:var(--blue);display:block">📎 ${idx+1}</a>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
     <td>${leaveBadge(l.status)}</td>
     <td style="font-size:12px;color:var(--muted)">${esc(l.approved_by||'—')}</td>
