@@ -2786,10 +2786,10 @@ annEl.innerHTML = anniversaries.map(e => {
         return `<div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid #f5f6fa">
 <span style="font-size:18px">${icon}</span>
           <div>
-            <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>
-${years===0?`
-<div style="font-size:11px;font-weight:700;color:var(--gold);margin-top:2px">Hello ${esc(e.name)}! 👋</div>
-              <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">Welcome to the Sayash Vastu family! We're thrilled to have you on board and can't wait to see the energy, ideas, and talent you'll bring to our team. Here's to a fantastic journey ahead!</div>
+            ${years!==0 ? `<div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(e.name)}</div>` : ''}
+            ${years===0?`
+<div style="font-size:11px;font-weight:700;color:var(--gold)">Hello ${esc(e.name)}! 👋</div>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.5">A warm welcome to the Sayash Vastu family! We are excited to have you on board and look forward to the skills, ideas, and enthusiasm you bring to our team. Wishing you a successful career and a wonderful experience with us.</div>
               <div style="font-size:10px;color:var(--muted);margin-top:6px">Best Regards,<br>Team Sayash Vastu</div>
             `:`<div style="font-size:10px;color:var(--muted)">${years} year${years!==1?'s':''} with Sayash Vastu!</div>`}
           </div>
