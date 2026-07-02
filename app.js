@@ -8406,7 +8406,7 @@ const catVal = document.getElementById('comp-cat-filter')?.value || 'all';
   const isAlisha = currentUser.email === 'alisha@sayashvastu.com';
   const isCEO = currentUser.role === 'ceo';
 
-  const { data: masterTasks } = await sb.from('compliance_tasks').select('*').eq('is_master', true).order('assigned_to_name').order('category');
+const { data: masterTasks } = await sb.from('compliance_tasks').select('*').eq('is_master', true).order('particulars', { ascending: true });
   const { data: monthOverrides } = await sb.from('compliance_tasks').select('*').eq('month_year', monthVal).eq('is_master', false);
   const overrideMap = {};
   (monthOverrides || []).forEach(o => { if (o.master_id) overrideMap[o.master_id] = o; });
