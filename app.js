@@ -3132,9 +3132,9 @@ const empExists = (emps||[]).find(e => e.email === empEmail || e.name === empNam
       return ed && today > ed;
     }).length;
 
-    const attRecord = (todayAtt||[]).find(a => a.employee_name === empName);
-    const empInfo = (emps||[]).find(e => e.name === empName);
-
+const attRecord = (todayAtt||[]).find(a => a.employee_email === empEmail || a.employee_name === canonicalName);
+    const empInfo = (emps||[]).find(e => e.email === empEmail || e.name === canonicalName);
+    
     let attBadge = '<span class="badge b-red" style="font-size:10px">Absent</span>';
     if (attRecord?.check_in && !attRecord?.check_out) attBadge = '<span class="badge b-green" style="font-size:10px">Present</span>';
     else if (attRecord?.check_in && attRecord?.check_out) attBadge = '<span class="badge b-blue" style="font-size:10px">Checked Out</span>';
