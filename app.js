@@ -3124,6 +3124,7 @@ async function loadCeoActivityFeed() {
 const empEmail = empTasks[0]?.assigned_to_email || '';
 const empExists = (emps||[]).find(e => e.email === empEmail || e.name === empName);
     if (!empExists) return;
+    if (empExists.role === 'ceo') return;
     const canonicalName = empExists.name || empName;
     const activeTasks = empTasks.filter(t => t.work_status !== 'Completed' && t.work_status !== 'Report Ready');
     const completedCount = empTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
