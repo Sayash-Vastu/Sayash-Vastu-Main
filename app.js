@@ -3099,7 +3099,7 @@ async function loadCeoActivityFeed() {
   document.getElementById('ceoActivitySection').style.display = 'block';
   const { data: tasks } = await sb.from('tasks').select('*').eq('is_archived',false).order('updated_at',{ascending:false});
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', new Date().toISOString().split('T')[0]).eq('is_archived',false);
-  const { data: emps } = await sb.from('employees').select('name,email,designation').eq('is_active',true);
+const { data: emps } = await sb.from('employees').select('name,email,designation,role').eq('is_active',true);
   const el = document.getElementById('ceoActivityFeed');
 
   if (!tasks || !tasks.length) {
