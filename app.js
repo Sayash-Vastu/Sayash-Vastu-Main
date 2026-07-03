@@ -2640,14 +2640,16 @@ async function loadCeoDashboard() {
       ceoQuoteEl.innerHTML = `"${esc(qCeo.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(qCeo.author)}</div>`;
     }
   }
-  const { count: totalEmp } = await sb.from('employees').select('*',{count:'exact'}).eq('is_active',true);
+const { count: totalEmp } = await sb.from('employees').select('*',{count:'exact'}).eq('is_active',true).neq('role','ceo');
   const { count: totalTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false);
   const { count: pendingLeaves } = await sb.from('leaves').select('*',{count:'exact'}).eq('status','Pending');
   const { count: doneTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false).eq('work_status','Completed');
 
 const todayDate = new Date().toISOString().split('T')[0];
+  const { data: ceoEmails } = await sb.from('employees').select('email').eq('role','ceo');
+  const ceoEmailSet = new Set((ceoEmails||[]).map(e=>e.email));
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', todayDate).eq('is_archived',false);
-  const presentToday = (todayAtt||[]).filter(a=>a.status==='Present'||a.status==='Half Day').length;
+  const presentToday = (todayAtt||[]).filter(a=>(a.status==='Present'||a.status==='Half Day') && !ceoEmailSet.has(a.employee_email)).length;
   const { data: leaveTodayCount } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date',todayDate).gte('to_date',todayDate);
   const onLeaveCount = (leaveTodayCount||[]).length;
   const isWeekendNow = [0,6].includes(new Date().getDay());
