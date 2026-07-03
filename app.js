@@ -2640,13 +2640,13 @@ async function loadCeoDashboard() {
       ceoQuoteEl.innerHTML = `"${esc(qCeo.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(qCeo.author)}</div>`;
     }
   }
-const { count: totalEmp } = await sb.from('employees').select('*',{count:'exact'}).eq('is_active',true).neq('role','ceo');
+const { count: totalEmp } = await sb.from('employees').select('*',{count:'exact'}).eq('is_active',true).not('role','in','(ceo,hr)');
   const { count: totalTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false);
   const { count: pendingLeaves } = await sb.from('leaves').select('*',{count:'exact'}).eq('status','Pending');
   const { count: doneTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false).eq('work_status','Completed');
 
 const todayDate = new Date().toISOString().split('T')[0];
-  const { data: ceoEmails } = await sb.from('employees').select('email').eq('role','ceo');
+  const { data: ceoEmails } = await sb.from('employees').select('email').in('role',['ceo','hr']);
   const ceoEmailSet = new Set((ceoEmails||[]).map(e=>e.email));
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', todayDate).eq('is_archived',false);
   const presentToday = (todayAtt||[]).filter(a=>(a.status==='Present'||a.status==='Half Day') && !ceoEmailSet.has(a.employee_email)).length;
@@ -3124,7 +3124,7 @@ const { data: emps } = await sb.from('employees').select('name,email,designation
 const empEmail = empTasks[0]?.assigned_to_email || '';
 const empExists = (emps||[]).find(e => e.email === empEmail || e.name === empName);
     if (!empExists) return;
-    if (empExists.role === 'ceo') return;
+if (empExists.role === 'ceo' || empExists.role === 'hr') return;
     const canonicalName = empExists.name || empName;
     const activeTasks = empTasks.filter(t => t.work_status !== 'Completed' && t.work_status !== 'Report Ready');
     const completedCount = empTasks.filter(t => t.work_status === 'Completed' || t.work_status === 'Report Ready').length;
