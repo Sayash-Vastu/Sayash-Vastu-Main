@@ -1383,10 +1383,19 @@ function openAddVisitEmpGlobal() {
   </div>
 <input id="avg-project-new" placeholder="+ Add a new project (if not listed above)" style="margin-top:8px">
 </div>
-          <div class="field" style="grid-column:1/-1"><label>Sub Project</label>
-            <input id="avg-subproject" list="avgSubProjectList" placeholder="Type or select sub project...">
-            <datalist id="avgSubProjectList"></datalist>
-          </div>
+<div class="field" style="grid-column:1/-1">
+  <label>Sub Projects (select all that apply)</label>
+  <input id="avg-subproject-search" placeholder="🔍 Search sub projects..." style="margin-bottom:8px" oninput="filterSubProjectChips()">
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <button type="button" class="btn btn-outline btn-sm" onclick="toggleAllSubProjects(true)">Select All</button>
+    <button type="button" class="btn btn-outline btn-sm" onclick="toggleAllSubProjects(false)">Clear All</button>
+    <span id="avg-subproject-count" style="font-size:11px;color:var(--muted);align-self:center;margin-left:auto"></span>
+  </div>
+  <div id="avg-subproject-list" style="display:flex;flex-direction:column;gap:2px;padding:6px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;max-height:220px;overflow-y:auto;background:#fff">
+    <span style="font-size:12px;color:var(--muted);padding:8px">Select a client first...</span>
+  </div>
+  <input id="avg-subproject-new" placeholder="+ Add a new sub project (if not listed above)" style="margin-top:8px">
+</div>
           <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
           <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
 <div class="field" style="grid-column:1/-1"><label>Visited By</label>
@@ -2068,20 +2077,27 @@ async function loadProjectsForClientByName(clientName) {
 
 async function loadProjectsForClient(clientId) {
   const listEl = document.getElementById('avg-project-list');
-  const subDl = document.getElementById('avgSubProjectList');
+  const subListEl = document.getElementById('avg-subproject-list');
   window._avgSelectedProjects = [];
+  window._avgSelectedSubProjects = [];
   if (!listEl) return;
-  if (!clientId) { listEl.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:8px">Select a client first...</span>'; if (subDl) subDl.innerHTML = ''; updateProjectCount(); return; }
+  if (!clientId) {
+    listEl.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:8px">Select a client first...</span>';
+    if (subListEl) subListEl.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:8px">Select a client first...</span>';
+    updateProjectCount(); updateSubProjectCount();
+    return;
+  }
 
   const { data } = await sbClient.from('project_records').select('project_name, sub_project_name').eq('client_id', clientId);
   window._avgClientRecords = data || [];
   const projectNames = [...new Set(window._avgClientRecords.map(r => r.project_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  const subProjectNames = [...new Set(window._avgClientRecords.map(r => r.sub_project_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
   window._avgAllProjectNames = projectNames;
+  window._avgAllSubProjectNames = subProjectNames;
 
   renderProjectChips(projectNames);
-  if (subDl) subDl.innerHTML = [...new Set(window._avgClientRecords.map(r => r.sub_project_name).filter(Boolean))].map(name => `<option value="${esc(name)}">`).join('');
+  renderSubProjectChips(subProjectNames);
 }
-
 function renderProjectChips(projectNames) {
   const listEl = document.getElementById('avg-project-list');
   if (!listEl) return;
