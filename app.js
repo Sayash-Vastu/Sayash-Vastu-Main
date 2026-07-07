@@ -1381,7 +1381,7 @@ function openAddVisitEmpGlobal() {
   <div id="avg-project-list" style="display:flex;flex-direction:column;gap:2px;padding:6px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;max-height:220px;overflow-y:auto;background:#fff">
     <span style="font-size:12px;color:var(--muted);padding:8px">Select a client first...</span>
   </div>
-  <input id="avg-project-new" placeholder="+ Naya project ka naam type karo (optional)" style="margin-top:8px">
+<input id="avg-project-new" placeholder="+ Add a new project (if not listed above)" style="margin-top:8px">
 </div>
           <div class="field" style="grid-column:1/-1"><label>Sub Project</label>
             <input id="avg-subproject" list="avgSubProjectList" placeholder="Type or select sub project...">
