@@ -1392,7 +1392,7 @@ function openAddVisitEmpGlobal() {
 <div class="field"><label>Type</label>
             <select id="avg-type">
               <option>Site Visit</option>
-              <option>Meeting</option>
+              <option>Head Office</option>
               <option>Telephonic</option>
               <option>Mail</option>
             </select>
