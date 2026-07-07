@@ -1438,11 +1438,12 @@ sb.from('employees').select('name').eq('is_active', true).order('name').then(({ 
     if (assignedList) assignedList.innerHTML = opts;
 
     window._avgSelectedVisitors = [currentUser.name];
+    const byListData = [...(data || []), { name: 'Satish Gupta' }];
     const byListEl = document.getElementById('avg-by-list');
-    if (byListEl && data) {
-      byListEl.innerHTML = data.map(e => {
+    if (byListEl) {
+      byListEl.innerHTML = byListData.map(e => {
         const isMe = e.name === currentUser.name;
-        const dispName = getDisplayName(e.name, data);
+        const dispName = getDisplayName(e.name, byListData);
         return `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:${isMe?'var(--gold)':'var(--bg)'};border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid ${isMe?'var(--gold)':'var(--border)'};color:${isMe?'var(--navy)':'var(--text)'};font-weight:${isMe?'700':'400'}" id="visitor-chip-${e.name.replace(/[^a-z0-9]/gi,'_')}">
           <input type="checkbox" value="${esc(e.name)}" ${isMe?'checked':''} onchange="toggleVisitorSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
           ${esc(dispName)}
