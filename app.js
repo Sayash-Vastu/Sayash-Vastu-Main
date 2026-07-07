@@ -1372,8 +1372,14 @@ function openAddVisitEmpGlobal() {
           </div>
 <div class="field" style="grid-column:1/-1">
   <label>Projects Visited (select all that apply)</label>
-  <div id="avg-project-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;background:#fff">
-    <span style="font-size:12px;color:var(--muted)">Select a client first...</span>
+  <input id="avg-project-search" placeholder="🔍 Search projects..." style="margin-bottom:8px" oninput="filterProjectChips()">
+  <div style="display:flex;gap:8px;margin-bottom:8px">
+    <button type="button" class="btn btn-outline btn-sm" onclick="toggleAllProjects(true)">Select All</button>
+    <button type="button" class="btn btn-outline btn-sm" onclick="toggleAllProjects(false)">Clear All</button>
+    <span id="avg-project-count" style="font-size:11px;color:var(--muted);align-self:center;margin-left:auto"></span>
+  </div>
+  <div id="avg-project-list" style="display:flex;flex-direction:column;gap:2px;padding:6px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;max-height:220px;overflow-y:auto;background:#fff">
+    <span style="font-size:12px;color:var(--muted);padding:8px">Select a client first...</span>
   </div>
   <input id="avg-project-new" placeholder="+ Naya project ka naam type karo (optional)" style="margin-top:8px">
 </div>
@@ -2065,36 +2071,79 @@ async function loadProjectsForClient(clientId) {
   const subDl = document.getElementById('avgSubProjectList');
   window._avgSelectedProjects = [];
   if (!listEl) return;
-  if (!clientId) { listEl.innerHTML = '<span style="font-size:12px;color:var(--muted)">Select a client first...</span>'; if (subDl) subDl.innerHTML = ''; return; }
+  if (!clientId) { listEl.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:8px">Select a client first...</span>'; if (subDl) subDl.innerHTML = ''; updateProjectCount(); return; }
 
   const { data } = await sbClient.from('project_records').select('project_name, sub_project_name').eq('client_id', clientId);
   window._avgClientRecords = data || [];
-  const projectNames = [...new Set(window._avgClientRecords.map(r => r.project_name).filter(Boolean))];
+  const projectNames = [...new Set(window._avgClientRecords.map(r => r.project_name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  window._avgAllProjectNames = projectNames;
 
-  if (!projectNames.length) {
-    listEl.innerHTML = '<span style="font-size:12px;color:var(--muted)">No existing projects — type a new one below</span>';
-  } else {
-    listEl.innerHTML = projectNames.map(name => `
-      <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid var(--border)" id="proj-chip-${name.replace(/[^a-z0-9]/gi,'_')}">
-        <input type="checkbox" value="${esc(name)}" onchange="toggleProjectSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
-        ${esc(name)}
-      </label>
-    `).join('');
-  }
+  renderProjectChips(projectNames);
   if (subDl) subDl.innerHTML = [...new Set(window._avgClientRecords.map(r => r.sub_project_name).filter(Boolean))].map(name => `<option value="${esc(name)}">`).join('');
+}
+
+function renderProjectChips(projectNames) {
+  const listEl = document.getElementById('avg-project-list');
+  if (!listEl) return;
+  if (!projectNames.length) {
+    listEl.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:8px">No existing projects — type a new one below</span>';
+    updateProjectCount();
+    return;
+  }
+  const selected = window._avgSelectedProjects || [];
+  listEl.innerHTML = projectNames.map(name => {
+    const isSel = selected.includes(name);
+    return `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;background:${isSel?'#fdf6e3':'transparent'}" id="proj-chip-${name.replace(/[^a-z0-9]/gi,'_')}" onmouseover="if(!this.classList.contains('sel'))this.style.background='#f8f9fc'" onmouseout="this.style.background='${isSel?'#fdf6e3':'transparent'}'">
+      <input type="checkbox" value="${esc(name)}" ${isSel?'checked':''} onchange="toggleProjectSelect(this)" style="cursor:pointer;accent-color:var(--gold);width:15px;height:15px;flex-shrink:0"/>
+      <span style="color:${isSel?'var(--navy)':'var(--text)'};font-weight:${isSel?'700':'400'}">${esc(name)}</span>
+    </label>`;
+  }).join('');
+  updateProjectCount();
+}
+
+function filterProjectChips() {
+  const q = (document.getElementById('avg-project-search')?.value || '').toLowerCase();
+  const all = window._avgAllProjectNames || [];
+  renderProjectChips(all.filter(n => n.toLowerCase().includes(q)));
+}
+
+function toggleAllProjects(selectAll) {
+  const visible = (window._avgAllProjectNames || []).filter(n => {
+    const q = (document.getElementById('avg-project-search')?.value || '').toLowerCase();
+    return n.toLowerCase().includes(q);
+  });
+  window._avgSelectedProjects = window._avgSelectedProjects || [];
+  visible.forEach(name => {
+    if (selectAll && !window._avgSelectedProjects.includes(name)) window._avgSelectedProjects.push(name);
+    if (!selectAll) window._avgSelectedProjects = window._avgSelectedProjects.filter(n => n !== name);
+  });
+  renderProjectChips(visible.length ? (window._avgAllProjectNames || []).filter(n => visible.includes(n) || window._avgSelectedProjects.includes(n)) : (window._avgAllProjectNames || []));
+  filterProjectChips();
 }
 
 function toggleProjectSelect(checkbox) {
   window._avgSelectedProjects = window._avgSelectedProjects || [];
   const name = checkbox.value;
-  const chipId = 'proj-chip-' + name.replace(/[^a-z0-9]/gi,'_');
-  const chip = document.getElementById(chipId);
   if (checkbox.checked) {
     if (!window._avgSelectedProjects.includes(name)) window._avgSelectedProjects.push(name);
-    if (chip) { chip.style.background='var(--gold)'; chip.style.borderColor='var(--gold)'; chip.style.color='var(--navy)'; chip.style.fontWeight='700'; }
   } else {
     window._avgSelectedProjects = window._avgSelectedProjects.filter(n => n !== name);
-    if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
+  }
+  const chip = document.getElementById('proj-chip-' + name.replace(/[^a-z0-9]/gi,'_'));
+  if (chip) {
+    chip.style.background = checkbox.checked ? '#fdf6e3' : 'transparent';
+    const span = chip.querySelector('span');
+    if (span) { span.style.color = checkbox.checked ? 'var(--navy)' : 'var(--text)'; span.style.fontWeight = checkbox.checked ? '700' : '400'; }
+  }
+  updateProjectCount();
+}
+
+function updateProjectCount() {
+  const el = document.getElementById('avg-project-count');
+  if (el) {
+    const n = (window._avgSelectedProjects || []).length;
+    el.textContent = n > 0 ? `${n} selected` : '';
   }
 }
 function loadSubProjectsForProject(projectName) {
