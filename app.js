@@ -2162,8 +2162,71 @@ function updateProjectCount() {
     el.textContent = n > 0 ? `${n} selected` : '';
   }
 }
+
+function renderSubProjectChips(names) {
+  const listEl = document.getElementById('avg-subproject-list');
+  if (!listEl) return;
+  if (!names.length) {
+    listEl.innerHTML = '<span style="font-size:12px;color:var(--muted);padding:8px">No existing sub projects — type a new one below</span>';
+    updateSubProjectCount();
+    return;
+  }
+  const selected = window._avgSelectedSubProjects || [];
+  listEl.innerHTML = names.map(name => {
+    const isSel = selected.includes(name);
+    return `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;background:${isSel?'#fdf6e3':'transparent'}" id="subproj-chip-${name.replace(/[^a-z0-9]/gi,'_')}" onmouseover="if(!this.classList.contains('sel'))this.style.background='#f8f9fc'" onmouseout="this.style.background='${isSel?'#fdf6e3':'transparent'}'">
+      <input type="checkbox" value="${esc(name)}" ${isSel?'checked':''} onchange="toggleSubProjectSelect(this)" style="cursor:pointer;accent-color:var(--gold);width:15px;height:15px;flex-shrink:0"/>
+      <span style="color:${isSel?'var(--navy)':'var(--text)'};font-weight:${isSel?'700':'400'}">${esc(name)}</span>
+    </label>`;
+  }).join('');
+  updateSubProjectCount();
+}
+
+function filterSubProjectChips() {
+  const q = (document.getElementById('avg-subproject-search')?.value || '').toLowerCase();
+  const all = window._avgAllSubProjectNames || [];
+  renderSubProjectChips(all.filter(n => n.toLowerCase().includes(q)));
+}
+
+function toggleAllSubProjects(selectAll) {
+  const q = (document.getElementById('avg-subproject-search')?.value || '').toLowerCase();
+  const visible = (window._avgAllSubProjectNames || []).filter(n => n.toLowerCase().includes(q));
+  window._avgSelectedSubProjects = window._avgSelectedSubProjects || [];
+  visible.forEach(name => {
+    if (selectAll && !window._avgSelectedSubProjects.includes(name)) window._avgSelectedSubProjects.push(name);
+    if (!selectAll) window._avgSelectedSubProjects = window._avgSelectedSubProjects.filter(n => n !== name);
+  });
+  filterSubProjectChips();
+}
+
+function toggleSubProjectSelect(checkbox) {
+  window._avgSelectedSubProjects = window._avgSelectedSubProjects || [];
+  const name = checkbox.value;
+  if (checkbox.checked) {
+    if (!window._avgSelectedSubProjects.includes(name)) window._avgSelectedSubProjects.push(name);
+  } else {
+    window._avgSelectedSubProjects = window._avgSelectedSubProjects.filter(n => n !== name);
+  }
+  const chip = document.getElementById('subproj-chip-' + name.replace(/[^a-z0-9]/gi,'_'));
+  if (chip) {
+    chip.style.background = checkbox.checked ? '#fdf6e3' : 'transparent';
+    const span = chip.querySelector('span');
+    if (span) { span.style.color = checkbox.checked ? 'var(--navy)' : 'var(--text)'; span.style.fontWeight = checkbox.checked ? '700' : '400'; }
+  }
+  updateSubProjectCount();
+}
+
+function updateSubProjectCount() {
+  const el = document.getElementById('avg-subproject-count');
+  if (el) {
+    const n = (window._avgSelectedSubProjects || []).length;
+    el.textContent = n > 0 ? `${n} selected` : '';
+  }
+}
+
 function loadSubProjectsForProject(projectName) {
-  const subSel = document.getElementById('avg-subproject');
+const subSel = document.getElementById('avg-subproject');
   if (!subSel) return;
   if (!projectName) { subSel.innerHTML = '<option value="">Select Sub Project</option>'; return; }
 
@@ -2182,7 +2245,6 @@ async function saveVisitGlobal() {
 
   if (!clientName) { showToast('⚠️ Client required', 'warn'); return; }
 
-  // If client name typed but doesn't exist, create it
   if (!clientId) {
     const { data: newClient, error: newClientErr } = await sbClient.from('clients').insert({
       name: clientName,
@@ -2198,13 +2260,19 @@ async function saveVisitGlobal() {
       return;
     }
   }
-const newProjectTyped = document.getElementById('avg-project-new').value.trim();
+
+  const newProjectTyped = document.getElementById('avg-project-new').value.trim();
   let projectsToProcess = [...(window._avgSelectedProjects || [])];
   if (newProjectTyped) projectsToProcess.push(newProjectTyped);
   if (!projectsToProcess.length) projectsToProcess = ['Site Visit'];
-  const subName = document.getElementById('avg-subproject').value;
+
+  const newSubProjectTyped = document.getElementById('avg-subproject-new').value.trim();
+  let subProjectsToProcess = [...(window._avgSelectedSubProjects || [])];
+  if (newSubProjectTyped) subProjectsToProcess.push(newSubProjectTyped);
+  if (!subProjectsToProcess.length) subProjectsToProcess = [null];
+
   const assignedToName = document.getElementById('avg-assigned').value.trim();
-const visitedBy = (window._avgSelectedVisitors || []).join(', ');
+  const visitedBy = (window._avgSelectedVisitors || []).join(', ');
   if (!visitedBy) { showToast('⚠️ Kam se kam ek visitor select karo', 'warn'); return; }
   const visitType = document.getElementById('avg-type').value;
   const discussion = document.getElementById('avg-discussion').value.trim();
@@ -2212,7 +2280,6 @@ const visitedBy = (window._avgSelectedVisitors || []).join(', ');
   const visitDate = document.getElementById('avg-date').value || null;
   const suggestions = document.getElementById('avg-suggestions').value.trim();
 
-  // Handle file upload / OneDrive link
   let attachmentUrl = document.getElementById('avg-onedrive-link').value.trim() || null;
   const avgFile = document.getElementById('avgFile').files[0];
   if (avgFile) {
@@ -2226,103 +2293,107 @@ const visitedBy = (window._avgSelectedVisitors || []).join(', ');
     }
   }
 
-const voiceNoteUrls = await uploadVoiceNotes('avg');
+  const voiceNoteUrls = await uploadVoiceNotes('avg');
 
-let allErrors = [];
-  for (const currentProject of projectsToProcess) {
-    const { error } = await sbClient.from('site_visits').insert({
-      client_id: clientId,
-      project_name: currentProject,
-      sub_project_name: subName || null,
-      visit_date: visitDate,
-      layout_received_date: document.getElementById('avg-layout-date').value || null,
-      visited_by: visitedBy,
-      assigned_to: assignedToName,
-      location: location,
-      discussion: discussion,
-      suggestions: suggestions,
-      remarks: document.getElementById('avg-remarks').value.trim(),
-      voice_notes: voiceNoteUrls,
-    });
-    if (error) allErrors.push(currentProject + ': ' + error.message);
-  }
-  if (allErrors.length) { showToast('❌ ' + allErrors.join(', '), 'err'); return; }
-  // Detect client type to build the right tracker_records payload
   const isMaxHealthcare = clientName === 'MAX Healthcare';
   const isSignatureGlobal = clientName === 'Signature Global';
 
-let trackerPayload = {
-    client_id: clientId,
-    project_name: projectName || 'Site Visit',
-    sub_project_name: subName || null,
-    tracker_status: 'Pending',
-    hyperlink: attachmentUrl,
-    assigned_to_name: assignedToName || null,
-  };
-  if (isMaxHealthcare) {
-    trackerPayload.coordinator = visitedBy;
-    trackerPayload.site_visit_date = visitDate;
-    trackerPayload.recommendation = discussion || 'Site visit report pending';
-    trackerPayload.record_type = visitType;
-    trackerPayload.location_links = location ? [location] : [];
-    trackerPayload.vastu_reports = [];
-  } else if (isSignatureGlobal) {
-    trackerPayload.site_visit_date = visitDate;
-    trackerPayload.sg_team_visitor = visitedBy;
-    trackerPayload.sayash_observation = discussion || 'Site visit report pending';
-    trackerPayload.document_received = visitType;
-    trackerPayload.site_plan_link = location || null;
-  } else {
-    trackerPayload.received_from = visitedBy;
-    trackerPayload.recommendation = discussion || 'Site visit report pending';
-    trackerPayload.site_visit_date = visitDate;
-trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : visitType === 'Mail' ? 'Mail Consultation' : 'Other';
-    trackerPayload.location_link = location || null;
-    trackerPayload.comments = suggestions || null;
-  }
-
-  let linkedRecordId = null;
-  const { data: trackerRecord, error: trackerErr } = await sbClient.from('project_records').insert(trackerPayload).select().single();
-  if (trackerErr) {
-    showToast('⚠️ Tracker record nahi bana: ' + trackerErr.message, 'warn');
-  } else if (trackerRecord) {
-    linkedRecordId = trackerRecord.id;
-  }
-
-  // Create a task for the assigned person
+  let allErrors = [];
+  let empMatch = null;
   if (assignedToName) {
-    const { data: empMatch } = await sb.from('employees').select('email,name').ilike('name', assignedToName).maybeSingle();
-    const assignedEmail = empMatch?.email || null;
-    const assignedName = empMatch?.name || assignedToName;
+    const { data } = await sb.from('employees').select('email,name').ilike('name', assignedToName).maybeSingle();
+    empMatch = data;
+  }
+  const assignedEmail = empMatch?.email || null;
+  const assignedName = empMatch?.name || assignedToName;
 
-    if (assignedEmail) {
-await sb.from('tasks').insert({
-        project: clientName,
-        task_detail: `Site visit report pending — ${clientName}${projectName ? ' / ' + projectName : ''}${subName ? ' / ' + subName : ''}. ${discussion || ''}`.trim(),
+  for (const currentProject of projectsToProcess) {
+    for (const currentSubProject of subProjectsToProcess) {
+
+      const { error } = await sbClient.from('site_visits').insert({
+        client_id: clientId,
+        project_name: currentProject,
+        sub_project_name: currentSubProject,
+        visit_date: visitDate,
+        layout_received_date: document.getElementById('avg-layout-date').value || null,
+        visited_by: visitedBy,
+        assigned_to: assignedToName,
+        location: location,
+        discussion: discussion,
+        suggestions: suggestions,
+        remarks: document.getElementById('avg-remarks').value.trim(),
         voice_notes: voiceNoteUrls,
-      assigned_to_email: assignedEmail.toLowerCase(),
-        assigned_to_name: assignedName,
-        assigned_by_email: currentUser.email,
-        assigned_by_name: currentUser.name,
-        start_date: new Date().toISOString().split('T')[0],
-        end_date: new Date().toISOString().split('T')[0],
-        work_status: 'Not Started',
-        ceo_approval: 'Pending',
-        linked_record_id: linkedRecordId,
-        linked_client_id: clientId,
-        file_url: attachmentUrl,
-        file_name: avgFile ? avgFile.name : (attachmentUrl ? 'OneDrive Link' : null),
       });
-      await createNotification(assignedEmail.toLowerCase(), `📋 New task — Site visit report pending`, `${clientName}${projectName ? ' / ' + projectName : ''} — report banani hai.`, 'task', 'tasks');
-      await sendEmail(assignedEmail, assignedName, '📋 New Task — Site Visit Report Pending',
-        `You have been assigned a task.\n\nClient: ${clientName}\nProject: ${projectName || '-'}\nDetails: ${discussion || '-'}\n\nPlease login to view and complete.`,
-        'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
-    } else {
-      showToast('⚠️ Task create nahi hua — employee email nahi mila "' + assignedToName + '" ke liye', 'warn');
+      if (error) { allErrors.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ': ' + error.message); continue; }
+
+      let trackerPayload = {
+        client_id: clientId,
+        project_name: currentProject,
+        sub_project_name: currentSubProject,
+        tracker_status: 'Pending',
+        hyperlink: attachmentUrl,
+        assigned_to_name: assignedToName || null,
+      };
+      if (isMaxHealthcare) {
+        trackerPayload.coordinator = visitedBy;
+        trackerPayload.site_visit_date = visitDate;
+        trackerPayload.recommendation = discussion || 'Site visit report pending';
+        trackerPayload.record_type = visitType;
+        trackerPayload.location_links = location ? [location] : [];
+        trackerPayload.vastu_reports = [];
+      } else if (isSignatureGlobal) {
+        trackerPayload.site_visit_date = visitDate;
+        trackerPayload.sg_team_visitor = visitedBy;
+        trackerPayload.sayash_observation = discussion || 'Site visit report pending';
+        trackerPayload.document_received = visitType;
+        trackerPayload.site_plan_link = location || null;
+      } else {
+        trackerPayload.received_from = visitedBy;
+        trackerPayload.recommendation = discussion || 'Site visit report pending';
+        trackerPayload.site_visit_date = visitDate;
+        trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : visitType === 'Mail' ? 'Mail Consultation' : 'Other';
+        trackerPayload.location_link = location || null;
+        trackerPayload.comments = suggestions || null;
+      }
+
+      let linkedRecordId = null;
+      const { data: trackerRecord, error: trackerErr } = await sbClient.from('project_records').insert(trackerPayload).select().single();
+      if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
+
+      if (assignedEmail) {
+        await sb.from('tasks').insert({
+          project: clientName,
+          task_detail: `Site visit report pending — ${clientName} / ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}. ${discussion || ''}`.trim(),
+          voice_notes: voiceNoteUrls,
+          assigned_to_email: assignedEmail.toLowerCase(),
+          assigned_to_name: assignedName,
+          assigned_by_email: currentUser.email,
+          assigned_by_name: currentUser.name,
+          start_date: new Date().toISOString().split('T')[0],
+          end_date: new Date().toISOString().split('T')[0],
+          work_status: 'Not Started',
+          ceo_approval: 'Pending',
+          linked_record_id: linkedRecordId,
+          linked_client_id: clientId,
+          file_url: attachmentUrl,
+          file_name: avgFile ? avgFile.name : (attachmentUrl ? 'OneDrive Link' : null),
+        });
+        await createNotification(assignedEmail.toLowerCase(), `📋 New task — Site visit report pending`, `${clientName} / ${currentProject} — report banani hai.`, 'task', 'tasks');
+        await sendEmail(assignedEmail, assignedName, '📋 New Task — Site Visit Report Pending',
+          `You have been assigned a task.\n\nClient: ${clientName}\nProject: ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}\nDetails: ${discussion || '-'}\n\nPlease login to view and complete.`,
+          'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
+      }
     }
   }
 
-  showToast('✅ Site visit saved' + (assignedToName ? ' & task assigned!' : '!'), 'ok');
+  if (assignedToName && !assignedEmail) {
+    showToast('⚠️ Task create nahi hua — employee email nahi mila "' + assignedToName + '" ke liye', 'warn');
+  }
+  if (allErrors.length) {
+    showToast('⚠️ Kuch entries fail hui: ' + allErrors.join(', '), 'warn');
+  } else {
+    showToast('✅ Site visit(s) saved' + (assignedToName ? ' & task(s) assigned!' : '!'), 'ok');
+  }
   closeModal('addVisitGlobalModal');
   loadClientVisitsAll();
 }
