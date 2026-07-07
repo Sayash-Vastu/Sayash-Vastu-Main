@@ -1370,10 +1370,13 @@ function openAddVisitEmpGlobal() {
             <input id="avg-client" list="avgClientList" placeholder="Type or select client..." onchange="loadProjectsForClientByName(this.value)">
             <datalist id="avgClientList"></datalist>
           </div>
-<div class="field" style="grid-column:1/-1"><label>Project</label>
-            <input id="avg-project" list="avgProjectList" placeholder="Type or select project...">
-            <datalist id="avgProjectList"></datalist>
-          </div>
+<div class="field" style="grid-column:1/-1">
+  <label>Projects Visited (select all that apply)</label>
+  <div id="avg-project-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;background:#fff">
+    <span style="font-size:12px;color:var(--muted)">Select a client first...</span>
+  </div>
+  <input id="avg-project-new" placeholder="+ Naya project ka naam type karo (optional)" style="margin-top:8px">
+</div>
           <div class="field" style="grid-column:1/-1"><label>Sub Project</label>
             <input id="avg-subproject" list="avgSubProjectList" placeholder="Type or select sub project...">
             <datalist id="avgSubProjectList"></datalist>
@@ -2058,17 +2061,41 @@ async function loadProjectsForClientByName(clientName) {
 }
 
 async function loadProjectsForClient(clientId) {
-  const dl = document.getElementById('avgProjectList');
+  const listEl = document.getElementById('avg-project-list');
   const subDl = document.getElementById('avgSubProjectList');
-  if (!dl) return;
-  if (!clientId) { dl.innerHTML = ''; if (subDl) subDl.innerHTML = ''; return; }
+  window._avgSelectedProjects = [];
+  if (!listEl) return;
+  if (!clientId) { listEl.innerHTML = '<span style="font-size:12px;color:var(--muted)">Select a client first...</span>'; if (subDl) subDl.innerHTML = ''; return; }
 
   const { data } = await sbClient.from('project_records').select('project_name, sub_project_name').eq('client_id', clientId);
   window._avgClientRecords = data || [];
   const projectNames = [...new Set(window._avgClientRecords.map(r => r.project_name).filter(Boolean))];
 
-  dl.innerHTML = projectNames.map(name => `<option value="${esc(name)}">`).join('');
+  if (!projectNames.length) {
+    listEl.innerHTML = '<span style="font-size:12px;color:var(--muted)">No existing projects — type a new one below</span>';
+  } else {
+    listEl.innerHTML = projectNames.map(name => `
+      <label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid var(--border)" id="proj-chip-${name.replace(/[^a-z0-9]/gi,'_')}">
+        <input type="checkbox" value="${esc(name)}" onchange="toggleProjectSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
+        ${esc(name)}
+      </label>
+    `).join('');
+  }
   if (subDl) subDl.innerHTML = [...new Set(window._avgClientRecords.map(r => r.sub_project_name).filter(Boolean))].map(name => `<option value="${esc(name)}">`).join('');
+}
+
+function toggleProjectSelect(checkbox) {
+  window._avgSelectedProjects = window._avgSelectedProjects || [];
+  const name = checkbox.value;
+  const chipId = 'proj-chip-' + name.replace(/[^a-z0-9]/gi,'_');
+  const chip = document.getElementById(chipId);
+  if (checkbox.checked) {
+    if (!window._avgSelectedProjects.includes(name)) window._avgSelectedProjects.push(name);
+    if (chip) { chip.style.background='var(--gold)'; chip.style.borderColor='var(--gold)'; chip.style.color='var(--navy)'; chip.style.fontWeight='700'; }
+  } else {
+    window._avgSelectedProjects = window._avgSelectedProjects.filter(n => n !== name);
+    if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
+  }
 }
 function loadSubProjectsForProject(projectName) {
   const subSel = document.getElementById('avg-subproject');
@@ -2106,7 +2133,10 @@ async function saveVisitGlobal() {
       return;
     }
   }
-const projectName = document.getElementById('avg-project').value;
+const newProjectTyped = document.getElementById('avg-project-new').value.trim();
+  let projectsToProcess = [...(window._avgSelectedProjects || [])];
+  if (newProjectTyped) projectsToProcess.push(newProjectTyped);
+  if (!projectsToProcess.length) projectsToProcess = ['Site Visit'];
   const subName = document.getElementById('avg-subproject').value;
   const assignedToName = document.getElementById('avg-assigned').value.trim();
 const visitedBy = (window._avgSelectedVisitors || []).join(', ');
@@ -2133,20 +2163,25 @@ const visitedBy = (window._avgSelectedVisitors || []).join(', ');
 
 const voiceNoteUrls = await uploadVoiceNotes('avg');
 
-  const { error } = await sbClient.from('site_visits').insert({
-    client_id: clientId,
-    visit_date: visitDate,
-    layout_received_date: document.getElementById('avg-layout-date').value || null,
-    visited_by: visitedBy,
-    assigned_to: assignedToName,
-    location: location,
-    discussion: discussion,
-    suggestions: suggestions,
-    remarks: document.getElementById('avg-remarks').value.trim(),
-    voice_notes: voiceNoteUrls,
-  });
-  if (error) { showToast('❌ ' + error.message, 'err'); return; }
-
+let allErrors = [];
+  for (const currentProject of projectsToProcess) {
+    const { error } = await sbClient.from('site_visits').insert({
+      client_id: clientId,
+      project_name: currentProject,
+      sub_project_name: subName || null,
+      visit_date: visitDate,
+      layout_received_date: document.getElementById('avg-layout-date').value || null,
+      visited_by: visitedBy,
+      assigned_to: assignedToName,
+      location: location,
+      discussion: discussion,
+      suggestions: suggestions,
+      remarks: document.getElementById('avg-remarks').value.trim(),
+      voice_notes: voiceNoteUrls,
+    });
+    if (error) allErrors.push(currentProject + ': ' + error.message);
+  }
+  if (allErrors.length) { showToast('❌ ' + allErrors.join(', '), 'err'); return; }
   // Detect client type to build the right tracker_records payload
   const isMaxHealthcare = clientName === 'MAX Healthcare';
   const isSignatureGlobal = clientName === 'Signature Global';
