@@ -2176,7 +2176,7 @@ let trackerPayload = {
     trackerPayload.received_from = visitedBy;
     trackerPayload.recommendation = discussion || 'Site visit report pending';
     trackerPayload.site_visit_date = visitDate;
-    trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Meeting' ? 'Meeting' : visitType === 'Mail' ? 'Mail Consultation' : 'Other';
+trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : visitType === 'Mail' ? 'Mail Consultation' : 'Other';
     trackerPayload.location_link = location || null;
     trackerPayload.comments = suggestions || null;
   }
