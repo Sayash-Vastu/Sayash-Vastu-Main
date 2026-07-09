@@ -1278,8 +1278,9 @@ document.getElementById('clientVisitsList').innerHTML = `
       <div class="panel-body" style="padding:0">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
           <thead>
-            <tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
+<tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
               <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Client</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Project</th>
               <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Date</th>
               <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Visited By</th>
               <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Location</th>
