@@ -1261,26 +1261,38 @@ async function loadClientVisitsAll() {
     document.getElementById('clientVisitsList').innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-title">No site visits yet</div></div>';
     return;
   }
-document.getElementById('clientVisitsList').innerHTML = data.map(v => `
-    <div class="panel" style="margin-bottom:14px">
-      <div class="panel-head">
-<div class="panel-title">🏗️ ${esc(v.clients?.name||'-')} <span style="font-size:12px;font-weight:400;color:var(--muted);margin-left:8px">${fmtDate(v.visit_date)}</span></div>
-        <div style="display:flex;gap:8px;align-items:center">
-          <span class="badge b-blue">${esc(v.visited_by||'-')}</span>
-          <button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
-        </div>
-      </div>
-      <div class="panel-body">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-          ${v.location?`<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📍 Location</div><div style="font-size:13px">${esc(v.location)}</div></div>`:''}
-          ${v.assigned_to?`<div><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">👤 Assigned To</div><div style="font-size:13px">${esc(v.assigned_to)}</div></div>`:''}
-          ${v.discussion?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">💬 Site Description</div><div style="font-size:13px">${esc(v.discussion)}</div></div>`:''}
-          ${v.suggestions?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">✨ Vastu Suggestions</div><div style="font-size:13px">${esc(v.suggestions)}</div></div>`:''}
-          ${v.remarks?`<div style="grid-column:1/-1"><div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">📝 Remarks</div><div style="font-size:13px">${esc(v.remarks)}</div></div>`:''}
-        </div>
+document.getElementById('clientVisitsList').innerHTML = `
+    <div class="panel">
+      <div class="panel-body" style="padding:0">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Client</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Date</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Visited By</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Location</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Description</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Suggestions</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.map(v => `
+              <tr style="border-bottom:1px solid #f5f6fa">
+                <td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(v.clients?.name||'-')}</td>
+                <td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
+                <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
+                <td style="padding:9px 14px;max-width:150px">${esc(v.location||'-')}</td>
+                <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
+                <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
+                <td style="padding:9px 14px"><button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     </div>
-  `).join('');
+  `;
 }
 async function deleteSiteVisitGlobal(visitId) {
   if (!confirm('Delete this site visit?')) return;
@@ -1471,20 +1483,19 @@ sb.from('employees').select('name').eq('is_active', true).order('name').then(({ 
     const opts = (data || []).map(e => `<option value="${esc(e.name)}">`).join('');
     if (assignedList) assignedList.innerHTML = opts;
 
-    window._avgSelectedVisitors = [currentUser.name];
+window._avgSelectedVisitors = [];
     const byListData = [...(data || []), { name: 'Satish Gupta' }];
     const byListEl = document.getElementById('avg-by-list');
     if (byListEl) {
       byListEl.innerHTML = byListData.map(e => {
-        const isMe = e.name === currentUser.name;
         const dispName = getDisplayName(e.name, byListData);
-        return `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:${isMe?'var(--gold)':'var(--bg)'};border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid ${isMe?'var(--gold)':'var(--border)'};color:${isMe?'var(--navy)':'var(--text)'};font-weight:${isMe?'700':'400'}" id="visitor-chip-${e.name.replace(/[^a-z0-9]/gi,'_')}">
-          <input type="checkbox" value="${esc(e.name)}" ${isMe?'checked':''} onchange="toggleVisitorSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
+        return `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid var(--border);color:var(--text);font-weight:400" id="visitor-chip-${e.name.replace(/[^a-z0-9]/gi,'_')}">
+          <input type="checkbox" value="${esc(e.name)}" onchange="toggleVisitorSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
           ${esc(dispName)}
         </label>`;
       }).join('');
     }
-  });
+});
 }
 window._avgClientRecords = [];
 window._atClientRecords = [];
