@@ -1213,12 +1213,14 @@ async function loadClientVisitsAll() {
   `;
   const { data } = await sbClient.from('site_visits').select('*, clients(name)').order('visit_date', { ascending: false });
 
-  // Build summary: total visits + per-employee breakdown
+// Build summary: total visits + per-employee breakdown (split combined visitor names)
   const totalVisits = (data || []).length;
   const empCounts = {};
   (data || []).forEach(v => {
-    const name = v.visited_by || 'Unknown';
-    empCounts[name] = (empCounts[name] || 0) + 1;
+    const names = (v.visited_by || 'Unknown').split(',').map(n => n.trim()).filter(Boolean);
+    names.forEach(name => {
+      empCounts[name] = (empCounts[name] || 0) + 1;
+    });
   });
   const sortedEmps = Object.entries(empCounts).sort((a,b) => b[1] - a[1]);
 
@@ -1228,19 +1230,33 @@ async function loadClientVisitsAll() {
         <div class="panel-title">📊 Site Visit Summary</div>
         <span class="badge b-navy">${totalVisits} Total Visits</span>
       </div>
-      <div class="panel-body" style="display:flex;flex-wrap:wrap;gap:10px">
-        ${!sortedEmps.length ? '<div style="color:var(--muted);font-size:13px">No visits recorded yet</div>' :
-          sortedEmps.map(([name, count]) => `
-            <div style="display:flex;align-items:center;gap:8px;background:var(--bg);padding:8px 14px;border-radius:8px">
-              <div class="av" style="width:26px;height:26px;font-size:10px;background:var(--navy)">${esc(name).substring(0,2).toUpperCase()}</div>
-              <span style="font-size:12px;font-weight:600;color:var(--navy)">${esc(name)}</span>
-              <span class="badge b-blue" style="font-size:11px">${count} visit${count>1?'s':''}</span>
-            </div>
-          `).join('')}
+      <div class="panel-body" style="padding:0">
+        ${!sortedEmps.length ? '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No visits recorded yet</div>' : `
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead>
+            <tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
+              <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Employee</th>
+              <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Total Visits</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedEmps.map(([name, count]) => `
+              <tr style="border-bottom:1px solid #f5f6fa">
+                <td style="padding:10px 16px">
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <div class="av" style="width:26px;height:26px;font-size:10px;background:var(--navy)">${esc(name).substring(0,2).toUpperCase()}</div>
+                    <span style="font-weight:600;color:var(--navy)">${esc(name)}</span>
+                  </div>
+                </td>
+                <td style="padding:10px 16px"><span class="badge b-blue">${count} visit${count>1?'s':''}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        `}
       </div>
     </div>
   `;
-
   if (!data?.length) {
     document.getElementById('clientVisitsList').innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-title">No site visits yet</div></div>';
     return;
@@ -2347,8 +2363,9 @@ async function saveVisitGlobal() {
         trackerPayload.sayash_observation = discussion || 'Site visit report pending';
         trackerPayload.document_received = visitType;
         trackerPayload.site_plan_link = location || null;
-      } else {
-        trackerPayload.received_from = visitedBy;
+} else {
+        trackerPayload.received_from = currentUser.name;
+        trackerPayload.visited_by = visitedBy;
         trackerPayload.recommendation = discussion || 'Site visit report pending';
         trackerPayload.site_visit_date = visitDate;
         trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : visitType === 'Mail' ? 'Mail Consultation' : 'Other';
