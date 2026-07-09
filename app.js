@@ -4510,6 +4510,7 @@ async function addEmployee() {
   const desig=document.getElementById('ae-desig').value.trim();
   const role=document.getElementById('ae-role').value;
   const pass=document.getElementById('ae-pass').value.trim();
+  const weekOff=document.getElementById('ae-weekoff') ? document.getElementById('ae-weekoff').value : 'sunday_only';
   if (!name||!email||!code||!pass) { showToast('⚠️ Fill required fields!','err'); return; }
   const dob = document.getElementById('ae-dob').value;
   const joining = document.getElementById('ae-joining').value;
@@ -4518,10 +4519,10 @@ async function addEmployee() {
   const { data: newEmp, error } = await sb.from('employees').insert({
     name, email: email.toLowerCase(), phone, employee_code: code,
     department: dept, designation: desig, role, password_hash: pass,
-    date_of_birth: dob || null, joining_date: joining || null
+    date_of_birth: dob || null, joining_date: joining || null,
+    weekly_off_pattern: weekOff
   }).select().single();
   
-  // Upload photo if selected
   if (!error && newEmp && photoFile) {
     const photoPath = `${newEmp.id}/profile.${photoFile.name.split('.').pop()}`;
     const { data: uploadData } = await sb.storage.from('employee-photos').upload(photoPath, photoFile, {upsert: true});
@@ -4535,7 +4536,6 @@ async function addEmployee() {
   closeModal('addEmpModal');
   loadEmployees(); loadEmployeeAutocomplete();
 }
-
 async function loadOfferLetters() {
   const { data } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
   const tbody = document.getElementById('offerLettersBody');
