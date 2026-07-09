@@ -1234,9 +1234,10 @@ async function loadClientVisitsAll() {
         ${!sortedEmps.length ? '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No visits recorded yet</div>' : `
         <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead>
-            <tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
-              <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Employee</th>
-              <th style="padding:10px 16px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Total Visits</th>
+<tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Client</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Project</th>
+              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Date</th>
             </tr>
           </thead>
           <tbody>
@@ -1279,7 +1280,8 @@ document.getElementById('clientVisitsList').innerHTML = `
           <tbody>
             ${data.map(v => `
               <tr style="border-bottom:1px solid #f5f6fa">
-                <td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(v.clients?.name||'-')}</td>
+<td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(v.clients?.name||'-')}</td>
+                <td style="padding:9px 14px;color:var(--muted)">${esc(v.project_name||'-')}${v.sub_project_name ? ' / ' + esc(v.sub_project_name) : ''}</td>
                 <td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
                 <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
                 <td style="padding:9px 14px;max-width:150px">${esc(v.location||'-')}</td>
