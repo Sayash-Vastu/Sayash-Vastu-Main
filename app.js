@@ -1212,6 +1212,17 @@ async function loadClientVisitsAll() {
     <div id="clientVisitsList"></div>
   `;
   const { data } = await sbClient.from('site_visits').select('*, clients(name)').order('visit_date', { ascending: false });
+  // Ensure correct date-wise sorting (parses actual date, newest first)
+  if (data && data.length) {
+    data.sort((a, b) => {
+      const parseDate = (d) => {
+        if (!d) return 0;
+        const parts = d.includes('-') && d.split('-')[0].length <= 2 ? d.split('-').reverse().join('-') : d;
+        return new Date(parts).getTime() || 0;
+      };
+      return parseDate(b.visit_date) - parseDate(a.visit_date);
+    });
+  }
 
 // Build summary: total visits + per-employee breakdown (split combined visitor names)
   const totalVisits = (data || []).length;
