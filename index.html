@@ -1952,6 +1952,13 @@
         <div class="field"><label>Employee Code</label><input type="text" id="ae-code" placeholder="EMP005"/></div>
         <div class="field"><label>Department</label><input type="text" id="ae-dept" placeholder="Design"/></div>
         <div class="field"><label>Designation</label><input type="text" id="ae-desig" placeholder="Designer"/></div>
+        <div class="field"><label>Weekly Off Pattern</label>
+          <select id="ae-weekoff">
+            <option value="sunday_only">Sunday Only (Default)</option>
+            <option value="sat_sun_both">Saturday + Sunday Both Off</option>
+            <option value="alternate_saturday">Alternate Saturday Off</option>
+          </select>
+        </div>
         <div class="field"><label>Date of Birth</label><input type="date" id="ae-dob"/></div>
         <div class="field"><label>Joining Date</label><input type="date" id="ae-joining"/></div>
         <div class="field"><label>Role</label>
@@ -1966,7 +1973,7 @@
           <div id="ae-photo-preview" style="display:flex;align-items:center;gap:12px">
             <div style="font-size:24px">📷</div>
             <div>
-              <div class="upload-zone-text">Click to upload photo</div>
+  <div class="upload-zone-text">Click to upload photo</div>
               <div class="upload-zone-hint">JPG, PNG — max 2MB</div>
             </div>
           </div>
