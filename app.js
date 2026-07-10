@@ -6483,8 +6483,8 @@ async function loadMyAttendance() {
     .eq('employee_email', currentUser.email)
     .eq('is_archived', false)
     .gte('date', start).lte('date', end)
-    .order('date', {ascending: false});
-
+.order('date', {ascending: true});
+  
   const { data: leaveDataMy } = await sb.from('leaves').select('*')
     .eq('employee_email', currentUser.email)
     .eq('status', 'Approved')
@@ -6538,28 +6538,67 @@ async function loadMyAttendance() {
     </div>
   `;
 
-  // Table
+// Table
   const days2 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const tbody = document.getElementById('attBody');
-  if (!attData || !attData.length) {
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No attendance records this month</td></tr>';
-    return;
-  }
-  tbody.innerHTML = attData.map(a => {
-    const d = new Date(a.date);
-const isWeekend = d.getDay()===0;
-    return `<tr style="${isWeekend?'background:#f8f9fc':''}">
-      <td style="font-weight:600">${fmtDate(a.date)}</td>
-      <td style="font-size:11px;color:${isWeekend?'var(--muted)':'var(--text)'}">${days2[d.getDay()]}</td>
-      <td>${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
-      <td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
-      <td style="font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+'h':'—'}</td>
-      <td>${attBadge(a.status)}</td>
-      <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
-    </tr>`;
-  }).join('');
-}
+  const attMapMy = {};
+  (attData||[]).forEach(a => { attMapMy[a.date] = a; });
+  const todayCheckMy = new Date(); todayCheckMy.setHours(0,0,0,0);
+  const rowsHtml = [];
+  for (let d = 1; d <= totalDays; d++) {
+    const dateObj = new Date(yr, mo-1, d);
+    const dateStr = `${yr}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isWeekend = dateObj.getDay() === 0;
+    const a = attMapMy[dateStr];
+    const onLeave = (leaveDataMy||[]).find(l => dateStr >= l.from_date && dateStr <= l.to_date);
+    const isFuture = dateObj > todayCheckMy;
 
+    if (a) {
+      rowsHtml.push(`<tr style="${isWeekend?'background:#f8f9fc':''}">
+        <td style="font-weight:600">${fmtDate(a.date)}</td>
+        <td style="font-size:11px;color:${isWeekend?'var(--muted)':'var(--text)'}">${days2[dateObj.getDay()]}</td>
+        <td>${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
+        <td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
+        <td style="font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+'h':'—'}</td>
+        <td>${attBadge(a.status)}</td>
+        <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+      </tr>`);
+    } else if (onLeave) {
+      rowsHtml.push(`<tr style="${isWeekend?'background:#f8f9fc':''}">
+        <td style="font-weight:600">${fmtDate(dateStr)}</td>
+        <td style="font-size:11px;color:${isWeekend?'var(--muted)':'var(--text)'}">${days2[dateObj.getDay()]}</td>
+        <td>—</td><td>—</td><td>—</td>
+        <td>${attBadge('Leave')}</td>
+        <td>—</td>
+      </tr>`);
+    } else if (isWeekend) {
+      rowsHtml.push(`<tr style="background:#f8f9fc">
+        <td style="font-weight:600">${fmtDate(dateStr)}</td>
+        <td style="font-size:11px;color:var(--muted)">${days2[dateObj.getDay()]}</td>
+        <td>—</td><td>—</td><td>—</td>
+        <td>${attBadge('Week Off')}</td>
+        <td>—</td>
+      </tr>`);
+    } else if (isFuture) {
+      rowsHtml.push(`<tr>
+        <td style="font-weight:600;color:var(--muted)">${fmtDate(dateStr)}</td>
+        <td style="font-size:11px;color:var(--muted)">${days2[dateObj.getDay()]}</td>
+        <td>—</td><td>—</td><td>—</td>
+        <td>—</td>
+        <td>—</td>
+      </tr>`);
+    } else {
+      rowsHtml.push(`<tr>
+        <td style="font-weight:600">${fmtDate(dateStr)}</td>
+        <td style="font-size:11px">${days2[dateObj.getDay()]}</td>
+        <td>—</td><td>—</td><td>—</td>
+        <td>${attBadge('Absent')}</td>
+        <td>—</td>
+      </tr>`);
+    }
+  }
+  tbody.innerHTML = rowsHtml.join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No data</td></tr>';
+}
 async function exportMyAttPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
