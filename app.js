@@ -2624,7 +2624,20 @@ await loadDailyQuoteWithOverride();
   }
 
   // On Leave Today
-  const { data: leaveToday } = await sb.from('leaves').select('*').eq('status', 'Approved').lte('from_date', today).gte('to_date', today);
+const { data: leaveTodayRaw } = await sb.from('leaves').select('*').eq('status', 'Approved');
+  const leaveToday = (leaveTodayRaw || []).filter(l => {
+    const inRange = l.from_date <= today && l.to_date >= today;
+    const inSpecific = l.specific_dates && l.specific_dates.split(',').map(d => d.trim()).some(d => {
+      // Handle DD-MM-YYYY or D-M-YYYY format in specific_dates
+      const parts = d.split('-');
+      if (parts.length === 3) {
+        const normalized = parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
+        return normalized === today;
+      }
+      return d === today;
+    });
+    return inRange || inSpecific;
+  });
   const leaveTodayEl = document.getElementById('empLeaveToday');
   if (!leaveToday || !leaveToday.length) {
     leaveTodayEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No one on leave today</div>';
@@ -2943,7 +2956,19 @@ document.getElementById('ceoDashStats').innerHTML = `
 
   // On Leave Today
   const todayStr = new Date().toISOString().split('T')[0];
-  const { data: leaveToday } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',todayStr).gte('to_date',todayStr);
+const { data: leaveTodayRawCeo } = await sb.from('leaves').select('*').eq('status','Approved');
+  const leaveToday = (leaveTodayRawCeo || []).filter(l => {
+    const inRange = l.from_date <= todayStr && l.to_date >= todayStr;
+    const inSpecific = l.specific_dates && l.specific_dates.split(',').map(d => d.trim()).some(d => {
+      const parts = d.split('-');
+      if (parts.length === 3) {
+        const normalized = parts[2] + '-' + parts[1].padStart(2,'0') + '-' + parts[0].padStart(2,'0');
+        return normalized === todayStr;
+      }
+      return d === todayStr;
+    });
+    return inRange || inSpecific;
+  });
   const leaveTodayEl = document.getElementById('ceoLeaveToday');
   if (leaveTodayEl) {
     if (!leaveToday||!leaveToday.length) {
