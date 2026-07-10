@@ -4072,53 +4072,16 @@ async function loadAttendance() {
     checkedMsg.style.display='block'; checkedMsg.textContent='✅ Attendance complete for today!';
     statusText.textContent='In: '+new Date(todayAtt.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})+' | Out: '+new Date(todayAtt.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
   }
-const now = new Date();
-  const monthStart = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-01';
-  const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  const monthEndStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(lastDayOfMonth).padStart(2,'0');
-  const { data: monthAtt } = await sb.from('attendance').select('status,date').eq('employee_email',currentUser.email).eq('is_archived',false).gte('date',monthStart);
-  const { data: monthLeaves } = await sb.from('leaves').select('*').eq('employee_email',currentUser.email).eq('status','Approved').lte('from_date',monthEndStr).gte('to_date',monthStart);
- let leaveCountThisMonth = (monthLeaves||[]).reduce((sum,l) => sum + (parseFloat(l.total_days) || 0), 0);
-const presentDatesSet = new Set((monthAtt||[]).map(a=>a.date));
-const presentCount = (monthAtt||[]).filter(a=>a.status==='Present').length;
-  const halfCount = (monthAtt||[]).filter(a=>a.status==='Half Day').length;
-  const todayForCalc = new Date(); todayForCalc.setHours(0,0,0,0);
-  let absentCount = 0;
-  const dInLoop = new Date(now.getFullYear(), now.getMonth(), 1);
-  while (dInLoop.getMonth() === now.getMonth()) {
-    const dsLoop = dInLoop.getFullYear() + '-' + String(dInLoop.getMonth()+1).padStart(2,'0') + '-' + String(dInLoop.getDate()).padStart(2,'0');
-    const isSundayLoop = dInLoop.getDay() === 0;
-    const hasAttLoop = presentDatesSet.has(dsLoop);
-    const isOnLeaveLoop = (monthLeaves||[]).some(l => dsLoop >= l.from_date && dsLoop <= l.to_date);
-    const isFutureLoop = dInLoop > todayForCalc;
-    if (!hasAttLoop && !isSundayLoop && !isOnLeaveLoop && !isFutureLoop) absentCount++;
-    dInLoop.setDate(dInLoop.getDate()+1);
+// Delegate stats + table rendering to loadMyAttendance (respects month selector)
+  const monthEl = document.getElementById('att-my-month');
+  if (monthEl) {
+    if (!monthEl.value) {
+      const nowM = new Date();
+      monthEl.value = nowM.getFullYear() + '-' + String(nowM.getMonth()+1).padStart(2,'0');
+    }
+    loadMyAttendance();
   }
-  document.getElementById('att-present').textContent=presentCount;
-  document.getElementById('att-absent').textContent=absentCount;
-  document.getElementById('att-half').textContent=halfCount;
-  document.getElementById('att-leave').textContent=leaveCountThisMonth;
-  const { data: allAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('is_archived',false).order('date',{ascending:false}).limit(30);
-  const tbody = document.getElementById('attBody');
-  if (!allAtt||!allAtt.length) {
-    tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No attendance records</td></tr>'; return;
-  }
-  const days2 = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  tbody.innerHTML = allAtt.map(a=>{
-    const d = new Date(a.date);
-const isWeekend = d.getDay()===0;
-    return `<tr style="${isWeekend?'background:#f8f9fc':''}">
-    <td style="font-weight:600">${fmtDate(a.date)}</td>
-    <td style="font-size:11px;color:${isWeekend?'var(--muted)':'var(--text)'}">${days2[d.getDay()]}</td>
-    <td>${a.check_in?new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
-    <td>${a.check_out?new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}):'—'}</td>
-    <td style="font-weight:600">${a.working_hours?parseFloat(a.working_hours).toFixed(1)+' hrs':'—'}</td>
-    <td>${attBadge(a.status)}</td>
-    <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
-  </tr>`;
-  }).join('');
 }
-
 function initAttMonth() {
   const now = new Date();
   const monthEl = document.getElementById('att-my-month');
@@ -6478,7 +6441,7 @@ async function loadMyAttendance() {
   if (!monthVal) return;
   const [yr, mo] = monthVal.split('-');
   const start = `${yr}-${mo}-01`;
-  const end = new Date(yr, mo, 0).toISOString().split('T')[0];
+const end = `${yr}-${mo}-${String(new Date(yr, mo, 0).getDate()).padStart(2,'0')}`;
   const totalDays = new Date(yr, mo, 0).getDate();
 
   const { data: attData } = await sb.from('attendance').select('*')
