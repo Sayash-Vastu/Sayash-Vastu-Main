@@ -4625,7 +4625,47 @@ function isWeeklyOff(date, pattern) {
   }
   return dow === 0;
 }
+async function getLeavePaidMap(employeeEmail, year, joiningDate) {
+  const yStart = `${year}-01-01`, yEnd = `${year}-12-31`;
+  const { data: leaveRows } = await sb.from('leaves').select('*')
+    .eq('employee_email', employeeEmail).eq('status', 'Approved')
+    .lte('from_date', yEnd).gte('to_date', yStart)
+    .order('from_date', { ascending: true });
 
+  const join = joiningDate ? new Date(joiningDate) : new Date(year, 0, 1);
+  const yearStart = new Date(year, 0, 1);
+  const effectiveStart = join > yearStart ? join : yearStart;
+
+  let scPool = 0;
+  for (let m = effectiveStart.getMonth(); m <= 11; m++) scPool++;
+  scPool = Math.min(scPool, 12);
+
+  const refDate = new Date(year, 11, 31);
+  const tenureMonths = (refDate.getFullYear() - join.getFullYear()) * 12 + (refDate.getMonth() - join.getMonth());
+  let elPool = tenureMonths >= 12 ? 15 : (tenureMonths >= 4 ? 5 : 0);
+
+  const paidDates = new Set();
+  const lopDates = new Set();
+
+  (leaveRows || []).forEach(rec => {
+    const type = rec.leave_type;
+    const days = [];
+    let d = new Date(rec.from_date);
+    const end = new Date(rec.to_date);
+    while (d <= end) { days.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1); }
+
+    if (type === 'Earned Leave') {
+      days.forEach(ds => { if (elPool > 0) { paidDates.add(ds); elPool--; } else lopDates.add(ds); });
+    } else if (type === 'Other') {
+      days.forEach(ds => lopDates.add(ds));
+    } else {
+      const perDay = type === 'Half Day' ? 0.5 : 1;
+      days.forEach(ds => { if (scPool >= perDay) { paidDates.add(ds); scPool -= perDay; } else lopDates.add(ds); });
+    }
+  });
+
+  return { paidDates, lopDates };
+}
 // ── Core payroll calculator ──
 async function calculatePayroll(employeeEmail, year, month) {
   const { data: emp } = await sb.from('employees').select('*').eq('email', employeeEmail).single();
@@ -4643,14 +4683,10 @@ async function calculatePayroll(employeeEmail, year, month) {
 
   const { data: attRows } = await sb.from('attendance').select('*')
     .eq('employee_email', employeeEmail).eq('is_archived', false).gte('date', startDate).lte('date', endDate);
-  const { data: leaveRows } = await sb.from('leaves').select('*')
-    .eq('employee_email', employeeEmail).eq('status', 'Approved')
-    .lte('from_date', endDate).gte('to_date', startDate);
+const { paidDates, lopDates: quotaExceedDates } = await getLeavePaidMap(employeeEmail, year, emp.joining_date);
 
   const attByDate = {};
   (attRows || []).forEach(r => { attByDate[r.date] = r; });
-  const isOnLeave = dateStr => (leaveRows || []).some(l => dateStr >= l.from_date && dateStr <= l.to_date);
-
   let payableDays = 0, lopDays = 0, weeklyOffDays = 0, presentDays = 0, halfDays = 0, leaveDaysCount = 0;
 
   for (let d = 1; d <= daysInMonth; d++) {
@@ -4662,7 +4698,8 @@ async function calculatePayroll(employeeEmail, year, month) {
     const att = attByDate[dateStr];
     if (att?.status === 'Present') { presentDays++; payableDays++; }
 else if (att?.status === 'Half Day') { halfDays++; payableDays += 1; }
-    else if (isOnLeave(dateStr)) { leaveDaysCount++; payableDays++; }
+else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; }
+    else if (quotaExceedDates.has(dateStr)) { lopDays++; }
     else { lopDays++; }
   }
 
