@@ -4610,7 +4610,7 @@ async function loadSalaryStructure() {
   const { data } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
   const tbody = document.getElementById('salaryStructureBody');
   if (!data || !data.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>';
     return;
   }
   tbody.innerHTML = data.map(e => `<tr>
@@ -4621,22 +4621,35 @@ async function loadSalaryStructure() {
         <span style="font-weight:600">${esc(e.name)}</span>
       </div>
     </td>
-    <td style="font-size:12px">${esc(e.designation||'—')}</td>
+    <td><input type="number" id="basic-${e.id}" value="${e.basic_salary || 0}" oninput="updateGrossDisplay('${e.id}')" style="width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px"></td>
+    <td><input type="number" id="hra-${e.id}" value="${e.hra || 0}" oninput="updateGrossDisplay('${e.id}')" style="width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px"></td>
+    <td><input type="number" id="spec-${e.id}" value="${e.special_allowance || 0}" oninput="updateGrossDisplay('${e.id}')" style="width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px"></td>
     <td>
-      <input type="number" id="sal-${e.id}" value="${e.monthly_salary || 0}" style="width:140px;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Sans',sans-serif">
-    </td>
-    <td>
-      <button class="btn btn-gold btn-sm" onclick="updateSalary('${e.id}','${esc(e.name)}')">💾 Save</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span id="gross-${e.id}" style="font-weight:700;color:var(--green)">₹${((e.basic_salary||0)+(e.hra||0)+(e.special_allowance||0)).toLocaleString('en-IN')}</span>
+        <button class="btn btn-gold btn-sm" onclick="updateSalary('${e.id}','${esc(e.name)}')">💾 Save</button>
+      </div>
     </td>
   </tr>`).join('');
 }
 
+function updateGrossDisplay(empId) {
+  const basic = parseFloat(document.getElementById('basic-'+empId).value) || 0;
+  const hra = parseFloat(document.getElementById('hra-'+empId).value) || 0;
+  const spec = parseFloat(document.getElementById('spec-'+empId).value) || 0;
+  document.getElementById('gross-'+empId).textContent = '₹' + (basic+hra+spec).toLocaleString('en-IN');
+}
+
 async function updateSalary(empId, empName) {
-  const val = document.getElementById('sal-' + empId).value;
-  const salary = parseFloat(val) || 0;
-  const { error } = await sb.from('employees').update({ monthly_salary: salary }).eq('id', empId);
+  const basic = parseFloat(document.getElementById('basic-'+empId).value) || 0;
+  const hra = parseFloat(document.getElementById('hra-'+empId).value) || 0;
+  const spec = parseFloat(document.getElementById('spec-'+empId).value) || 0;
+  const gross = basic + hra + spec;
+  const { error } = await sb.from('employees').update({
+    basic_salary: basic, hra: hra, special_allowance: spec, monthly_salary: gross
+  }).eq('id', empId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
-  showToast(`✅ Salary updated for ${empName}: ₹${salary.toLocaleString('en-IN')}`, 'ok');
+  showToast(`✅ Salary updated for ${empName}: ₹${gross.toLocaleString('en-IN')}`, 'ok');
 }
 // ═══════════════════════════════════════════
 //  ATT REPORT CEO
