@@ -6708,27 +6708,26 @@ const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/publ
   setStroke(ORANGE); doc.setLineWidth(0.4);
   doc.line(10, y, W-10, y);
 
-  // ── EMPLOYEE INFO BOX ────────────────────────────────
+// ── EMPLOYEE INFO BOX ────────────────────────────────
   y += 3;
-const boxH = 42;
-setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
-doc.roundedRect(12, y, W-24, boxH, 2, 2, 'FD');
-setFill(NAVY); doc.rect(12, y, 1.5, boxH, 'F');
-
-const leftInfo = [['Employee Code', r.employee.employee_code||'—'],['Employee Name', r.employee.name],['Designation', r.employee.designation||'—'],['Department', r.employee.department||'—']];
-const rightInfo = [['Pay Period', monthName+' '+r.year],['Total Days in Month', String(r.daysInMonth)],['Payable Days', String(r.payableDays)],['LOP Days', String(r.lopDays)]];
-const rowH = 9; const sy = y + 8;
-leftInfo.forEach(([lbl,val],i) => {
-  const iy = sy + i*rowH;
-  doc.setFontSize(6.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), 17, iy);
-  doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), 17, iy+4.5);
-});
-rightInfo.forEach(([lbl,val],i) => {
-  const iy = sy + i*rowH;
-  doc.setFontSize(6.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), W/2+8, iy);
-  doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), W/2+8, iy+4.5);
-});
-y += boxH + 10;
+  const boxH = 42;
+  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.roundedRect(12, y, W-24, boxH, 2, 2, 'FD');
+  setFill(NAVY); doc.rect(12, y, 1.5, boxH, 'F');
+  const leftInfo = [['Employee Code', currentUser.employee_code||'—'],['Employee Name', currentUser.name||'—'],['Designation', currentUser.designation||'—'],['Department', currentUser.department||'—']];
+  const rightInfo = [['Report Period', monthName+' '+yr],['Total Days in Month', String(totalDays)],['Present Days', String(present)],['Absent Days', String(absent)]];
+  const rowH = 9; const sy = y + 8;
+  leftInfo.forEach(([lbl,val],i) => {
+    const iy = sy + i*rowH;
+    doc.setFontSize(6.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), 17, iy);
+    doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), 17, iy+4.5);
+  });
+  rightInfo.forEach(([lbl,val],i) => {
+    const iy = sy + i*rowH;
+    doc.setFontSize(6.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), W/2+8, iy);
+    doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), W/2+8, iy+4.5);
+  });
+  y += boxH + 10;
   // ── SUMMARY ─────────────────────────────────────────
   doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
   doc.text('SUMMARY', W/2, y, { align: 'center' });
