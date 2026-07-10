@@ -1,9 +1,5 @@
-const CACHE_NAME = 'sayash-vastu-v2';
+const CACHE_NAME = 'sayash-vastu-v3';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
   '/manifest.json'
 ];
 
@@ -29,9 +25,19 @@ self.addEventListener('fetch', function(event) {
   if (event.request.url.includes('supabase')) {
     return fetch(event.request);
   }
+
+  // Network-first: always try fresh version, cache sirf offline-fallback ke liye
   event.respondWith(
-    caches.match(event.request).then(function(response) {
-      return response || fetch(event.request);
-    })
+    fetch(event.request)
+      .then(function(response) {
+        const respClone = response.clone();
+        caches.open(CACHE_NAME).then(function(cache) {
+          cache.put(event.request, respClone);
+        });
+        return response;
+      })
+      .catch(function() {
+        return caches.match(event.request);
+      })
   );
 });
