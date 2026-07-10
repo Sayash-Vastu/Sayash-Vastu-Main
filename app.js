@@ -3498,12 +3498,13 @@ const { data: forwardedTasks } = await sb.from('tasks').select('*').eq('pending_
 
   myTasks = Object.values(allMyTasksMap).sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
   renderMyTasks();
-  const ns = myTasks.filter(t=>t.work_status==='Not Started').length;
-  const ip = myTasks.filter(t=>t.work_status==='In Progress').length;
-  const rv = myTasks.filter(t=>t.work_status==='Sent for Review').length;
-  const done = myTasks.filter(t=>t.work_status==='Completed').length;
+const ownOnly = myTasks.filter(t => !t._isForwarded);
+  const ns = ownOnly.filter(t=>t.work_status==='Not Started').length;
+  const ip = ownOnly.filter(t=>t.work_status==='In Progress').length;
+  const rv = ownOnly.filter(t=>t.work_status==='Sent for Review').length;
+  const done = ownOnly.filter(t=>t.work_status==='Completed').length;
   document.getElementById('taskStats').innerHTML = `
-    <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${myTasks.length}</div><div class="stat-lbl">My Tasks</div></div>
+<div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${ownOnly.length}</div><div class="stat-lbl">My Tasks</div></div>
     <div class="stat-card sc-blue"><div class="stat-icon">⚡</div><div class="stat-num">${ip}</div><div class="stat-lbl">In Progress</div></div>
     <div class="stat-card sc-gold"><div class="stat-icon">🔍</div><div class="stat-num">${rv}</div><div class="stat-lbl">In Review</div></div>
     <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num">${done}</div><div class="stat-lbl">Completed</div></div>
