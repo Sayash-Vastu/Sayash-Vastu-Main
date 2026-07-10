@@ -4768,151 +4768,217 @@ async function generateSalarySlip() {
 }
 
 // ── PDF Salary Slip ──
+function numberToWords(num) {
+  num = Math.round(num);
+  if (num === 0) return 'Zero';
+  const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const b = ['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  function two(n){ if(n<20) return a[n]; return b[Math.floor(n/10)] + (n%10 ? ' '+a[n%10] : ''); }
+  function three(n){ if(n<100) return two(n); return a[Math.floor(n/100)] + ' Hundred' + (n%100 ? ' '+two(n%100) : ''); }
+  let crore = Math.floor(num/10000000); num %= 10000000;
+  let lakh = Math.floor(num/100000); num %= 100000;
+  let thousand = Math.floor(num/1000); num %= 1000;
+  let rest = num;
+  let str = '';
+  if (crore) str += three(crore) + ' Crore ';
+  if (lakh) str += three(lakh) + ' Lakh ';
+  if (thousand) str += three(thousand) + ' Thousand ';
+  if (rest) str += three(rest);
+  return str.trim();
+}
+
 async function exportSalarySlipPDF() {
   const r = window._currentSalarySlip;
   if (!r) { showToast('⚠️ Pehle slip calculate karo', 'warn'); return; }
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-  const W = 210;
-  const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
-  const MUTED = [85,85,85]; const BORDER = [200,213,229]; const LIGHT = [245,248,252];
-  const GREEN = [26,110,60]; const RED = [163,45,45];
+  const W = 210, H = 297;
+  const NAVY = [22,44,74]; const ORANGE = [232,101,26]; const GOLD = [180,140,30];
+  const DARK = [30,30,30]; const MUTED = [110,118,132]; const BORDER = [214,222,235];
+  const LIGHT = [247,249,252]; const GREEN = [20,120,70]; const GREEN_BG = [231,246,238];
+  const RED = [178,42,42]; const WHITE = [255,255,255];
 
-  const setFill = (rgb) => doc.setFillColor(rgb[0],rgb[1],rgb[2]);
-  const setStroke = (rgb) => doc.setDrawColor(rgb[0],rgb[1],rgb[2]);
-  const setFont = (c) => doc.setTextColor(c[0],c[1],c[2]);
+  const setFill = c => doc.setFillColor(c[0],c[1],c[2]);
+  const setStroke = c => doc.setDrawColor(c[0],c[1],c[2]);
+  const setFont = c => doc.setTextColor(c[0],c[1],c[2]);
 
-  setFill([255,255,255]); doc.rect(0,0,W,28,'F');
+  // ---- Watermark ----
+  try {
+    doc.saveGraphicsState();
+    doc.setGState(new doc.GState({ opacity: 0.045 }));
+    doc.setFontSize(48); doc.setFont('helvetica','bold'); setFont(NAVY);
+    doc.text('SAYASH VASTU', 105, 160, { angle: 45, align: 'center' });
+    doc.restoreGraphicsState();
+  } catch(e) {}
+
+  // ---- Header ----
+  setFill(WHITE); doc.rect(0,0,W,32,'F');
   try {
     const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/public/Task-Files/Sayash%20logo.png';
     const logoRes = await fetch(logoUrl);
     if (logoRes.ok) {
       const logoBlob = await logoRes.blob();
-      const logoBase64 = await new Promise(res => {
-        const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(logoBlob);
-      });
-      doc.addImage(logoBase64, 'PNG', 10, 3, 32, 22);
+      const logoBase64 = await new Promise(res => { const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(logoBlob); });
+      doc.addImage(logoBase64, 'PNG', 12, 5, 26, 22);
     }
   } catch(e) {}
 
-  doc.setFontSize(13); doc.setFont('helvetica','bold'); setFont(ORANGE);
-  doc.text('SAYASH VASTU', W/2, 11, { align: 'center' });
-  doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(DARK);
-  doc.text('Vastu Shastra Consultancy Services', W/2, 16, { align: 'center' });
-  doc.text('Netaji Subhash Place, New Delhi', W/2, 20.5, { align: 'center' });
-  setStroke(ORANGE); doc.setLineWidth(0.5);
-  doc.line(0, 28, W, 28);
+  doc.setFontSize(15); doc.setFont('helvetica','bold'); setFont(ORANGE);
+  doc.text('SAYASH VASTU', 44, 13);
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(MUTED);
+  doc.text('Vastu Shastra Consultancy Services', 44, 18.5);
+  doc.text('Netaji Subhash Place, New Delhi | www.sayashvastu.com', 44, 23);
 
-  let y = 36;
-  doc.setFontSize(17); doc.setFont('helvetica','bold'); setFont(NAVY);
-  doc.text('SALARY SLIP', W/2, y, { align: 'center' });
-  y += 3.5;
-  setStroke(ORANGE); doc.setLineWidth(0.4);
-  doc.line(10, y, W-10, y);
-  y += 6;
+  doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED);
+  doc.text('CONFIDENTIAL', W-12, 10, { align: 'right' });
+  doc.setFontSize(7); doc.setFont('helvetica','normal');
+  doc.text('Generated: ' + new Date().toLocaleDateString('en-IN'), W-12, 14.5, { align: 'right' });
 
+  setFill(ORANGE); doc.rect(0,32,W,1.2,'F');
+  setFill(NAVY); doc.rect(0,33.2,W,0.6,'F');
+
+  // ---- Title band ----
+  let y = 33.2 + 0.6;
+  setFill(NAVY); doc.rect(0,y,W,12,'F');
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); setFont(WHITE);
   const monthName = new Date(r.year, r.month-1, 1).toLocaleString('en', {month:'long'});
+  doc.text('SALARY SLIP — ' + monthName.toUpperCase() + ' ' + r.year, W/2, y+8, { align: 'center' });
+  y += 12 + 8;
 
-  const boxH = 26;
+  // ---- Employee info card ----
+  const boxH = 30;
   setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.roundedRect(10, y, W-20, boxH, 2, 2, 'FD');
-  const leftInfo = [['Employee ID', r.employee.employee_code||'—'],['Employee Name', r.employee.name],['Designation', r.employee.designation||'—'],['Department', r.employee.department||'—']];
-  const rightInfo = [['Pay Period', monthName+' '+r.year],['Total Days', String(r.daysInMonth)],['Payable Days', String(r.payableDays)],['LOP Days', String(r.lopDays)]];
-  const rowH = 5.2; const sy = y + 4;
+  doc.roundedRect(12, y, W-24, boxH, 2, 2, 'FD');
+  setFill(NAVY); doc.rect(12, y, 1.5, boxH, 'F');
+
+  const leftInfo = [['Employee Code', r.employee.employee_code||'—'],['Employee Name', r.employee.name],['Designation', r.employee.designation||'—'],['Department', r.employee.department||'—']];
+  const rightInfo = [['Pay Period', monthName+' '+r.year],['Total Days in Month', String(r.daysInMonth)],['Payable Days', String(r.payableDays)],['LOP Days', String(r.lopDays)]];
+  const rowH = 6; const sy = y + 6;
   leftInfo.forEach(([lbl,val],i) => {
     const iy = sy + i*rowH;
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl+':', 13, iy);
-    doc.setFont('helvetica','normal'); setFont(DARK); doc.text(String(val), 50, iy);
+    doc.setFontSize(7.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), 17, iy);
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), 17, iy+4);
   });
   rightInfo.forEach(([lbl,val],i) => {
     const iy = sy + i*rowH;
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl+':', W/2+3, iy);
-    doc.setFont('helvetica','normal'); setFont(DARK); doc.text(String(val), W/2+40, iy);
+    doc.setFontSize(7.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), W/2+8, iy);
+    doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), W/2+8, iy+4);
   });
-  y += boxH + 8;
+  y += boxH + 10;
 
-  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
-  doc.text('EARNINGS BREAKDOWN', W/2, y, { align: 'center' });
+  // ---- Earnings table ----
+  doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('EARNINGS BREAKDOWN', 12, y);
+  setStroke(BORDER); doc.setLineWidth(0.2); doc.line(52, y-1.3, W-12, y-1.3);
   y += 5;
 
-  const rows = [
-    ['Basic Salary', r.basic, r.basicPaid],
-    ['HRA', r.hra, r.hraPaid],
-    ['Special Allowance', r.special, r.specialPaid],
-  ];
-  const colW2 = [(W-20)*0.5, (W-20)*0.25, (W-20)*0.25];
-  setFill(NAVY); doc.rect(10, y, W-20, 7, 'F');
-  doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
-  doc.text('Component', 13, y+4.5);
-  doc.text('Full Amount', 10+colW2[0]+5, y+4.5);
-  doc.text('Payable Amount', 10+colW2[0]+colW2[1]+5, y+4.5);
-  y += 7;
+  const colX = [12, 12+(W-24)*0.5, 12+(W-24)*0.75];
+  const colW = [(W-24)*0.5, (W-24)*0.25, (W-24)*0.25];
+  setFill(NAVY); doc.rect(12, y, W-24, 8, 'F');
+  doc.setFontSize(8); doc.setFont('helvetica','bold'); setFont(WHITE);
+  doc.text('COMPONENT', colX[0]+4, y+5.3);
+  doc.text('FULL AMOUNT', colX[1]+colW[1]-4, y+5.3, { align: 'right' });
+  doc.text('PAYABLE AMOUNT', colX[2]+colW[2]-4, y+5.3, { align: 'right' });
+  y += 8;
 
+  const rows = [['Basic Salary', r.basic, r.basicPaid], ['House Rent Allowance (HRA)', r.hra, r.hraPaid], ['Special Allowance', r.special, r.specialPaid]];
   rows.forEach((row,i) => {
-    const bg = i%2===0 ? [248,249,252] : [255,255,255];
+    const bg = i%2===0 ? [255,255,255] : LIGHT;
     setFill(bg); setStroke(BORDER); doc.setLineWidth(0.2);
-    doc.rect(10, y, W-20, 7, 'FD');
-    doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(DARK);
-    doc.text(row[0], 13, y+4.5);
-    doc.text('Rs. '+row[1].toLocaleString('en-IN'), 10+colW2[0]+5, y+4.5);
+    doc.rect(12, y, W-24, 8, 'FD');
+    doc.setFontSize(8.5); doc.setFont('helvetica','normal'); setFont(DARK);
+    doc.text(row[0], colX[0]+4, y+5.3);
+    setFont(MUTED);
+    doc.text('Rs. ' + row[1].toLocaleString('en-IN'), colX[1]+colW[1]-4, y+5.3, { align: 'right' });
     doc.setFont('helvetica','bold'); setFont(GREEN);
-    doc.text('Rs. '+row[2].toLocaleString('en-IN'), 10+colW2[0]+colW2[1]+5, y+4.5);
-    y += 7;
+    doc.text('Rs. ' + row[2].toLocaleString('en-IN'), colX[2]+colW[2]-4, y+5.3, { align: 'right' });
+    y += 8;
   });
 
-  setFill(NAVY); doc.rect(10, y, W-20, 9, 'F');
-  doc.setFontSize(10); doc.setFont('helvetica','bold'); setFont([255,255,255]);
-  doc.text('NET SALARY PAYABLE', 13, y+6);
-  setFont([255,215,120]);
-  doc.text('Rs. '+r.netSalary.toLocaleString('en-IN'), W-14, y+6, { align: 'right' });
-  y += 16;
+  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.2);
+  doc.rect(12, y, W-24, 7, 'FD');
+  doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setFont(DARK);
+  doc.text('GROSS MONTHLY SALARY', colX[0]+4, y+4.8);
+  doc.text('Rs. ' + r.monthlySalary.toLocaleString('en-IN'), colX[2]+colW[2]-4, y+4.8, { align: 'right' });
+  y += 7;
+  if (r.lopAmount > 0) {
+    setFill([253,240,240]); setStroke(BORDER); doc.setLineWidth(0.2);
+    doc.rect(12, y, W-24, 7, 'FD');
+    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setFont(RED);
+    doc.text('LOSS OF PAY (' + r.lopDays + ' days)', colX[0]+4, y+4.8);
+    doc.text('- Rs. ' + r.lopAmount.toLocaleString('en-IN'), colX[2]+colW[2]-4, y+4.8, { align: 'right' });
+    y += 7;
+  }
+  y += 8;
 
-  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
-  doc.text('ATTENDANCE SUMMARY', W/2, y, { align: 'center' });
+  // ---- Net Pay banner ----
+  setFill(NAVY); doc.roundedRect(12, y, W-24, 20, 2, 2, 'F');
+  setFill(GOLD); doc.rect(12, y, 2, 20, 'F');
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont([200,210,225]);
+  doc.text('NET SALARY PAYABLE', 20, y+7.5);
+  doc.setFontSize(16); doc.setFont('helvetica','bold'); setFont([255,215,120]);
+  doc.text('Rs. ' + r.netSalary.toLocaleString('en-IN'), W-16, y+9, { align: 'right' });
+  doc.setFontSize(7.5); doc.setFont('helvetica','italic'); setFont([180,195,215]);
+  doc.text('(Rupees ' + numberToWords(r.netSalary) + ' Only)', 20, y+15.5);
+  y += 28;
+
+  // ---- Attendance summary ----
+  doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('ATTENDANCE SUMMARY', 12, y);
+  setStroke(BORDER); doc.setLineWidth(0.2); doc.line(58, y-1.3, W-12, y-1.3);
   y += 5;
-  const sumCols = ['PRESENT','HALF DAY','WEEKLY OFF','LEAVE (PAID)','LOP'];
-  const sumVals = [String(r.presentDays), String(r.halfDays), String(r.weeklyOffDays), String(r.leaveDaysCount), String(r.lopDays)];
-  const sumClrs = [GREEN, [133,79,11], NAVY, [24,95,165], RED];
-  const cw2 = (W-20)/5;
-  setFill(NAVY); doc.rect(10, y, W-20, 6, 'F');
-  doc.setFontSize(6.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
-  sumCols.forEach((c,i) => doc.text(c, 10+i*cw2+cw2/2, y+4, {align:'center'}));
-  y += 6;
-  setFill([235,242,251]); setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.rect(10, y, W-20, 10, 'FD');
-  for (let i=1;i<5;i++) doc.line(10+i*cw2, y, 10+i*cw2, y+10);
-  doc.setFontSize(13); doc.setFont('helvetica','bold');
-  sumVals.forEach((v,i) => { setFont(sumClrs[i]); doc.text(v, 10+i*cw2+cw2/2, y+7, {align:'center'}); });
-  y += 18;
 
+  const sumCols = ['PRESENT','HALF DAY','WEEKLY OFF','PAID LEAVE','LOP'];
+  const sumVals = [r.presentDays, r.halfDays, r.weeklyOffDays, r.leaveDaysCount, r.lopDays];
+  const sumClrs = [GREEN, GOLD, NAVY, [24,95,165], RED];
+  const cw2 = (W-24)/5;
+  setFill(NAVY); doc.rect(12, y, W-24, 7, 'F');
+  doc.setFontSize(6.8); doc.setFont('helvetica','bold'); setFont(WHITE);
+  sumCols.forEach((c,i) => doc.text(c, 12+i*cw2+cw2/2, y+4.6, {align:'center'}));
+  y += 7;
   setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.rect(10, y, W-20, 12, 'FD');
+  doc.rect(12, y, W-24, 12, 'FD');
+  for (let i=1;i<5;i++) doc.line(12+i*cw2, y, 12+i*cw2, y+12);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  sumVals.forEach((v,i) => { setFont(sumClrs[i]); doc.text(String(v), 12+i*cw2+cw2/2, y+8, {align:'center'}); });
+  y += 20;
+
+  // ---- Footer note ----
+  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.rect(12, y, W-24, 11, 'FD');
   doc.setFontSize(7); doc.setFont('helvetica','italic'); setFont(MUTED);
-  doc.text('This is a computer-generated salary slip and does not require a signature.', W/2, y+5, { align:'center' });
-  doc.text('Salary details are strictly confidential — as per company policy.', W/2, y+9, { align:'center' });
+  doc.text('This is a computer-generated salary slip and does not require a physical signature.', W/2, y+4.5, { align:'center' });
+  doc.text('Salary details are strictly confidential — sharing is prohibited as per company policy.', W/2, y+8, { align:'center' });
   y += 18;
 
-  const sigH = 20;
+  // ---- Signatures ----
+  const sigH = 22;
   setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.rect(10, y, W-20, sigH, 'FD');
-  const sw = (W-20)/2;
-  const lsx = 10+sw/2;
+  doc.rect(12, y, W-24, sigH, 'FD');
+  const sw = (W-24)/2;
+  const lsx = 12+sw/2;
   doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setFont(NAVY);
-  doc.text('HR / Payroll', lsx, y+5, {align:'center'});
+  doc.text('HR / Payroll', lsx, y+6, {align:'center'});
   setStroke(NAVY); doc.setLineWidth(0.4);
-  doc.line(lsx-25, y+14, lsx+25, y+14);
+  doc.line(lsx-26, y+16, lsx+26, y+16);
   doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setFont(MUTED);
-  doc.text('Sayash Vastu — HR Department', lsx, y+17.5, {align:'center'});
+  doc.text('Sayash Vastu — HR Department', lsx, y+19.5, {align:'center'});
   setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.line(10+sw, y+2, 10+sw, y+sigH-2);
-  const rsx = 10+sw+sw/2;
+  doc.line(12+sw, y+3, 12+sw, y+sigH-3);
+  const rsx = 12+sw+sw/2;
   doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setFont(NAVY);
-  doc.text('Authorized Signatory', rsx, y+5, {align:'center'});
+  doc.text('Authorized Signatory', rsx, y+6, {align:'center'});
   setStroke(NAVY); doc.setLineWidth(0.4);
-  doc.line(rsx-25, y+14, rsx+25, y+14);
+  doc.line(rsx-26, y+16, rsx+26, y+16);
   doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setFont(MUTED);
-  doc.text('Sayash Vastu — Management', rsx, y+17.5, {align:'center'});
+  doc.text('Sayash Vastu — Management', rsx, y+19.5, {align:'center'});
+
+  // ---- Bottom page footer ----
+  setStroke(BORDER); doc.setLineWidth(0.2); doc.line(12, H-12, W-12, H-12);
+  doc.setFontSize(6.5); doc.setFont('helvetica','normal'); setFont(MUTED);
+  doc.text('Sayash Vastu Consultancy — Netaji Subhash Place, Delhi', 12, H-8);
+  doc.text('Page 1 of 1', W-12, H-8, { align: 'right' });
 
   doc.save(`SayashVastu_SalarySlip_${r.employee.name.replace(/ /g,'_')}_${monthName}_${r.year}.pdf`);
   showToast('✅ Salary slip PDF downloaded!', 'ok');
