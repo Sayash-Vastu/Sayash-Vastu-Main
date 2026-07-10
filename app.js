@@ -4828,8 +4828,8 @@ async function exportSalarySlipPDF() {
   doc.text('SAYASH VASTU', 44, 13);
   doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(MUTED);
   doc.text('Vastu Shastra Consultancy Services', 44, 18.5);
-  doc.text('Netaji Subhash Place, New Delhi | www.sayashvastu.com', 44, 23);
-
+doc.text('Netaji Subhash Place, New Delhi', 44, 23);
+  
   doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED);
   doc.text('CONFIDENTIAL', W-12, 10, { align: 'right' });
   doc.setFontSize(7); doc.setFont('helvetica','normal');
@@ -6636,26 +6636,25 @@ const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/publ
 
   // ── EMPLOYEE INFO BOX ────────────────────────────────
   y += 3;
-  const boxH = 22;
-  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.roundedRect(10, y, W-20, boxH, 2, 2, 'FD');
+const boxH = 42;
+setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+doc.roundedRect(12, y, W-24, boxH, 2, 2, 'FD');
+setFill(NAVY); doc.rect(12, y, 1.5, boxH, 'F');
 
-const { data: empFresh } = await sb.from('employees').select('*').eq('email', currentUser.email).single();
-const leftInfo  = [['Employee ID', empFresh?.employee_code || currentUser.employee_code || '—'],['Employee Name', empFresh?.name || currentUser.name],['Designation', empFresh?.designation || currentUser.designation || '—'],['Department', empFresh?.department || currentUser.department || '—']];
-  const rightInfo = [['Report For', monthName + ' ' + yr],['From Date', fromDate],['To Date', toDate],['Total Working Days', String(totalDays)]];
-  const rowH = 4.8; const sy = y + 4;
-  leftInfo.forEach(([lbl, val], i) => {
-    const iy = sy + i * rowH;
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl + ':', 13, iy);
-    doc.setFont('helvetica','normal'); setFont(DARK); doc.text(String(val), 46, iy);
-  });
-  rightInfo.forEach(([lbl, val], i) => {
-    const iy = sy + i * rowH;
-    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl + ':', W/2 + 3, iy);
-    doc.setFont('helvetica','normal'); setFont(DARK); doc.text(String(val), W/2 + 38, iy);
-  });
-  y += boxH + 5;
-
+const leftInfo = [['Employee Code', r.employee.employee_code||'—'],['Employee Name', r.employee.name],['Designation', r.employee.designation||'—'],['Department', r.employee.department||'—']];
+const rightInfo = [['Pay Period', monthName+' '+r.year],['Total Days in Month', String(r.daysInMonth)],['Payable Days', String(r.payableDays)],['LOP Days', String(r.lopDays)]];
+const rowH = 9; const sy = y + 8;
+leftInfo.forEach(([lbl,val],i) => {
+  const iy = sy + i*rowH;
+  doc.setFontSize(6.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), 17, iy);
+  doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), 17, iy+4.5);
+});
+rightInfo.forEach(([lbl,val],i) => {
+  const iy = sy + i*rowH;
+  doc.setFontSize(6.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), W/2+8, iy);
+  doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), W/2+8, iy+4.5);
+});
+y += boxH + 10;
   // ── SUMMARY ─────────────────────────────────────────
   doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
   doc.text('SUMMARY', W/2, y, { align: 'center' });
