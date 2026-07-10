@@ -4847,26 +4847,25 @@ async function exportSalarySlipPDF() {
   y += 12 + 8;
 
   // ---- Employee info card ----
-  const boxH = 30;
-  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.roundedRect(12, y, W-24, boxH, 2, 2, 'FD');
-  setFill(NAVY); doc.rect(12, y, 1.5, boxH, 'F');
+const boxH = 36;
+setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+doc.roundedRect(12, y, W-24, boxH, 2, 2, 'FD');
+setFill(NAVY); doc.rect(12, y, 1.5, boxH, 'F');
 
-  const leftInfo = [['Employee Code', r.employee.employee_code||'—'],['Employee Name', r.employee.name],['Designation', r.employee.designation||'—'],['Department', r.employee.department||'—']];
-  const rightInfo = [['Pay Period', monthName+' '+r.year],['Total Days in Month', String(r.daysInMonth)],['Payable Days', String(r.payableDays)],['LOP Days', String(r.lopDays)]];
-  const rowH = 6; const sy = y + 6;
-  leftInfo.forEach(([lbl,val],i) => {
-    const iy = sy + i*rowH;
-    doc.setFontSize(7.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), 17, iy);
-    doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), 17, iy+4);
-  });
-  rightInfo.forEach(([lbl,val],i) => {
-    const iy = sy + i*rowH;
-    doc.setFontSize(7.8); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), W/2+8, iy);
-    doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), W/2+8, iy+4);
-  });
-  y += boxH + 10;
-
+const leftInfo = [['Employee Code', r.employee.employee_code||'—'],['Employee Name', r.employee.name],['Designation', r.employee.designation||'—'],['Department', r.employee.department||'—']];
+const rightInfo = [['Pay Period', monthName+' '+r.year],['Total Days in Month', String(r.daysInMonth)],['Payable Days', String(r.payableDays)],['LOP Days', String(r.lopDays)]];
+const rowH = 7.2; const sy = y + 6;
+leftInfo.forEach(([lbl,val],i) => {
+  const iy = sy + i*rowH;
+  doc.setFontSize(7.2); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), 17, iy);
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), 17, iy+4);
+});
+rightInfo.forEach(([lbl,val],i) => {
+  const iy = sy + i*rowH;
+  doc.setFontSize(7.2); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl.toUpperCase(), W/2+8, iy);
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(DARK); doc.text(String(val), W/2+8, iy+4);
+});
+y += boxH + 10;
   // ---- Earnings table ----
   doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(NAVY);
   doc.text('EARNINGS BREAKDOWN', 12, y);
