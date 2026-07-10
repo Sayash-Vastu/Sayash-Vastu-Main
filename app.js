@@ -4661,7 +4661,7 @@ async function calculatePayroll(employeeEmail, year, month) {
 
     const att = attByDate[dateStr];
     if (att?.status === 'Present') { presentDays++; payableDays++; }
-    else if (att?.status === 'Half Day') { halfDays++; payableDays += 0.5; }
+else if (att?.status === 'Half Day') { halfDays++; payableDays += 1; }
     else if (isOnLeave(dateStr)) { leaveDaysCount++; payableDays++; }
     else { lopDays++; }
   }
