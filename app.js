@@ -4876,7 +4876,7 @@ y += boxH + 10;
   const colW = [(W-24)*0.5, (W-24)*0.25, (W-24)*0.25];
   setFill(NAVY); doc.rect(12, y, W-24, 8, 'F');
   doc.setFontSize(8); doc.setFont('helvetica','bold'); setFont(WHITE);
-  doc.text('COMPONENT', colX[0]+4, y+5.3);
+doc.text('PARTICULARS', colX[0]+4, y+5.3);
   doc.text('FULL AMOUNT', colX[1]+colW[1]-4, y+5.3, { align: 'right' });
   doc.text('PAYABLE AMOUNT', colX[2]+colW[2]-4, y+5.3, { align: 'right' });
   y += 8;
@@ -4911,17 +4911,15 @@ y += boxH + 10;
   }
   y += 8;
 
-  // ---- Net Pay banner ----
-  setFill(NAVY); doc.roundedRect(12, y, W-24, 20, 2, 2, 'F');
-  setFill(GOLD); doc.rect(12, y, 2, 20, 'F');
-  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont([200,210,225]);
-  doc.text('NET SALARY PAYABLE', 20, y+7.5);
-  doc.setFontSize(16); doc.setFont('helvetica','bold'); setFont([255,215,120]);
-  doc.text('Rs. ' + r.netSalary.toLocaleString('en-IN'), W-16, y+9, { align: 'right' });
-  doc.setFontSize(7.5); doc.setFont('helvetica','italic'); setFont([180,195,215]);
-  doc.text('(Rupees ' + numberToWords(r.netSalary) + ' Only)', 20, y+15.5);
-  y += 28;
-
+// ---- Net Pay banner ----
+setFill(NAVY); doc.roundedRect(12, y, W-24, 13, 2, 2, 'F');
+setFill(GOLD); doc.rect(12, y, 2, 13, 'F');
+doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont([200,210,225]);
+doc.text('NET SALARY PAYABLE', 20, y+8);
+doc.setFontSize(15); doc.setFont('helvetica','bold'); setFont([255,215,120]);
+doc.text('Rs. ' + r.netSalary.toLocaleString('en-IN'), W-16, y+8.5, { align: 'right' });
+y += 21;
+  
   // ---- Attendance summary ----
   doc.setFontSize(9.5); doc.setFont('helvetica','bold'); setFont(NAVY);
   doc.text('ATTENDANCE SUMMARY', 12, y);
