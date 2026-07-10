@@ -1185,6 +1185,7 @@ if (name === 'documents') {
 }
 if (name === 'offerLetters') loadOfferLetters();
   if (name === 'salaryStructure') loadSalaryStructure();
+  if (name === 'salarySlips') loadSalarySlips();
     if (name === 'calendar') loadCalendar();
   if (name === 'expenses') loadExpenses();
   if (name === 'compliance') loadCompliance();
@@ -4605,6 +4606,316 @@ async function deleteOfferLetter(empId, empName) {
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast(`✅ Offer letter deleted!`, 'ok');
   loadOfferLetters();
+}
+// ── Weekly-off checker ──
+function isWeeklyOff(date, pattern) {
+  const dow = date.getDay();
+  if (pattern === 'sat_sun_both') return dow === 0 || dow === 6;
+  if (pattern === 'alternate_saturday') {
+    if (dow === 0) return true;
+    if (dow === 6) {
+      let satCount = 0;
+      for (let d = 1; d <= date.getDate(); d++) {
+        const dt = new Date(date.getFullYear(), date.getMonth(), d);
+        if (dt.getDay() === 6) satCount++;
+      }
+      return satCount % 2 === 0;
+    }
+    return false;
+  }
+  return dow === 0;
+}
+
+// ── Core payroll calculator ──
+async function calculatePayroll(employeeEmail, year, month) {
+  const { data: emp } = await sb.from('employees').select('*').eq('email', employeeEmail).single();
+  if (!emp) return null;
+
+  const pattern = emp.weekly_off_pattern || 'sunday_only';
+  const basic = emp.basic_salary || 0;
+  const hra = emp.hra || 0;
+  const special = emp.special_allowance || 0;
+  const monthlySalary = basic + hra + special;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const pad = n => String(n).padStart(2, '0');
+  const startDate = `${year}-${pad(month)}-01`;
+  const endDate = `${year}-${pad(month)}-${pad(daysInMonth)}`;
+
+  const { data: attRows } = await sb.from('attendance').select('*')
+    .eq('employee_email', employeeEmail).eq('is_archived', false).gte('date', startDate).lte('date', endDate);
+  const { data: leaveRows } = await sb.from('leaves').select('*')
+    .eq('employee_email', employeeEmail).eq('status', 'Approved')
+    .lte('from_date', endDate).gte('to_date', startDate);
+
+  const attByDate = {};
+  (attRows || []).forEach(r => { attByDate[r.date] = r; });
+  const isOnLeave = dateStr => (leaveRows || []).some(l => dateStr >= l.from_date && dateStr <= l.to_date);
+
+  let payableDays = 0, lopDays = 0, weeklyOffDays = 0, presentDays = 0, halfDays = 0, leaveDaysCount = 0;
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month - 1, d);
+    const dateStr = `${year}-${pad(month)}-${pad(d)}`;
+
+    if (isWeeklyOff(dt, pattern)) { weeklyOffDays++; payableDays++; continue; }
+
+    const att = attByDate[dateStr];
+    if (att?.status === 'Present') { presentDays++; payableDays++; }
+    else if (att?.status === 'Half Day') { halfDays++; payableDays += 0.5; }
+    else if (isOnLeave(dateStr)) { leaveDaysCount++; payableDays++; }
+    else { lopDays++; }
+  }
+
+  const perDayRate = monthlySalary / daysInMonth;
+  const lopAmount = Math.round(perDayRate * lopDays);
+  const ratio = monthlySalary > 0 ? payableDays / daysInMonth : 0;
+  const basicPaid = Math.round(basic * ratio);
+  const hraPaid = Math.round(hra * ratio);
+  const specialPaid = Math.round(special * ratio);
+  const netSalary = basicPaid + hraPaid + specialPaid;
+
+  return {
+    employee: emp, email: employeeEmail, year, month, daysInMonth,
+    weeklyOffDays, presentDays, halfDays, leaveDaysCount, lopDays,
+    payableDays, perDayRate, basic, hra, special, monthlySalary,
+    basicPaid, hraPaid, specialPaid, netSalary, lopAmount
+  };
+}
+
+// ── Salary Slips page UI ──
+async function loadSalarySlips() {
+  const el = document.getElementById('view-salarySlips');
+  const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('name');
+  const now = new Date();
+  el.innerHTML = `
+    <div class="page-header"><h2>💰 Salary Slips</h2><p>Generate and download monthly salary slips</p></div>
+    <div class="panel" style="margin-bottom:20px">
+      <div class="panel-body" style="display:grid;grid-template-columns:2fr 1fr auto;gap:14px;align-items:end">
+        <div class="field"><label>Employee</label>
+          <select id="ss-employee">
+            <option value="">Select Employee</option>
+            ${(emps||[]).map(e => `<option value="${esc(e.email)}">${esc(e.name)} (${esc(e.employee_code)})</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Month</label>
+          <input type="month" id="ss-month" value="${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}">
+        </div>
+        <button class="btn btn-gold" onclick="generateSalarySlip()">🧮 Calculate</button>
+      </div>
+    </div>
+    <div id="salarySlipResult"></div>
+  `;
+}
+
+async function generateSalarySlip() {
+  const email = document.getElementById('ss-employee').value;
+  const monthVal = document.getElementById('ss-month').value;
+  if (!email || !monthVal) { showToast('⚠️ Employee aur Month select karo', 'warn'); return; }
+  const [year, month] = monthVal.split('-').map(Number);
+
+  const resultEl = document.getElementById('salarySlipResult');
+  resultEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted)">⏳ Calculating...</div>';
+
+  const r = await calculatePayroll(email, year, month);
+  if (!r) { resultEl.innerHTML = '<div style="text-align:center;padding:30px;color:var(--red)">❌ Employee not found</div>'; return; }
+
+  window._currentSalarySlip = r;
+  const monthName = new Date(year, month-1, 1).toLocaleString('en', {month:'long'});
+
+  resultEl.innerHTML = `
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">🧾 ${esc(r.employee.name)} — ${monthName} ${year}</div>
+        <button class="btn btn-gold" onclick="exportSalarySlipPDF()">📄 Download PDF Slip</button>
+      </div>
+      <div class="panel-body">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:var(--bg);border-radius:8px;padding:14px;text-align:center;border-top:3px solid var(--navy)">
+            <div style="font-size:20px;font-weight:800;color:var(--navy)">${r.daysInMonth}</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-top:4px">Total Days</div>
+          </div>
+          <div style="background:var(--green-bg);border-radius:8px;padding:14px;text-align:center;border-top:3px solid var(--green)">
+            <div style="font-size:20px;font-weight:800;color:var(--green)">${r.payableDays}</div>
+            <div style="font-size:10px;color:var(--green);font-weight:700;text-transform:uppercase;margin-top:4px">Payable Days</div>
+          </div>
+          <div style="background:var(--red-bg);border-radius:8px;padding:14px;text-align:center;border-top:3px solid var(--red)">
+            <div style="font-size:20px;font-weight:800;color:var(--red)">${r.lopDays}</div>
+            <div style="font-size:10px;color:var(--red);font-weight:700;text-transform:uppercase;margin-top:4px">LOP Days</div>
+          </div>
+          <div style="background:var(--amber-bg);border-radius:8px;padding:14px;text-align:center;border-top:3px solid var(--amber)">
+            <div style="font-size:20px;font-weight:800;color:var(--amber)">${r.halfDays}</div>
+            <div style="font-size:10px;color:var(--amber);font-weight:700;text-transform:uppercase;margin-top:4px">Half Days</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Earnings (Prorated)</div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Basic Salary</span><strong>₹${r.basicPaid.toLocaleString('en-IN')}</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>HRA</span><strong>₹${r.hraPaid.toLocaleString('en-IN')}</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Special Allowance</span><strong>₹${r.specialPaid.toLocaleString('en-IN')}</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:16px;font-weight:800;color:var(--green)"><span>Net Payable</span><span>₹${r.netSalary.toLocaleString('en-IN')}</span></div>
+          </div>
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Deduction Summary</div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Gross Monthly Salary</span><strong>₹${r.monthlySalary.toLocaleString('en-IN')}</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Per Day Rate</span><strong>₹${Math.round(r.perDayRate).toLocaleString('en-IN')}</strong></div>
+            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa;color:var(--red)"><span>LOP Deduction (${r.lopDays} days)</span><strong>- ₹${r.lopAmount.toLocaleString('en-IN')}</strong></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// ── PDF Salary Slip ──
+async function exportSalarySlipPDF() {
+  const r = window._currentSalarySlip;
+  if (!r) { showToast('⚠️ Pehle slip calculate karo', 'warn'); return; }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const W = 210;
+  const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
+  const MUTED = [85,85,85]; const BORDER = [200,213,229]; const LIGHT = [245,248,252];
+  const GREEN = [26,110,60]; const RED = [163,45,45];
+
+  const setFill = (rgb) => doc.setFillColor(rgb[0],rgb[1],rgb[2]);
+  const setStroke = (rgb) => doc.setDrawColor(rgb[0],rgb[1],rgb[2]);
+  const setFont = (c) => doc.setTextColor(c[0],c[1],c[2]);
+
+  setFill([255,255,255]); doc.rect(0,0,W,28,'F');
+  try {
+    const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/public/Task-Files/Sayash%20logo.png';
+    const logoRes = await fetch(logoUrl);
+    if (logoRes.ok) {
+      const logoBlob = await logoRes.blob();
+      const logoBase64 = await new Promise(res => {
+        const rd = new FileReader(); rd.onload = () => res(rd.result); rd.readAsDataURL(logoBlob);
+      });
+      doc.addImage(logoBase64, 'PNG', 10, 3, 32, 22);
+    }
+  } catch(e) {}
+
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); setFont(ORANGE);
+  doc.text('SAYASH VASTU', W/2, 11, { align: 'center' });
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(DARK);
+  doc.text('Vastu Shastra Consultancy Services', W/2, 16, { align: 'center' });
+  doc.text('Netaji Subhash Place, New Delhi', W/2, 20.5, { align: 'center' });
+  setStroke(ORANGE); doc.setLineWidth(0.5);
+  doc.line(0, 28, W, 28);
+
+  let y = 36;
+  doc.setFontSize(17); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('SALARY SLIP', W/2, y, { align: 'center' });
+  y += 3.5;
+  setStroke(ORANGE); doc.setLineWidth(0.4);
+  doc.line(10, y, W-10, y);
+  y += 6;
+
+  const monthName = new Date(r.year, r.month-1, 1).toLocaleString('en', {month:'long'});
+
+  const boxH = 26;
+  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.roundedRect(10, y, W-20, boxH, 2, 2, 'FD');
+  const leftInfo = [['Employee ID', r.employee.employee_code||'—'],['Employee Name', r.employee.name],['Designation', r.employee.designation||'—'],['Department', r.employee.department||'—']];
+  const rightInfo = [['Pay Period', monthName+' '+r.year],['Total Days', String(r.daysInMonth)],['Payable Days', String(r.payableDays)],['LOP Days', String(r.lopDays)]];
+  const rowH = 5.2; const sy = y + 4;
+  leftInfo.forEach(([lbl,val],i) => {
+    const iy = sy + i*rowH;
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl+':', 13, iy);
+    doc.setFont('helvetica','normal'); setFont(DARK); doc.text(String(val), 50, iy);
+  });
+  rightInfo.forEach(([lbl,val],i) => {
+    const iy = sy + i*rowH;
+    doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont(MUTED); doc.text(lbl+':', W/2+3, iy);
+    doc.setFont('helvetica','normal'); setFont(DARK); doc.text(String(val), W/2+40, iy);
+  });
+  y += boxH + 8;
+
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('EARNINGS BREAKDOWN', W/2, y, { align: 'center' });
+  y += 5;
+
+  const rows = [
+    ['Basic Salary', r.basic, r.basicPaid],
+    ['HRA', r.hra, r.hraPaid],
+    ['Special Allowance', r.special, r.specialPaid],
+  ];
+  const colW2 = [(W-20)*0.5, (W-20)*0.25, (W-20)*0.25];
+  setFill(NAVY); doc.rect(10, y, W-20, 7, 'F');
+  doc.setFontSize(7.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
+  doc.text('Component', 13, y+4.5);
+  doc.text('Full Amount', 10+colW2[0]+5, y+4.5);
+  doc.text('Payable Amount', 10+colW2[0]+colW2[1]+5, y+4.5);
+  y += 7;
+
+  rows.forEach((row,i) => {
+    const bg = i%2===0 ? [248,249,252] : [255,255,255];
+    setFill(bg); setStroke(BORDER); doc.setLineWidth(0.2);
+    doc.rect(10, y, W-20, 7, 'FD');
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(DARK);
+    doc.text(row[0], 13, y+4.5);
+    doc.text('Rs. '+row[1].toLocaleString('en-IN'), 10+colW2[0]+5, y+4.5);
+    doc.setFont('helvetica','bold'); setFont(GREEN);
+    doc.text('Rs. '+row[2].toLocaleString('en-IN'), 10+colW2[0]+colW2[1]+5, y+4.5);
+    y += 7;
+  });
+
+  setFill(NAVY); doc.rect(10, y, W-20, 9, 'F');
+  doc.setFontSize(10); doc.setFont('helvetica','bold'); setFont([255,255,255]);
+  doc.text('NET SALARY PAYABLE', 13, y+6);
+  setFont([255,215,120]);
+  doc.text('Rs. '+r.netSalary.toLocaleString('en-IN'), W-14, y+6, { align: 'right' });
+  y += 16;
+
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('ATTENDANCE SUMMARY', W/2, y, { align: 'center' });
+  y += 5;
+  const sumCols = ['PRESENT','HALF DAY','WEEKLY OFF','LEAVE (PAID)','LOP'];
+  const sumVals = [String(r.presentDays), String(r.halfDays), String(r.weeklyOffDays), String(r.leaveDaysCount), String(r.lopDays)];
+  const sumClrs = [GREEN, [133,79,11], NAVY, [24,95,165], RED];
+  const cw2 = (W-20)/5;
+  setFill(NAVY); doc.rect(10, y, W-20, 6, 'F');
+  doc.setFontSize(6.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
+  sumCols.forEach((c,i) => doc.text(c, 10+i*cw2+cw2/2, y+4, {align:'center'}));
+  y += 6;
+  setFill([235,242,251]); setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.rect(10, y, W-20, 10, 'FD');
+  for (let i=1;i<5;i++) doc.line(10+i*cw2, y, 10+i*cw2, y+10);
+  doc.setFontSize(13); doc.setFont('helvetica','bold');
+  sumVals.forEach((v,i) => { setFont(sumClrs[i]); doc.text(v, 10+i*cw2+cw2/2, y+7, {align:'center'}); });
+  y += 18;
+
+  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.rect(10, y, W-20, 12, 'FD');
+  doc.setFontSize(7); doc.setFont('helvetica','italic'); setFont(MUTED);
+  doc.text('This is a computer-generated salary slip and does not require a signature.', W/2, y+5, { align:'center' });
+  doc.text('Salary details are strictly confidential — as per company policy.', W/2, y+9, { align:'center' });
+  y += 18;
+
+  const sigH = 20;
+  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.rect(10, y, W-20, sigH, 'FD');
+  const sw = (W-20)/2;
+  const lsx = 10+sw/2;
+  doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('HR / Payroll', lsx, y+5, {align:'center'});
+  setStroke(NAVY); doc.setLineWidth(0.4);
+  doc.line(lsx-25, y+14, lsx+25, y+14);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setFont(MUTED);
+  doc.text('Sayash Vastu — HR Department', lsx, y+17.5, {align:'center'});
+  setStroke(BORDER); doc.setLineWidth(0.3);
+  doc.line(10+sw, y+2, 10+sw, y+sigH-2);
+  const rsx = 10+sw+sw/2;
+  doc.setFontSize(8.5); doc.setFont('helvetica','bold'); setFont(NAVY);
+  doc.text('Authorized Signatory', rsx, y+5, {align:'center'});
+  setStroke(NAVY); doc.setLineWidth(0.4);
+  doc.line(rsx-25, y+14, rsx+25, y+14);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setFont(MUTED);
+  doc.text('Sayash Vastu — Management', rsx, y+17.5, {align:'center'});
+
+  doc.save(`SayashVastu_SalarySlip_${r.employee.name.replace(/ /g,'_')}_${monthName}_${r.year}.pdf`);
+  showToast('✅ Salary slip PDF downloaded!', 'ok');
 }
 async function loadSalaryStructure() {
   const { data } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
