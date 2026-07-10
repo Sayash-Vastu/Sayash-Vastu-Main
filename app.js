@@ -4944,9 +4944,9 @@ y += 21;
   // ---- Footer note ----
   setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
   doc.rect(12, y, W-24, 11, 'FD');
-  doc.setFontSize(7); doc.setFont('helvetica','italic'); setFont(MUTED);
-  doc.text('This is a computer-generated salary slip and does not require a physical signature.', W/2, y+4.5, { align:'center' });
-  doc.text('Salary details are strictly confidential — sharing is prohibited as per company policy.', W/2, y+8, { align:'center' });
+doc.setFontSize(7.5); doc.setFont('helvetica','italic'); setFont(MUTED);
+doc.text('This is a computer-generated salary slip.', W/2, y+4.5, { align:'center' });
+doc.text('This is a confidential document. Unauthorized disclosure is strictly prohibited.', W/2, y+8, { align:'center' });
   y += 18;
 
   // ---- Signatures ----
