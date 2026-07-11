@@ -3505,7 +3505,7 @@ const ownOnly = myTasks.filter(t => !t._isForwarded);
   const done = ownOnly.filter(t=>t.work_status==='Completed').length;
 document.getElementById('taskStats').innerHTML = `
     <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${ownOnly.length}</div><div class="stat-lbl">My Tasks</div></div>
-    <div class="stat-card sc-amber"><div class="stat-icon">⏳</div><div class="stat-num">${ns + ip}</div><div class="stat-lbl">Pending</div></div>
+<div class="stat-card sc-amber"><div class="stat-icon">⏳</div><div class="stat-num">${ns}</div><div class="stat-lbl">Pending</div></div>
     <div class="stat-card sc-blue"><div class="stat-icon">⚡</div><div class="stat-num">${ip}</div><div class="stat-lbl">In Progress</div></div>
     <div class="stat-card sc-gold"><div class="stat-icon">🔍</div><div class="stat-num">${rv}</div><div class="stat-lbl">In Review</div></div>
     <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num">${done}</div><div class="stat-lbl">Completed</div></div>
