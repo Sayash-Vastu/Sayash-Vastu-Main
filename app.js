@@ -6465,15 +6465,14 @@ const end = `${yr}-${mo}-${String(new Date(yr, mo, 0).getDate()).padStart(2,'0')
   const days2 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   const rowsHtml = [];
 
-  for (let d = 1; d <= totalDays; d++) {
+for (let d = 1; d <= totalDays; d++) {
     const dateObj = new Date(yr, mo - 1, d);
-const dispDate = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
-const a        = attMap[dateStr];
-const isWeekend = isWeeklyOff(dateObj, pattern);
-    const onLeave = (leaveDataMyPdf||[]).find(...)
+    const dateStr = `${yr}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const isWeekend = isWeeklyOff(dateObj, pattern);
+    const a = attMapMy[dateStr];
     const onLeave = (leaveDataMy || []).find(l => dateStr >= l.from_date && dateStr <= l.to_date);
     const isFuture = dateObj > todayCheckMy;
-
+  
     if (a) {
       if (a.status === 'Present') present++;
       else if (a.status === 'Half Day') half++;
