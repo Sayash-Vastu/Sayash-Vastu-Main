@@ -6439,6 +6439,8 @@ const { error } = await sb.from('hr_policies').insert({
 async function loadMyAttendance() {
   const monthVal = document.getElementById('att-my-month').value;
   if (!monthVal) return;
+  const { data: empPattern } = await sb.from('employees').select('weekly_off_pattern').eq('email', currentUser.email).single();
+  const pattern = empPattern?.weekly_off_pattern || 'sunday_only';
   const [yr, mo] = monthVal.split('-');
   const start = `${yr}-${mo}-01`;
 const end = `${yr}-${mo}-${String(new Date(yr, mo, 0).getDate()).padStart(2,'0')}`;
@@ -6465,9 +6467,10 @@ const end = `${yr}-${mo}-${String(new Date(yr, mo, 0).getDate()).padStart(2,'0')
 
   for (let d = 1; d <= totalDays; d++) {
     const dateObj = new Date(yr, mo - 1, d);
-    const dateStr = `${yr}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-    const isWeekend = dateObj.getDay() === 0;
-    const a = attMapMy[dateStr];
+const dispDate = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
+const a        = attMap[dateStr];
+const isWeekend = isWeeklyOff(dateObj, pattern);
+    const onLeave = (leaveDataMyPdf||[]).find(...)
     const onLeave = (leaveDataMy || []).find(l => dateStr >= l.from_date && dateStr <= l.to_date);
     const isFuture = dateObj > todayCheckMy;
 
@@ -6575,6 +6578,8 @@ async function exportMyAttPDF() {
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
 const { data: attData } = await sb.from('attendance')
+  const { data: empPatternPdf } = await sb.from('employees').select('weekly_off_pattern').eq('email', currentUser.email).single();
+  const patternPdf = empPatternPdf?.weekly_off_pattern || 'sunday_only';
     .select('*').eq('employee_email', currentUser.email)
     .eq('is_archived', false).gte('date', start).lte('date', end)
     .order('date', { ascending: true });
@@ -6598,7 +6603,7 @@ const { data: attData } = await sb.from('attendance')
     const dayName  = days3[dateObj.getDay()];
     const dispDate = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
     const a        = attMap[dateStr];
-const isWeekend = dateObj.getDay() === 0;
+const isWeekend = isWeeklyOff(dateObj, patternPdf);
     const onLeave = (leaveDataMyPdf||[]).find(l => dateStr >= l.from_date && dateStr <= l.to_date);
     const todayCheckPdf = new Date(); todayCheckPdf.setHours(0,0,0,0);
     const isFuturePdf = dateObj > todayCheckPdf;
