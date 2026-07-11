@@ -4597,36 +4597,53 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate) {
     .lte('from_date', yEnd).gte('to_date', yStart)
     .order('from_date', { ascending: true });
 
-  const join = joiningDate ? new Date(joiningDate) : new Date(year, 0, 1);
-  const yearStart = new Date(year, 0, 1);
-  const effectiveStart = join > yearStart ? join : yearStart;
-
-  let scPool = 0;
-  for (let m = effectiveStart.getMonth(); m <= 11; m++) scPool++;
-  scPool = Math.min(scPool, 12);
-
-  const refDate = new Date(year, 11, 31);
-  const tenureMonths = (refDate.getFullYear() - join.getFullYear()) * 12 + (refDate.getMonth() - join.getMonth());
-  let elPool = tenureMonths >= 12 ? 15 : (tenureMonths >= 4 ? 5 : 0);
-
+  const MONTHLY_CAP = 1.5; // Max paid leave days per calendar month; beyond this = LOP
+  const monthUsed = {};    // '2026-07' -> paid days already used that month
   const paidDates = new Set();
   const lopDates = new Set();
 
+  // Normalize a date string like '8-7-2026' or '08-07-2026' to '2026-07-08'
+  const normalizeDate = (s) => {
+    const t = (s || '').trim();
+    if (!t) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t;
+    const parts = t.split('-');
+    if (parts.length === 3) {
+      return parts[2] + '-' + parts[1].padStart(2, '0') + '-' + parts[0].padStart(2, '0');
+    }
+    return null;
+  };
+
   (leaveRows || []).forEach(rec => {
     const type = rec.leave_type;
-    const days = [];
-    let d = new Date(rec.from_date);
-    const end = new Date(rec.to_date);
-    while (d <= end) { days.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1); }
 
-    if (type === 'Earned Leave') {
-      days.forEach(ds => { if (elPool > 0) { paidDates.add(ds); elPool--; } else lopDates.add(ds); });
-    } else if (type === 'Other') {
-      days.forEach(ds => lopDates.add(ds));
+    // Build the list of leave dates: prefer specific_dates if present, else from_date..to_date
+    let days = [];
+    if (rec.specific_dates && rec.specific_dates.trim()) {
+      days = rec.specific_dates.split(',').map(normalizeDate).filter(Boolean);
     } else {
-      const perDay = type === 'Half Day' ? 0.5 : 1;
-      days.forEach(ds => { if (scPool >= perDay) { paidDates.add(ds); scPool -= perDay; } else lopDates.add(ds); });
+      let d = new Date(rec.from_date);
+      const end = new Date(rec.to_date);
+      while (d <= end) { days.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1); }
     }
+
+    // 'Other' leave type is always unpaid
+    if (type === 'Other') {
+      days.forEach(ds => lopDates.add(ds));
+      return;
+    }
+
+    const perDay = type === 'Half Day' ? 0.5 : 1;
+    days.forEach(ds => {
+      const mKey = ds.substring(0, 7); // '2026-07'
+      const used = monthUsed[mKey] || 0;
+      if (used + perDay <= MONTHLY_CAP) {
+        paidDates.add(ds);
+        monthUsed[mKey] = used + perDay;
+      } else {
+        lopDates.add(ds);
+      }
+    });
   });
 
   return { paidDates, lopDates };
