@@ -6576,13 +6576,13 @@ async function exportMyAttPDF() {
 
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-const { data: attData } = await sb.from('attendance')
-  const { data: empPatternPdf } = await sb.from('employees').select('weekly_off_pattern').eq('email', currentUser.email).single();
+const { data: empPatternPdf } = await sb.from('employees').select('weekly_off_pattern').eq('email', currentUser.email).single();
   const patternPdf = empPatternPdf?.weekly_off_pattern || 'sunday_only';
+  const { data: attData } = await sb.from('attendance')
     .select('*').eq('employee_email', currentUser.email)
     .eq('is_archived', false).gte('date', start).lte('date', end)
     .order('date', { ascending: true });
-
+  
   const { data: leaveDataMyPdf } = await sb.from('leaves').select('*')
     .eq('employee_email', currentUser.email)
     .eq('status', 'Approved')
