@@ -9670,7 +9670,7 @@ function renderExpenseFileList() {
       <span style="font-size:12px;color:var(--navy)">📎 ${f.name} <span style="color:var(--muted)">(${(f.size/1024).toFixed(0)} KB)</span></span>
       <button onclick="event.stopPropagation();removeExpenseFile(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">❌</button>
     </div>
-  `).join('') + '<div class="upload-zone-hint" style="margin-top:4px">+ Aur files add karne ke liye click karo</div>';
+`).join('') + '<div class="upload-zone-hint" style="margin-top:4px;font-size:16px">+</div>';
 }
 async function submitExpense() {
   const btn = document.querySelector('[onclick="submitExpense()"]');
