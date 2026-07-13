@@ -9641,6 +9641,37 @@ function previewExpFile(input) {
   `).join('');
 }
 
+window._expenseFiles = [];
+
+function addExpenseFiles(input) {
+  for (const f of input.files) {
+    if (!window._expenseFiles.some(x => x.name === f.name && x.size === f.size)) {
+      window._expenseFiles.push(f);
+    }
+  }
+  input.value = '';
+  renderExpenseFileList();
+}
+
+function removeExpenseFile(idx) {
+  window._expenseFiles.splice(idx, 1);
+  renderExpenseFileList();
+}
+
+function renderExpenseFileList() {
+  const el = document.getElementById('exp-preview');
+  if (!el) return;
+  if (!window._expenseFiles.length) {
+    el.innerHTML = '<div class="upload-zone-text">Click to upload receipt</div><div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>';
+    return;
+  }
+  el.innerHTML = window._expenseFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 12px;margin-bottom:6px" onclick="event.stopPropagation()">
+      <span style="font-size:12px;color:var(--navy)">📎 ${f.name} <span style="color:var(--muted)">(${(f.size/1024).toFixed(0)} KB)</span></span>
+      <button onclick="event.stopPropagation();removeExpenseFile(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">❌</button>
+    </div>
+  `).join('') + '<div class="upload-zone-hint" style="margin-top:4px">+ Aur files add karne ke liye click karo</div>';
+}
 async function submitExpense() {
   const btn = document.querySelector('[onclick="submitExpense()"]');
   if (btn && btn.disabled) return;
@@ -9650,7 +9681,7 @@ async function submitExpense() {
   const amount = document.getElementById('exp-amount').value;
   const date = document.getElementById('exp-date').value;
   const desc = document.getElementById('exp-desc').value.trim();
-  const files = document.getElementById('exp-file').files;
+const files = window._expenseFiles;
   const msgEl = document.getElementById('expMsg');
 
   if (!amount || !date) { 
@@ -9728,6 +9759,7 @@ const { error } = await sb.from('expense_claims').insert({
   document.getElementById('exp-date').value='';
   document.getElementById('exp-desc').value='';
 document.getElementById('exp-file').value='';
+  window._expenseFiles = [];
   if (document.getElementById('exp-onedrive-link')) document.getElementById('exp-onedrive-link').value='';
   document.getElementById('exp-preview').innerHTML='<div class="upload-zone-text">Click to upload receipt</div><div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>';
   loadMyExpenses();
