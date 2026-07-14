@@ -79,6 +79,9 @@
           <span class="ni">📑</span><span>My Reports</span>
           <span class="nav-badge" id="nb-my-reports" style="display:none">0</span>
         </button>
+        <button class="nav-btn" id="nav-audit-reports" onclick="showView('auditReports')" style="padding-left:32px">
+          <span class="ni">🕉</span><span>Audit Reports</span>
+        </button>
 <button class="nav-btn" id="nav-leads" onclick="showView('leadsManagement')" style="display:none;padding-left:32px">
           <span class="ni">🎯</span><span>Leads</span>
         </button>
@@ -769,6 +772,7 @@
         <div id="myReportsList"></div>
       </div>
 
+      <div class="view" id="view-auditReports"></div>
       <!-- LEAVE VIEW -->
       <div class="view" id="view-leaves">
         <div class="page-header">
