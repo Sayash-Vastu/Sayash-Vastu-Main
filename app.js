@@ -1115,6 +1115,7 @@ function showView(name) {
 document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   // Auto open parent menus
   if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval','myReports','followUp','ceoMyTasks'].includes(name)) {
+    if (['tasks','assign','seniorReview','projects','helpRequest','allTasks','reportsApproval','myReports','auditReports','followUp','ceoMyTasks'].includes(name)) {
     document.getElementById('workMenu').style.display = 'block';
     const arr = document.getElementById('work-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
@@ -1169,6 +1170,7 @@ const el = document.getElementById('view-' + name);
   if (name === 'reportsApproval') loadReportsApproval();
   if (name === 'ceoMyTasks') loadCeoMyTasks();
   if (name === 'myReports') loadMyReports();
+  if (name === 'auditReports') loadAuditReports();
   if (name === 'followUp') loadFollowUp();
   if (name === 'seniorReview') loadSeniorReview();
   if (name === 'myProfile') loadMyProfile();
@@ -10607,3 +10609,130 @@ window.addEventListener('online', async function() {
     }
   }
 });
+// ═══════════════════════════════════════════
+//  AUDIT REPORTS (Vastu Audit Form submissions)
+// ═══════════════════════════════════════════
+let _auditsAll = null;
+
+async function loadAuditReports() {
+  const el = document.getElementById('view-auditReports');
+  el.innerHTML = `
+    <div class="page-header"><h2>🕉 Audit Reports</h2><p>Vastu audit form submissions — site inspection reports</p></div>
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-body" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
+        <div class="field" style="flex:2;min-width:200px"><label>Search Client / Property / Inspector</label>
+          <input id="ar-search" placeholder="e.g. Signature, Narela, Rajendra..." oninput="filterAudits()">
+        </div>
+        <div class="field" style="flex:1;min-width:160px"><label>Verdict</label>
+          <select id="ar-verdict" onchange="filterAudits()">
+            <option value="">All Verdicts</option>
+            <option value="Suitable">✅ Suitable</option>
+            <option value="Conditional">⚠️ Conditional</option>
+            <option value="Major Issues">🔶 Major Issues</option>
+            <option value="Not Recommended">🚫 Not Recommended</option>
+          </select>
+        </div>
+        <div id="ar-count" style="font-size:12px;color:var(--muted);padding-bottom:10px;white-space:nowrap"></div>
+      </div>
+    </div>
+    <div id="ar-results"><div style="text-align:center;padding:30px;color:var(--muted)">⏳ Loading audits...</div></div>
+  `;
+  const { data, error } = await sb.from('vastu_audits').select('*').order('created_at', { ascending: false });
+  if (error) { document.getElementById('ar-results').innerHTML = '<div style="text-align:center;padding:30px;color:var(--red)">❌ ' + error.message + '</div>'; return; }
+  _auditsAll = data || [];
+  filterAudits();
+}
+
+function filterAudits() {
+  const q = (document.getElementById('ar-search')?.value || '').trim().toLowerCase();
+  const vd = document.getElementById('ar-verdict')?.value || '';
+  let rows = _auditsAll || [];
+  if (vd) rows = rows.filter(r => (r.verdict || '').includes(vd));
+  if (q) rows = rows.filter(r =>
+    (r.client_name || '').toLowerCase().includes(q) ||
+    (r.property_name || '').toLowerCase().includes(q) ||
+    (r.property_city || '').toLowerCase().includes(q) ||
+    (r.inspector_name || '').toLowerCase().includes(q) ||
+    (r.ref_id || '').toLowerCase().includes(q)
+  );
+  document.getElementById('ar-count').textContent = rows.length + ' report' + (rows.length !== 1 ? 's' : '');
+  const resEl = document.getElementById('ar-results');
+  if (!rows.length) { resEl.innerHTML = '<div class="panel"><div class="panel-body" style="text-align:center;color:var(--muted);padding:30px">No audit reports found</div></div>'; return; }
+
+  resEl.innerHTML = `
+    <div class="panel"><div class="panel-body" style="padding:0;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;white-space:nowrap">Date</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Ref</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Client</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Property</th>
+          <th style="padding:10px 14px;text-align:center;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">SVR Score</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Verdict</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Inspector</th>
+          <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Action</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(r => {
+            const scoreCl = r.svr_score >= 80 ? 'var(--green)' : r.svr_score >= 55 ? 'var(--amber)' : 'var(--red)';
+            const vBadge = (r.verdict||'').includes('Suitable') ? 'b-green' : (r.verdict||'').includes('Not Rec') ? 'b-red' : 'b-amber';
+            return `
+            <tr style="border-bottom:1px solid #f5f6fa" onmouseover="this.style.background='#f8f9fc'" onmouseout="this.style.background=''">
+              <td style="padding:9px 14px;white-space:nowrap">${fmtDate(r.audit_date)}</td>
+              <td style="padding:9px 14px;font-size:11px;color:var(--muted)">${esc(r.ref_id)||'-'}</td>
+              <td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(r.client_name)||'-'}</td>
+              <td style="padding:9px 14px">${esc(r.property_name)||'-'}<div style="font-size:10px;color:var(--muted)">${esc(r.property_city)||''}</div></td>
+              <td style="padding:9px 14px;text-align:center;font-weight:800;color:${scoreCl}">${r.svr_score ?? '-'}</td>
+              <td style="padding:9px 14px"><span class="badge ${vBadge}" style="font-size:10px">${esc((r.verdict||'-').split(' — ')[0])}</span></td>
+              <td style="padding:9px 14px;font-size:11px">${esc(r.inspector_name)||'-'}</td>
+              <td style="padding:9px 14px"><button class="btn btn-sm btn-outline" onclick="viewAuditReport('${r.id}')">👁 View</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div></div>
+  `;
+}
+
+function viewAuditReport(id) {
+  const r = (_auditsAll || []).find(x => x.id === id);
+  if (!r) return;
+  const fd = r.form_data || {};
+  const sec = (title, obj) => {
+    if (!obj) return '';
+    const rows = Object.entries(obj)
+      .filter(([k, v]) => v && typeof v !== 'object')
+      .map(([k, v]) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed #eee;font-size:12px"><span style="color:var(--muted)">${esc(k.replace(/_/g,' '))}</span><span style="font-weight:600;text-align:right">${esc(String(v))}</span></div>`)
+      .join('');
+    if (!rows) return '';
+    return `<div style="margin-bottom:16px"><div style="font-size:11px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px">${title}</div>${rows}</div>`;
+  };
+  const scoreCl = r.svr_score >= 80 ? 'var(--green)' : r.svr_score >= 55 ? 'var(--amber)' : 'var(--red)';
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="auditViewModal">
+      <div class="modal" style="width:700px;max-width:95vw;max-height:90vh;overflow-y:auto">
+        <div class="modal-title" style="display:flex;justify-content:space-between;align-items:center">
+          <span>🕉 ${esc(r.client_name)||'-'} — ${esc(r.property_name)||'-'}</span>
+          <span style="font-size:22px;font-weight:800;color:${scoreCl}">${r.svr_score ?? '-'}<span style="font-size:11px;color:var(--muted)">/100</span></span>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:14px">Ref: ${esc(r.ref_id)} · ${fmtDate(r.audit_date)} · Inspector: ${esc(r.inspector_name)||'-'}</div>
+        <div style="padding:10px 14px;border-radius:8px;margin-bottom:16px;font-weight:700;font-size:13px;text-align:center;background:${(r.verdict||'').includes('Suitable')?'var(--green-bg)':(r.verdict||'').includes('Not Rec')?'var(--red-bg)':'var(--amber-bg)'};color:${(r.verdict||'').includes('Suitable')?'var(--green)':(r.verdict||'').includes('Not Rec')?'var(--red)':'var(--amber)'}">${esc(r.verdict)||'No verdict'}</div>
+        ${sec('Client Details', fd.client)}
+        ${sec('Property', fd.property)}
+        ${sec('Site Facing', fd.facing)}
+        ${sec('Building & Setbacks', fd.building)}
+        ${sec('Cores — Stairs, Lifts, Toilets', fd.cores)}
+        ${sec('Utilities', fd.utilities)}
+        ${sec('Entry & Parking', fd.access)}
+        ${sec('Surroundings', fd.surroundings)}
+        ${r.key_positives ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--green);margin-bottom:4px">✅ KEY POSITIVES</div><div style="font-size:12.5px;white-space:pre-wrap">${esc(r.key_positives)}</div></div>` : ''}
+        ${r.key_issues ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--amber);margin-bottom:4px">⚠️ KEY ISSUES</div><div style="font-size:12.5px;white-space:pre-wrap">${esc(r.key_issues)}</div></div>` : ''}
+        ${r.critical_issues ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px">🚨 CRITICAL</div><div style="font-size:12.5px;white-space:pre-wrap">${esc(r.critical_issues)}</div></div>` : ''}
+        ${r.overall_remarks ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:4px">📝 OVERALL REMARKS</div><div style="font-size:12.5px;white-space:pre-wrap">${esc(r.overall_remarks)}</div></div>` : ''}
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="document.getElementById('auditViewModal').remove()">Close</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
