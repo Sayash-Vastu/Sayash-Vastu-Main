@@ -7298,6 +7298,7 @@ async function openTaskViewModal(taskId) {
   if (!t) return;
 
   const files = await getTaskFiles(taskId);
+  const { data: taskUpdates } = await sb.from('task_updates').select('*').eq('task_id', taskId).order('created_at', { ascending: true });
   const today = new Date();
   const endD = t.end_date ? new Date(t.end_date) : null;
   const isLate = endD && today > endD && t.work_status !== 'Completed';
@@ -7351,6 +7352,23 @@ async function openTaskViewModal(taskId) {
       + '</div>';
   }
 
+  // Updates thread section
+  let updatesHtml = '<div style="background:#f8f9fc;border-radius:10px;padding:14px;margin-bottom:14px">'
+    + '<div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:10px">🔄 Updates & Follow-ups (' + (taskUpdates?.length || 0) + ')</div>';
+  if (taskUpdates && taskUpdates.length) {
+    updatesHtml += taskUpdates.map(u => 
+      '<div style="border-left:3px solid var(--gold);padding:8px 12px;margin-bottom:8px;background:#fff;border-radius:0 8px 8px 0">'
+      + '<div style="font-size:11px;color:var(--muted);margin-bottom:3px"><strong style="color:var(--navy)">' + esc(u.updated_by_name || '-') + '</strong> · ' + new Date(u.created_at).toLocaleString('en-IN', {day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) + '</div>'
+      + '<div style="font-size:13px;color:var(--text);line-height:1.5;white-space:pre-wrap">' + esc(u.update_text) + '</div>'
+      + '</div>'
+    ).join('');
+  } else {
+    updatesHtml += '<div style="font-size:12px;color:var(--muted);margin-bottom:8px">No updates yet</div>';
+  }
+  updatesHtml += '<div style="display:flex;gap:8px;margin-top:10px">'
+    + '<textarea id="tu-new-' + taskId + '" placeholder="Naya update / change / follow-up likho..." style="flex:1;min-height:44px;padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-family:inherit;resize:vertical"></textarea>'
+    + '<button class="btn btn-gold btn-sm" onclick="addTaskUpdate(\'' + taskId + '\')" style="align-self:flex-end">➕ Add</button>'
+    + '</div></div>';
   const endColor = isLate ? 'var(--red)' : 'var(--navy)';
   const endWeight = isLate ? '700' : '400';
 
@@ -7379,15 +7397,49 @@ async function openTaskViewModal(taskId) {
     + '</div>'
     + '</div>'
 
-    + pendingHtml
++ pendingHtml
     + commentsHtml
+    + updatesHtml
     + approvalHtml
     + filesHtml;
-
+  
   document.getElementById('taskViewModal').classList.add('open');
 }
 
+async function addTaskUpdate(taskId) {
+  const ta = document.getElementById('tu-new-' + taskId);
+  const text = ta?.value.trim();
+  if (!text) { showToast('⚠️ Update likho pehle', 'warn'); return; }
 
+  const { error } = await sb.from('task_updates').insert({
+    task_id: taskId,
+    update_text: text,
+    updated_by_name: currentUser.name,
+    updated_by_email: currentUser.email
+  });
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+
+  // Task ko reopen karo agar completed tha
+  const { data: t } = await sb.from('tasks').select('assigned_to_email, assigned_to_name, assigned_by_email, work_status, task_detail').eq('id', taskId).maybeSingle();
+  if (t && (t.work_status === 'Completed' || t.work_status === 'Report Ready')) {
+    await sb.from('tasks').update({ work_status: 'In Progress' }).eq('id', taskId);
+  }
+
+  // Notification bhejo (khud ko chhodke)
+  if (t) {
+    const notifyTo = [];
+    if (t.assigned_to_email && t.assigned_to_email !== currentUser.email) notifyTo.push(t.assigned_to_email);
+    if (t.assigned_by_email && t.assigned_by_email !== currentUser.email && !notifyTo.includes(t.assigned_by_email)) notifyTo.push(t.assigned_by_email);
+    for (const em of notifyTo) {
+      await createNotification(em, '🔄 Task Update — ' + currentUser.name,
+        currentUser.name + ' ne task pe update dala: "' + text.substring(0, 80) + (text.length > 80 ? '...' : '') + '"',
+        'info', 'tasks');
+    }
+  }
+
+  showToast('✅ Update added!', 'ok');
+  openTaskViewModal(taskId); // Modal refresh — naya update dikhega
+}
 async function openCeoTaskUpdateModal(taskId) {
   let t = allTasksData.find(x => x.id === taskId);
   if (!t) {
