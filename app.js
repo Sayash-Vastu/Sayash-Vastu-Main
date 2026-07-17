@@ -1354,6 +1354,7 @@ async function saveEditSiteVisit(visitId) {
     project_name: document.getElementById('ev-project').value.trim() || null,
     sub_project_name: document.getElementById('ev-subproject').value.trim() || null,
     visit_date: document.getElementById('ev-date').value || null,
+        visit_type: document.getElementById('ev-type').value,
     visited_by: document.getElementById('ev-by').value.trim() || null,
     location: document.getElementById('ev-location').value.trim() || null,
     discussion: document.getElementById('ev-discussion').value.trim() || null,
