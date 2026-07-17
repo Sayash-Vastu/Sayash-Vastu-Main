@@ -1301,7 +1301,7 @@ document.getElementById('clientVisitsList').innerHTML = `
                 <td style="padding:9px 14px;max-width:150px">${esc(v.location||'-')}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
-                <td style="padding:9px 14px"><button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+<td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="openEditSiteVisit('${v.id}')" style="margin-right:6px">✏️</button><button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
               </tr>
             `).join('')}
           </tbody>
@@ -1315,6 +1315,47 @@ async function deleteSiteVisitGlobal(visitId) {
   const { error } = await sbClient.from('site_visits').delete().eq('id', visitId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Site visit deleted!', 'ok');
+  loadClientVisitsAll();
+}
+async function openEditSiteVisit(visitId) {
+  const { data: v, error } = await sbClient.from('site_visits').select('*, clients(name)').eq('id', visitId).single();
+  if (error || !v) { showToast('❌ Visit not found', 'err'); return; }
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="editVisitModal">
+      <div class="modal" style="width:520px;max-width:95vw;max-height:90vh;overflow-y:auto">
+        <div class="modal-title">✏️ Edit Site Visit — ${esc(v.clients?.name || '-')}</div>
+        <div class="form-grid">
+          <div class="field"><label>Project</label><input id="ev-project" value="${esc(v.project_name || '')}"></div>
+          <div class="field"><label>Sub-Project</label><input id="ev-subproject" value="${esc(v.sub_project_name || '')}"></div>
+          <div class="field"><label>Visit Date</label><input type="date" id="ev-date" value="${v.visit_date || ''}"></div>
+          <div class="field"><label>Visited By</label><input id="ev-by" value="${esc(v.visited_by || '')}" placeholder="Comma separated names"></div>
+          <div class="field"><label>Location</label><input id="ev-location" value="${esc(v.location || '')}"></div>
+          <div class="field"><label>Description / Discussion</label><textarea id="ev-discussion" rows="3">${esc(v.discussion || '')}</textarea></div>
+          <div class="field"><label>Suggestions</label><textarea id="ev-suggestions" rows="3">${esc(v.suggestions || '')}</textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="document.getElementById('editVisitModal').remove()">Cancel</button>
+          <button class="btn btn-gold" onclick="saveEditSiteVisit('${v.id}')">💾 Save Changes</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
+
+async function saveEditSiteVisit(visitId) {
+  const upd = {
+    project_name: document.getElementById('ev-project').value.trim() || null,
+    sub_project_name: document.getElementById('ev-subproject').value.trim() || null,
+    visit_date: document.getElementById('ev-date').value || null,
+    visited_by: document.getElementById('ev-by').value.trim() || null,
+    location: document.getElementById('ev-location').value.trim() || null,
+    discussion: document.getElementById('ev-discussion').value.trim() || null,
+    suggestions: document.getElementById('ev-suggestions').value.trim() || null
+  };
+  const { error } = await sbClient.from('site_visits').update(upd).eq('id', visitId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Site visit updated!', 'ok');
+  document.getElementById('editVisitModal').remove();
   loadClientVisitsAll();
 }
 // ═══════════════════════════════════════════
