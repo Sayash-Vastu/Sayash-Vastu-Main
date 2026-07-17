@@ -10739,21 +10739,79 @@ function viewAuditReport(id) {
 function printAuditReport(id) {
   const r = (_auditsAll || []).find(x => x.id === id);
   if (!r) return;
-  const modal = document.querySelector('#auditViewModal .modal');
-  if (!modal) return;
+  const fd = r.form_data || {};
+  const e2 = s => String(s ?? '').replace(/</g, '&lt;');
+  const cap = k => k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const secTbl = (title, obj) => {
+    if (!obj) return '';
+    const rows = Object.entries(obj)
+      .filter(([k, v]) => v && typeof v !== 'object')
+      .map(([k, v]) => `<tr><td class="k">${e2(cap(k))}</td><td class="v">${e2(v)}</td></tr>`)
+      .join('');
+    return rows ? `<div class="sec"><div class="sec-t">${title}</div><table>${rows}</table></div>` : '';
+  };
+  const sc = r.svr_score;
+  const scCl = sc >= 80 ? '#1e9e5a' : sc >= 55 ? '#d98a00' : '#d64545';
+  const scTxt = sc == null ? '' : sc >= 80 ? 'Strong Vastu Compliance' : sc >= 55 ? 'Moderate — Rectifications Needed' : 'Weak Vastu Compliance';
+  const vd = r.verdict || 'No verdict recorded';
+  const vdCl = vd.includes('Suitable') ? '#1e9e5a' : vd.includes('Not Rec') ? '#d64545' : '#d98a00';
+  const vdBg = vd.includes('Suitable') ? '#e8f7ef' : vd.includes('Not Rec') ? '#fdeaea' : '#fdf3e3';
+  const note = (t, cl, v) => v ? `<div class="sec"><div class="sec-t" style="color:${cl}">${t}</div><div class="txt">${e2(v)}</div></div>` : '';
+
   const w = window.open('', '_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>Vastu Audit — ${r.ref_id || ''}</title>
+  w.document.write(`<!DOCTYPE html><html><head><title>Vastu Audit — ${e2(r.ref_id || '')}</title>
   <style>
-    :root{--muted:#8a90a3;--gold:#c9a227;--navy:#1a2340;--green:#1e9e5a;--amber:#d98a00;--red:#d64545;--green-bg:#e8f7ef;--amber-bg:#fdf3e3;--red-bg:#fdeaea;--border:#e5e7ee}
-    body{font-family:'Segoe UI',Arial,sans-serif;padding:28px;color:#1a2340;max-width:760px;margin:auto}
-    .modal-actions{display:none}
-    h1{font-size:18px;margin:0 0 4px}
+    @page{margin:14mm}
+    *{box-sizing:border-box}
+    body{font-family:'Segoe UI',Arial,sans-serif;color:#1a2340;max-width:760px;margin:auto;padding:10px;font-size:12px}
+    .hdr{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #c9a227;padding-bottom:12px;margin-bottom:6px}
+    .brand{font-size:22px;font-weight:800;color:#1a2340;letter-spacing:0.5px}
+    .brand span{color:#c9a227}
+    .sub{font-size:10px;color:#8a90a3;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+    .lotus{font-size:34px;color:#e07b39}
+    .rpt-title{background:#1a2340;color:#fff;padding:8px 14px;font-size:13px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin:14px 0}
+    .meta{display:flex;justify-content:space-between;font-size:11px;color:#555;margin-bottom:14px}
+    .score-box{text-align:center;border:2px solid ${scCl};border-radius:12px;padding:14px;margin:14px 0}
+    .score-num{font-size:42px;font-weight:800;color:${scCl};line-height:1}
+    .score-lbl{font-size:12px;font-weight:700;color:${scCl};margin-top:4px}
+    .sec{margin-bottom:14px;page-break-inside:avoid}
+    .sec-t{font-size:11px;font-weight:800;color:#c9a227;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid #eee;padding-bottom:4px;margin-bottom:6px}
+    table{width:100%;border-collapse:collapse}
+    td{padding:4px 6px;border-bottom:1px dashed #eee;vertical-align:top}
+    td.k{color:#8a90a3;width:42%}
+    td.v{font-weight:600}
+    .verdict{background:${vdBg};color:${vdCl};font-weight:800;text-align:center;padding:12px;border-radius:10px;font-size:14px;margin:16px 0}
+    .txt{white-space:pre-wrap;font-size:12px}
+    .ftr{border-top:2px solid #c9a227;margin-top:20px;padding-top:8px;font-size:10px;color:#8a90a3;text-align:center}
   </style></head><body>
-  <div style="border-bottom:3px solid #c9a227;padding-bottom:10px;margin-bottom:16px">
-    <h1>🕉 Sayash Vastu — Built-Up Property Audit Report</h1>
-    <div style="font-size:11px;color:#8a90a3">Big Jo's Tower, Netaji Subhash Place, Delhi</div>
+  <div class="hdr">
+    <div>
+      <div class="brand">Sayash <span>Vastu</span></div>
+      <div class="sub">Built-Up Property Vastu Audit</div>
+    </div>
+    <div class="lotus">🕉</div>
   </div>
-  ${modal.innerHTML}
+  <div class="rpt-title">Site Inspection Report</div>
+  <div class="meta">
+    <span><b>Ref:</b> ${e2(r.ref_id) || '—'}</span>
+    <span><b>Date:</b> ${fmtDate(r.audit_date)}</span>
+    <span><b>Inspector:</b> ${e2(r.inspector_name) || '—'}</span>
+  </div>
+  ${sc != null ? `<div class="score-box"><div style="font-size:11px;color:#8a90a3;letter-spacing:1px">🕉 SVR™ INSTANT VASTU SCORE</div><div class="score-num">${sc}<span style="font-size:16px;color:#8a90a3">/100</span></div><div class="score-lbl">${scTxt}</div></div>` : ''}
+  ${secTbl('Client Details', fd.client)}
+  ${secTbl('Property Details', fd.property)}
+  ${secTbl('Site Facing & Land', fd.facing)}
+  ${secTbl('Building Shape & Setbacks', fd.building)}
+  ${secTbl('Cores — Stairs, Lifts, Toilets', fd.cores)}
+  ${secTbl('Utilities', fd.utilities)}
+  ${secTbl('Ramp, Entry & Parking', fd.access)}
+  ${secTbl('Site Surroundings', fd.surroundings)}
+  ${note('✅ Key Positives', '#1e9e5a', r.key_positives)}
+  ${note('⚠️ Key Issues', '#d98a00', r.key_issues)}
+  ${note('🚨 Critical Issues', '#d64545', r.critical_issues)}
+  ${note('📝 Overall Remarks', '#1a2340', r.overall_remarks)}
+  <div class="verdict">Final Recommendation: ${e2(vd)}</div>
+  <div class="ftr">This report has been prepared by Sayash Vastu certified inspector <b>${e2(r.inspector_name) || '—'}</b> for internal &amp; client Vastu assessment purposes.<br>Sayash Vastu · Big Jo's Tower, Netaji Subhash Place, Delhi</div>
   </body></html>`);
   w.document.close();
   setTimeout(() => { w.print(); }, 400);
