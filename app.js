@@ -1277,18 +1277,19 @@ async function loadClientVisitsAll() {
   }
 document.getElementById('clientVisitsList').innerHTML = `
     <div class="panel">
-      <div class="panel-body" style="padding:0">
+<div class="panel-body" style="padding:0;max-height:68vh;overflow:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
-          <thead>
-<tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Client</th>
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Project</th>
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Date</th>
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Visited By</th>
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Location</th>
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Description</th>
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Suggestions</th>
-              <th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Action</th>
+<thead>
+<tr style="border-bottom:1px solid var(--border)">
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Client</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Project</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Date</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Type</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Visited By</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Location</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Description</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Suggestions</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Action</th>
             </tr>
           </thead>
           <tbody>
@@ -1296,7 +1297,8 @@ document.getElementById('clientVisitsList').innerHTML = `
               <tr style="border-bottom:1px solid #f5f6fa">
 <td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(v.clients?.name||'-')}</td>
                 <td style="padding:9px 14px;color:var(--muted)">${esc(v.project_name||'-')}${v.sub_project_name ? ' / ' + esc(v.sub_project_name) : ''}</td>
-                <td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
+<td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
+                <td style="padding:9px 14px"><span class="badge b-navy" style="font-size:10px">${esc(v.visit_type||'-')}</span></td>
                 <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
                 <td style="padding:9px 14px;max-width:150px">${esc(v.location||'-')}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
@@ -1328,6 +1330,11 @@ async function openEditSiteVisit(visitId) {
           <div class="field"><label>Project</label><input id="ev-project" value="${esc(v.project_name || '')}"></div>
           <div class="field"><label>Sub-Project</label><input id="ev-subproject" value="${esc(v.sub_project_name || '')}"></div>
           <div class="field"><label>Visit Date</label><input type="date" id="ev-date" value="${v.visit_date || ''}"></div>
+          <div class="field"><label>Type</label>
+            <select id="ev-type">
+              ${['Site Visit','Head Office','Telephonic','Mail'].map(t => `<option ${v.visit_type===t?'selected':''}>${t}</option>`).join('')}
+            </select>
+          </div>
           <div class="field"><label>Visited By</label><input id="ev-by" value="${esc(v.visited_by || '')}" placeholder="Comma separated names"></div>
           <div class="field"><label>Location</label><input id="ev-location" value="${esc(v.location || '')}"></div>
           <div class="field"><label>Description / Discussion</label><textarea id="ev-discussion" rows="3">${esc(v.discussion || '')}</textarea></div>
@@ -2398,7 +2405,8 @@ async function saveVisitGlobal() {
         client_id: clientId,
         project_name: currentProject,
         sub_project_name: currentSubProject,
-        visit_date: visitDate,
+visit_date: visitDate,
+        visit_type: visitType,
         layout_received_date: document.getElementById('avg-layout-date').value || null,
         visited_by: visitedBy,
         assigned_to: assignedToName,
