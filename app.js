@@ -10866,3 +10866,18 @@ function printAuditReport(id) {
   w.document.close();
   setTimeout(() => { w.print(); }, 400);
 }
+function leaveCoversDate(l, dateStr) {
+  // Agar specific_dates hain to SIRF wahi dates leave count hongi
+  if (l.specific_dates && l.specific_dates.trim()) {
+    return l.specific_dates.split(',').map(s => s.trim()).some(s => {
+      const p = s.split('-');
+      if (p.length !== 3) return false;
+      // D-M-YYYY ya YYYY-MM-DD dono handle
+      const norm = p[0].length === 4
+        ? `${p[0]}-${String(p[1]).padStart(2,'0')}-${String(p[2]).padStart(2,'0')}`
+        : `${p[2]}-${String(p[1]).padStart(2,'0')}-${String(p[0]).padStart(2,'0')}`;
+      return norm === dateStr;
+    });
+  }
+  return dateStr >= l.from_date && dateStr <= l.to_date;
+}
