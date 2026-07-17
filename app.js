@@ -10729,9 +10729,32 @@ function viewAuditReport(id) {
         ${r.critical_issues ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--red);margin-bottom:4px">🚨 CRITICAL</div><div style="font-size:12.5px;white-space:pre-wrap">${esc(r.critical_issues)}</div></div>` : ''}
         ${r.overall_remarks ? `<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:700;color:var(--navy);margin-bottom:4px">📝 OVERALL REMARKS</div><div style="font-size:12.5px;white-space:pre-wrap">${esc(r.overall_remarks)}</div></div>` : ''}
         <div class="modal-actions">
+        <button class="btn btn-primary" onclick="printAuditReport('${r.id}')">📄 Download PDF</button>
           <button class="btn btn-outline" onclick="document.getElementById('auditViewModal').remove()">Close</button>
         </div>
       </div>
     </div>
   `);
+}
+function printAuditReport(id) {
+  const r = (_auditsAll || []).find(x => x.id === id);
+  if (!r) return;
+  const modal = document.querySelector('#auditViewModal .modal');
+  if (!modal) return;
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head><title>Vastu Audit — ${r.ref_id || ''}</title>
+  <style>
+    :root{--muted:#8a90a3;--gold:#c9a227;--navy:#1a2340;--green:#1e9e5a;--amber:#d98a00;--red:#d64545;--green-bg:#e8f7ef;--amber-bg:#fdf3e3;--red-bg:#fdeaea;--border:#e5e7ee}
+    body{font-family:'Segoe UI',Arial,sans-serif;padding:28px;color:#1a2340;max-width:760px;margin:auto}
+    .modal-actions{display:none}
+    h1{font-size:18px;margin:0 0 4px}
+  </style></head><body>
+  <div style="border-bottom:3px solid #c9a227;padding-bottom:10px;margin-bottom:16px">
+    <h1>🕉 Sayash Vastu — Built-Up Property Audit Report</h1>
+    <div style="font-size:11px;color:#8a90a3">Big Jo's Tower, Netaji Subhash Place, Delhi</div>
+  </div>
+  ${modal.innerHTML}
+  </body></html>`);
+  w.document.close();
+  setTimeout(() => { w.print(); }, 400);
 }
