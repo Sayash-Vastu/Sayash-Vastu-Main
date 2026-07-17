@@ -2430,20 +2430,20 @@ visit_date: visitDate,
       if (isMaxHealthcare) {
         trackerPayload.coordinator = visitedBy;
         trackerPayload.site_visit_date = visitDate;
-        trackerPayload.recommendation = discussion || 'Site visit report pending';
+        trackerPayload.recommendation = discussion || null;
         trackerPayload.record_type = visitType;
         trackerPayload.location_links = location ? [location] : [];
         trackerPayload.vastu_reports = [];
       } else if (isSignatureGlobal) {
         trackerPayload.site_visit_date = visitDate;
         trackerPayload.sg_team_visitor = visitedBy;
-        trackerPayload.sayash_observation = discussion || 'Site visit report pending';
+        trackerPayload.sayash_observation = discussion || null;
         trackerPayload.document_received = visitType;
         trackerPayload.site_plan_link = location || null;
 } else {
         trackerPayload.received_from = currentUser.name;
         trackerPayload.visited_by = visitedBy;
-        trackerPayload.recommendation = discussion || 'Site visit report pending';
+        trackerPayload.recommendation = discussion || null;
         trackerPayload.site_visit_date = visitDate;
         trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : visitType === 'Mail' ? 'Mail Consultation' : 'Other';
         trackerPayload.location_link = location || null;
