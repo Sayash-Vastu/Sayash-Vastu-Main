@@ -2856,6 +2856,29 @@ const isOverdueEmp = f.next_followup < today;
     .eq('date', today)
     .eq('is_archived', false)
     .order('check_in', {ascending: true});
+  // Aaj kis-kis ke naam se site visit punch hui
+  const { data: svToday } = await sbClient.from('site_visits')
+    .select('visited_by').eq('visit_date', today);
+  const siteCountByName = {};
+  (svToday || []).forEach(v => {
+    (v.visited_by || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+      .forEach(n => { siteCountByName[n] = (siteCountByName[n] || 0) + 1; });
+  });
+  const getWorkBadge = (a) => {
+    const key = (a.employee_name || '').trim().toLowerCase();
+    let onSiteToday = !!siteCountByName[key];
+    if (!onSiteToday) {
+      const first = key.split(' ')[0];
+      for (const n in siteCountByName) { if (n.split(' ')[0] === first) { onSiteToday = true; break; } }
+    }
+    if (a.work_type === 'WFH')
+      return '<span class="badge b-blue" style="font-size:10px">🏠 WFH</span>';
+    if (a.work_type === 'On Site')
+      return '<span class="badge b-green" style="font-size:10px">📍 On Site</span>';
+    if (onSiteToday)
+      return '<span class="badge b-navy" style="font-size:10px">🏢 Office / 📍 On Site</span>';
+    return '<span class="badge b-navy" style="font-size:10px">🏢 Office</span>';
+  };
 
   // Fetch employee photos
   const { data: empPhotos } = await sb.from('employees').select('email,photo_url').eq('is_active', true);
@@ -2894,8 +2917,8 @@ return '<div onclick="openEmpQuickView(\'' + a.employee_email + '\')" style="dis
           + '<div style="font-size:12px;font-weight:600;color:var(--navy)">' + nameLabel + '</div>'
           + '<div style="font-size:10px;color:' + statusColor + ';margin-top:2px">' + statusText + '</div>'
           + '</div>'
-          + workTypeBadge
-          + '</div>';
++ getWorkBadge(a)
+  + '</div>';
       }).join('');
     }
   }
