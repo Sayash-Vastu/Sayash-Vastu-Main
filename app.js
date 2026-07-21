@@ -676,6 +676,7 @@ async function exportAttPDF() {
 
   // Fetch all employees
 const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
+  const empsF = (emps||[]).filter(e => e.name.trim().toLowerCase() !== 'neha gupta');
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
 const { data: attData } = await sb.from('attendance').select('*').eq('is_archived', false).gte('date', start).lte('date', end);
@@ -5128,6 +5129,7 @@ async function loadAttReport() {
   const start=`${yr}-${mo}-01`;
   const end=new Date(yr,mo,0).toISOString().split('T')[0];
 const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true).neq('role','ceo');
+  const empsFiltered = (emps||[]).filter(e => e.name.trim().toLowerCase() !== 'neha gupta');
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
   const { data: holidaysReport } = await sb.from('holidays').select('date').gte('date',start).lte('date',end);
