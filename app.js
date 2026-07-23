@@ -6569,11 +6569,11 @@ for (let d = 1; d <= totalDays; d++) {
     const onLeave = (leaveDataMy || []).find(l => leaveCoversDate(l, dateStr))
     const isFuture = dateObj > todayCheckMy;
   
-    if (a) {
+if (a && !onLeave) {
       if (a.status === 'Present') present++;
       else if (a.status === 'Half Day') half++;
       else if (a.status === 'Absent') absent++;
-      rowsHtml.push(`<tr style="${isWeekend ? 'background:#f8f9fc' : ''}">
+  rowsHtml.push(`<tr style="${isWeekend ? 'background:#f8f9fc' : ''}">
         <td style="font-weight:600">${fmtDate(a.date)}</td>
         <td style="font-size:11px;color:${isWeekend ? 'var(--muted)' : 'var(--text)'}">${days2[dateObj.getDay()]}</td>
         <td>${a.check_in ? new Date(a.check_in).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
