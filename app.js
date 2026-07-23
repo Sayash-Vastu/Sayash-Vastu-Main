@@ -2659,7 +2659,7 @@ await loadDailyQuoteWithOverride();
   }
 
   // WFH Today
-  const { data: wfhToday } = await sb.from('attendance').select('*').eq('date', today).eq('is_archived',false).eq('work_type','WFH');
+const { data: wfhToday } = await sb.from('attendance').select('*').eq('date', today).eq('is_archived',false).eq('work_type','WFH').is('check_out', null);
   const wfhEl = document.getElementById('empWFHToday');
   if (!wfhToday || !wfhToday.length) {
     wfhEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No one working from home today</div>';
@@ -3062,7 +3062,7 @@ const { data: leaveTodayRawCeo } = await sb.from('leaves').select('*').eq('statu
   }
 
   // WFH Today
-  const { data: wfhToday } = await sb.from('attendance').select('*').eq('date',todayStr).eq('is_archived',false).eq('work_type','WFH');
+const { data: wfhToday } = await sb.from('attendance').select('*').eq('date',todayStr).eq('is_archived',false).eq('work_type','WFH').is('check_out', null);
   const wfhEl = document.getElementById('ceoWFHToday');
   if (wfhEl) {
     if (!wfhToday||!wfhToday.length) {
