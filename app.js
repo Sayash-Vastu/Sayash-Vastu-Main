@@ -2952,11 +2952,14 @@ const todayDate = new Date().toISOString().split('T')[0];
   const { data: ceoEmails } = await sb.from('employees').select('email').in('role',['ceo','hr']);
   const ceoEmailSet = new Set((ceoEmails||[]).map(e=>e.email));
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', todayDate).eq('is_archived',false);
-  const presentToday = (todayAtt||[]).filter(a=>(a.status==='Present'||a.status==='Half Day') && !ceoEmailSet.has(a.employee_email)).length;
+const presentEmails = new Set((todayAtt||[]).filter(a=>(a.status==='Present'||a.status==='Half Day') && !ceoEmailSet.has(a.employee_email)).map(a=>a.employee_email));
+  const presentToday = presentEmails.size;
   const { data: leaveTodayCount } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date',todayDate).gte('to_date',todayDate);
-  const onLeaveCount = (leaveTodayCount||[]).length;
+  const leaveEmails = new Set((leaveTodayCount||[]).map(l=>l.employee_email));
+  const onLeaveCount = leaveEmails.size;
+  const { data: allActiveEmps } = await sb.from('employees').select('email').eq('is_active',true).not('role','in','(ceo,hr)');
   const isWeekendNow = [0,6].includes(new Date().getDay());
-  const absentToday = isWeekendNow ? 0 : Math.max(0, (totalEmp||0) - presentToday - onLeaveCount);
+  const absentToday = isWeekendNow ? 0 : (allActiveEmps||[]).filter(e => !presentEmails.has(e.email) && !leaveEmails.has(e.email)).length;
   
   const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
   const today2 = new Date(); today2.setHours(0,0,0,0);
