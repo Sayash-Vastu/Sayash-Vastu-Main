@@ -3172,6 +3172,8 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
   }
     // Today's Attendance Log
   const { data: todayAttAll } = await sb.from('attendance').select('*').eq('date',todayStr).eq('is_archived',false).order('check_in',{ascending:true});
+  const { data: todayLeavesCeo } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date',todayStr).gte('to_date',todayStr);
+  const todayLeaveSet = new Set((todayLeavesCeo||[]).map(l=>l.employee_email));
   const { data: ceoEmpPhotos } = await sb.from('employees').select('email,photo_url').eq('is_active', true);
   const ceoPhotoMap = {};
   (ceoEmpPhotos||[]).forEach(e => { if(e.photo_url) ceoPhotoMap[e.email] = e.photo_url; });
@@ -3219,7 +3221,7 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
   `<a href="https://maps.google.com/?q=${a.latitude},${a.longitude}" target="_blank" style="color:var(--blue);text-decoration:none;font-size:11px">📍 View Map</a><br><span style="font-size:10px;color:var(--muted)">${a.location_address ? esc(a.location_address.substring(0,30)) : ''}</span>` 
   : (a.location_address ? `<span style="font-size:10px;color:var(--muted)">🏢 ${esc(a.location_address.substring(0,35))}</span>` : a.ip_address ? `<span style="font-size:10px;color:var(--muted)">🖥️ Office | ${esc(a.ip_address)}</span>` : '—')}
           </td>
-          <td style="padding:9px 14px">${attBadge(a.status)}</td>
+<td style="padding:9px 14px">${attBadge(todayLeaveSet.has(a.employee_email) ? 'Leave' : a.status)}</td>
         </tr>`).join('')}
         </tbody></table>`;
     }
@@ -5131,8 +5133,7 @@ async function loadAttReport() {
   const [yr,mo]=monthVal.split('-');
   const start=`${yr}-${mo}-01`;
   const end=new Date(yr,mo,0).toISOString().split('T')[0];
-const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true).neq('role','ceo');
-  const empsFiltered = (emps||[]).filter(e => e.name.trim().toLowerCase() !== 'neha gupta');
+  const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true).neq('role','ceo');
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
   const { data: holidaysReport } = await sb.from('holidays').select('date').gte('date',start).lte('date',end);
@@ -5150,37 +5151,45 @@ const { data: emps } = await sb.from('employees').select('name,email').eq('is_ac
     dCountIter.setDate(dCountIter.getDate()+1);
   }
   const todayForReport = new Date(); todayForReport.setHours(0,0,0,0);
-  // Calculate per-employee Absent/Leave properly
+
+  // Leave hamesha priority leti hai — chahe attendance record ho ya na ho
   const empCalc = {};
   emps.forEach(e => {
-    const presentDatesR = new Set((attData||[]).filter(a=>a.employee_email===e.email).map(a=>a.date));
+    const attMapR = {};
+    (attData||[]).filter(a=>a.employee_email===e.email).forEach(a => { attMapR[a.date] = a; });
     const empLeavesR = (leaveDataReport||[]).filter(l=>l.employee_email===e.email);
-    let absentR = 0, leaveR = 0;
+    let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0;
+    const halfDatesR = [], leaveDatesR = [];
     const dIter = new Date(yr, mo-1, 1);
     while (dIter.getMonth() === mo-1) {
       const dsIter = dIter.getFullYear() + '-' + String(dIter.getMonth()+1).padStart(2,'0') + '-' + String(dIter.getDate()).padStart(2,'0');
       const isSunIter = dIter.getDay() === 0;
       const isFutureIter = dIter > todayForReport;
-      const onLeaveIter = empLeavesR.find(l => leaveCoversDate(l, dsIter))
-      if (!presentDatesR.has(dsIter)) {
-        if (onLeaveIter) leaveR++;
-        else if (!isSunIter && !isFutureIter) absentR++;
+      const onLeaveIter = empLeavesR.find(l => dsIter >= l.from_date && dsIter <= l.to_date);
+      const attRec = attMapR[dsIter];
+      if (onLeaveIter) {
+        leaveR++; leaveDatesR.push(dsIter);
+      } else if (attRec) {
+        if (attRec.status === 'Present') presentR++;
+        else if (attRec.status === 'Half Day') { halfR++; halfDatesR.push(dsIter); }
+        else if (attRec.status === 'Absent') absentR++;
+        if (attRec.check_in) {
+          const t = new Date(attRec.check_in);
+          if (t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>30)) lateR++;
+        }
+      } else if (!isSunIter && !isFutureIter) {
+        absentR++;
       }
       dIter.setDate(dIter.getDate()+1);
     }
-    empCalc[e.email] = { absent: absentR, leave: leaveR };
+    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, halfDates: halfDatesR, leaveDates: leaveDatesR };
   });
 
-  // Summary cards
-  const totalPresent = (attData||[]).filter(a=>a.status==='Present').length;
+  const totalPresent = Object.values(empCalc).reduce((s,v)=>s+v.present,0);
   const totalAbsent = Object.values(empCalc).reduce((s,v)=>s+v.absent,0);
-  const totalHalf = (attData||[]).filter(a=>a.status==='Half Day').length;
- const totalLeave = Object.values(empCalc).reduce((s,v)=>s+v.leave,0);
-const totalLate = (attData||[]).filter(a=>{
-    if (!a.check_in) return false;
-    const t = new Date(a.check_in);
-    return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 30);
-  }).length;
+  const totalHalf = Object.values(empCalc).reduce((s,v)=>s+v.half,0);
+  const totalLeave = Object.values(empCalc).reduce((s,v)=>s+v.leave,0);
+  const totalLate = Object.values(empCalc).reduce((s,v)=>s+v.late,0);
   const avgAtt = emps.length > 0 ? Math.round((totalPresent / (emps.length * totalDays)) * 100) : 0;
 
   const summaryEl = document.getElementById('att-report-summary');
@@ -5214,32 +5223,25 @@ const totalLate = (attData||[]).filter(a=>{
       </div>
     `;
   }
-tbody.innerHTML=emps.map(e=>{
+
+  tbody.innerHTML=emps.map(e=>{
+    const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,halfDates:[],leaveDates:[]};
+    const pct=totalDays>0?Math.round((c.present/totalDays)*100):0;
     const empAtt=(attData||[]).filter(a=>a.employee_email===e.email);
-    const present=empAtt.filter(a=>a.status==='Present').length;
-    const absent=empCalc[e.email]?.absent || 0;
-    const half=empAtt.filter(a=>a.status==='Half Day').length;
-    const leave=empCalc[e.email]?.leave || 0;
-    const pct=totalDays>0?Math.round((present/totalDays)*100):0;
-const late = empAtt.filter(a=>{
-      if (!a.check_in) return false;
-      const t = new Date(a.check_in);
-      return t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 30);
-    }).length;
-  const totalHrs = empAtt.reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
+    const totalHrs = empAtt.reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
     return `<tr>
       <td style="font-weight:600">${esc(e.name)}</td>
-      <td><span class="badge b-green">${present}</span></td>
-      <td><span class="badge b-red">${absent}</span></td>
-<td>${half > 0 ? `<span class="badge b-amber" title="${empAtt.filter(a=>a.status==='Half Day').map(a=>a.date).join(', ')}" style="cursor:help">${half}</span>` : `<span class="badge b-amber">0</span>`}</td>
-      <td><span class="badge b-blue">${leave}</span></td>
-<td><span class="badge ${late===0?'b-green':'b-red'}">${late}</span></td>
+      <td><span class="badge b-green">${c.present}</span></td>
+      <td><span class="badge b-red">${c.absent}</span></td>
+      <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
+      <td><span class="badge b-blue">${c.leave}</span></td>
+      <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-weight:700">${totalDays}</td>
       <td style="font-weight:700;color:var(--navy)">${totalHrs.toFixed(1)}h</td>
-    <td style="font-size:11px">
-        ${empAtt.filter(a=>a.status==='Half Day').length > 0 ? `<span class="badge b-amber">Half Day: ${empAtt.filter(a=>a.status==='Half Day').map(a=>fmtDate(a.date)).join(', ')}</span>` : ''}
-        ${empAtt.filter(a=>a.status==='Leave').length > 0 ? `<span class="badge b-blue">Leave: ${empAtt.filter(a=>a.status==='Leave').map(a=>fmtDate(a.date)).join(', ')}</span>` : ''}
-        ${empAtt.filter(a=>a.status==='Half Day').length === 0 && empAtt.filter(a=>a.status==='Leave').length === 0 ? '—' : ''}
+      <td style="font-size:11px">
+        ${c.half > 0 ? `<span class="badge b-amber">Half Day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.leave > 0 ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.half === 0 && c.leave === 0 ? '—' : ''}
       </td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
@@ -5253,7 +5255,6 @@ const late = empAtt.filter(a=>{
     </tr>`;
   }).join('');
 }
-
 // ═══════════════════════════════════════════
 //  LEAVE APPROVALS CEO
 // ═══════════════════════════════════════════
