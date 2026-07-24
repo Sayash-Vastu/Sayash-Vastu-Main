@@ -1454,6 +1454,20 @@ function toggleVisitorSelect(checkbox) {
     if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
   }
 }
+function toggleAssigneeSelect(checkbox) {
+  window._avgSelectedAssignees = window._avgSelectedAssignees || [];
+  const name = checkbox.value;
+  const chipId = 'assignee-chip-' + name.replace(/[^a-z0-9]/gi,'_');
+  const chip = document.getElementById(chipId);
+
+  if (checkbox.checked) {
+    if (!window._avgSelectedAssignees.includes(name)) window._avgSelectedAssignees.push(name);
+    if (chip) { chip.style.background='var(--gold)'; chip.style.borderColor='var(--gold)'; chip.style.color='var(--navy)'; chip.style.fontWeight='700'; }
+  } else {
+    window._avgSelectedAssignees = window._avgSelectedAssignees.filter(n => n !== name);
+    if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
+  }
+}
 function openAddVisitEmpGlobal() {
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="addVisitGlobalModal">
@@ -1497,10 +1511,10 @@ function openAddVisitEmpGlobal() {
     <span style="font-size:12px;color:var(--muted)">Loading...</span>
   </div>
 </div>
-<div class="field"><label>Assign Report To *</label>
-  <select id="avg-assigned">
-    <option value="">Select employee...</option>
-  </select>
+<div class="field" style="grid-column:1/-1"><label>Assign Report To *</label>
+  <div id="avg-assign-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;background:#fff">
+    <span style="font-size:12px;color:var(--muted)">Loading...</span>
+  </div>
 </div>
 <div class="field"><label>Type</label>
             <select id="avg-type">
@@ -1557,6 +1571,17 @@ window._avgSelectedVisitors = [];
         const dispName = getDisplayName(e.name, byListData);
         return `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid var(--border);color:var(--text);font-weight:400" id="visitor-chip-${e.name.replace(/[^a-z0-9]/gi,'_')}">
           <input type="checkbox" value="${esc(e.name)}" onchange="toggleVisitorSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
+          ${esc(dispName)}
+        </label>`;
+      }).join('');
+    }
+  window._avgSelectedAssignees = [];
+    const assignListEl = document.getElementById('avg-assign-list');
+    if (assignListEl) {
+      assignListEl.innerHTML = byListData.map(e => {
+        const dispName = getDisplayName(e.name, byListData);
+        return `<label style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border-radius:20px;cursor:pointer;font-size:12px;border:1.5px solid var(--border);color:var(--text);font-weight:400" id="assignee-chip-${e.name.replace(/[^a-z0-9]/gi,'_')}">
+          <input type="checkbox" value="${esc(e.name)}" onchange="toggleAssigneeSelect(this)" style="cursor:pointer;accent-color:var(--gold)"/>
           ${esc(dispName)}
         </label>`;
       }).join('');
