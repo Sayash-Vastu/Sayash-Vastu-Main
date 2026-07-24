@@ -1498,8 +1498,9 @@ function openAddVisitEmpGlobal() {
   </div>
 </div>
 <div class="field"><label>Assign Report To *</label>
-  <input id="avg-assigned" list="avgAssignedList" placeholder="Type or select employee...">
-  <datalist id="avgAssignedList"></datalist>
+  <select id="avg-assigned">
+    <option value="">Select employee...</option>
+  </select>
 </div>
 <div class="field"><label>Type</label>
             <select id="avg-type">
