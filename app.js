@@ -2389,7 +2389,8 @@ async function saveVisitGlobal() {
   if (newSubProjectTyped) subProjectsToProcess.push(newSubProjectTyped);
   if (!subProjectsToProcess.length) subProjectsToProcess = [null];
 
-  const assignedToName = document.getElementById('avg-assigned').value.trim();
+const selectedAssignees = window._avgSelectedAssignees || [];
+  const assignedToName = selectedAssignees.join(', ');
   const visitedBy = (window._avgSelectedVisitors || []).join(', ');
   if (!visitedBy) { showToast('⚠️ Kam se kam ek visitor select karo', 'warn'); return; }
   const visitType = document.getElementById('avg-type').value;
@@ -2417,17 +2418,9 @@ async function saveVisitGlobal() {
   const isSignatureGlobal = clientName === 'Signature Global';
 
   let allErrors = [];
-let empMatch = null;
-  if (assignedToName) {
-    const { data: allEmpForMatch } = await sb.from('employees').select('email,name').eq('is_active', true);
-    const target = assignedToName.trim().toLowerCase();
-    empMatch = (allEmpForMatch||[]).find(e => e.name.trim().toLowerCase() === target)
-      || (allEmpForMatch||[]).find(e => e.name.trim().toLowerCase().startsWith(target))
-      || (allEmpForMatch||[]).find(e => e.name.trim().toLowerCase().split(' ')[0] === target.split(' ')[0]);
-  }
-  const assignedEmail = empMatch?.email || null;
-  const assignedName = empMatch?.name || assignedToName;
-
+const { data: allEmpForAssign } = await sb.from('employees').select('email,name').eq('is_active', true);
+  const assigneeMatches = selectedAssignees.map(name => (allEmpForAssign||[]).find(e => e.name === name)).filter(Boolean);
+  
   for (const currentProject of projectsToProcess) {
     for (const currentSubProject of subProjectsToProcess) {
 
@@ -2483,13 +2476,13 @@ visit_date: visitDate,
       const { data: trackerRecord, error: trackerErr } = await sbClient.from('project_records').insert(trackerPayload).select().single();
       if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
 
-      if (assignedEmail) {
+for (const em of assigneeMatches) {
         await sb.from('tasks').insert({
           project: clientName,
           task_detail: `Site visit report pending — ${clientName} / ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}. ${discussion || ''}`.trim(),
           voice_notes: voiceNoteUrls,
-          assigned_to_email: assignedEmail.toLowerCase(),
-          assigned_to_name: assignedName,
+          assigned_to_email: em.email.toLowerCase(),
+          assigned_to_name: em.name,
           assigned_by_email: currentUser.email,
           assigned_by_name: currentUser.name,
           start_date: new Date().toISOString().split('T')[0],
@@ -2501,16 +2494,16 @@ visit_date: visitDate,
           file_url: attachmentUrl,
           file_name: avgFile ? avgFile.name : (attachmentUrl ? 'OneDrive Link' : null),
         });
-        await createNotification(assignedEmail.toLowerCase(), `📋 New task — Site visit report pending`, `${clientName} / ${currentProject} — report banani hai.`, 'task', 'tasks');
-        await sendEmail(assignedEmail, assignedName, '📋 New Task — Site Visit Report Pending',
+        await createNotification(em.email.toLowerCase(), `📋 New task — Site visit report pending`, `${clientName} / ${currentProject} — report banani hai.`, 'task', 'tasks');
+        await sendEmail(em.email, em.name, '📋 New Task — Site Visit Report Pending',
           `You have been assigned a task.\n\nClient: ${clientName}\nProject: ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}\nDetails: ${discussion || '-'}\n\nPlease login to view and complete.`,
           'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
       }
     }
   }
 
-  if (assignedToName && !assignedEmail) {
-    showToast('⚠️ Task create nahi hua — employee email nahi mila "' + assignedToName + '" ke liye', 'warn');
+if (selectedAssignees.length && !assigneeMatches.length) {
+    showToast('⚠️ Task create nahi hua — koi employee select nahi hua tha', 'warn');
   }
   if (allErrors.length) {
     showToast('⚠️ Kuch entries fail hui: ' + allErrors.join(', '), 'warn');
