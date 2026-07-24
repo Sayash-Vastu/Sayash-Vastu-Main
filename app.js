@@ -1546,10 +1546,9 @@ sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
     if (dl) dl.innerHTML = (data||[]).map(c => `<option value="${esc(c.name)}">`).join('');
   });
 sb.from('employees').select('name').eq('is_active', true).order('name').then(({ data }) => {
-    const assignedList = document.getElementById('avgAssignedList');
-    const opts = (data || []).map(e => `<option value="${esc(e.name)}">`).join('');
+    const assignedList = document.getElementById('avg-assigned');
+    const opts = '<option value="">Select employee...</option>' + (data || []).map(e => `<option value="${esc(e.name)}">${esc(e.name)}</option>`).join('');
     if (assignedList) assignedList.innerHTML = opts;
-
 window._avgSelectedVisitors = [];
     const byListData = [...(data || []), { name: 'Satish Gupta' }];
     const byListEl = document.getElementById('avg-by-list');
