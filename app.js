@@ -6589,9 +6589,11 @@ if (a && !onLeave) {
       rowsHtml.push(`<tr style="${isWeekend ? 'background:#f8f9fc' : ''}">
         <td style="font-weight:600">${fmtDate(dateStr)}</td>
         <td style="font-size:11px;color:${isWeekend ? 'var(--muted)' : 'var(--text)'}">${days2[dateObj.getDay()]}</td>
-        <td>—</td><td>—</td><td>—</td>
+        <td>${a && a.check_in ? new Date(a.check_in).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+        <td>${a && a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+        <td>${a && a.working_hours ? parseFloat(a.working_hours).toFixed(1) + 'h' : '—'}</td>
         <td>${attBadge(isHalfDayLeave ? 'Half Day' : 'Leave')}</td>
-        <td>—</td>
+        <td>${a ? `<button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>` : '—'}</td>
       </tr>`);
 } else if (isWeekend) {
       weekOff++;
