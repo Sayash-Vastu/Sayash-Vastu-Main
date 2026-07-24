@@ -6583,16 +6583,17 @@ if (a && !onLeave) {
         <td>${attBadge(a.status)}</td>
         <td><button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
       </tr>`);
-    } else if (onLeave) {
-      leave++;
+} else if (onLeave) {
+      const isHalfDayLeave = onLeave.leave_type === 'Half Day';
+      if (isHalfDayLeave) half++; else leave++;
       rowsHtml.push(`<tr style="${isWeekend ? 'background:#f8f9fc' : ''}">
         <td style="font-weight:600">${fmtDate(dateStr)}</td>
         <td style="font-size:11px;color:${isWeekend ? 'var(--muted)' : 'var(--text)'}">${days2[dateObj.getDay()]}</td>
         <td>—</td><td>—</td><td>—</td>
-        <td>${attBadge('Leave')}</td>
+        <td>${attBadge(isHalfDayLeave ? 'Half Day' : 'Leave')}</td>
         <td>—</td>
       </tr>`);
-    } else if (isWeekend) {
+} else if (isWeekend) {
       weekOff++;
       rowsHtml.push(`<tr style="background:#f8f9fc">
         <td style="font-weight:600">${fmtDate(dateStr)}</td>
