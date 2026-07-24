@@ -2392,10 +2392,13 @@ async function saveVisitGlobal() {
   const isSignatureGlobal = clientName === 'Signature Global';
 
   let allErrors = [];
-  let empMatch = null;
+let empMatch = null;
   if (assignedToName) {
-    const { data } = await sb.from('employees').select('email,name').ilike('name', assignedToName).maybeSingle();
-    empMatch = data;
+    const { data: allEmpForMatch } = await sb.from('employees').select('email,name').eq('is_active', true);
+    const target = assignedToName.trim().toLowerCase();
+    empMatch = (allEmpForMatch||[]).find(e => e.name.trim().toLowerCase() === target)
+      || (allEmpForMatch||[]).find(e => e.name.trim().toLowerCase().startsWith(target))
+      || (allEmpForMatch||[]).find(e => e.name.trim().toLowerCase().split(' ')[0] === target.split(' ')[0]);
   }
   const assignedEmail = empMatch?.email || null;
   const assignedName = empMatch?.name || assignedToName;
