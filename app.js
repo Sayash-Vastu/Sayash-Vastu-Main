@@ -3683,8 +3683,17 @@ async function renderMyTasks() {
         ${t.file_url ? `<div class="file-chip">📎 <a href="${t.file_url}" target="_blank">${esc((t.file_name||'File').length > 16 ? (t.file_name||'File').substring(0,16)+'…' : (t.file_name||'File'))}</a></div>` : ''}
         ${!files.length && !t.file_url ? '<span style="color:var(--muted);font-size:11px">—</span>' : ''}
       </td>
-      <td style="min-width:160px">
+<td style="min-width:160px">
         ${(t.voice_notes && t.voice_notes.length) ? t.voice_notes.map((url, vi) => `<audio src="${url}" controls style="height:26px;width:150px;display:block;margin-bottom:4px"></audio>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}
+      </td>
+      <td style="min-width:170px;max-width:230px">
+        ${(() => {
+          const ups = updatesMap[t.id] || [];
+          if (!ups.length) return '<span style="color:var(--muted);font-size:11px">—</span>';
+          const latest = ups[0];
+          const more = ups.length > 1 ? `<div style="font-size:10px;color:var(--gold);font-weight:600;margin-top:3px">+${ups.length-1} more</div>` : '';
+          return `<div style="font-size:11px;line-height:1.45"><b style="color:var(--navy)">${esc(latest.updated_by_name||'')}</b>: ${esc(latest.update_text.substring(0,60))}${latest.update_text.length>60?'…':''}</div>${more}`;
+        })()}
       </td>
       <td style="display:flex;gap:5px">
         <button class="btn btn-outline btn-sm" onclick="openTaskViewModal('${t.id}')">👁️</button>
