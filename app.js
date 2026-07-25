@@ -3688,10 +3688,12 @@ async function renderMyTasks() {
       </td>
 <td style="min-width:200px;max-width:280px">
         ${(() => {
-          const ups = (updatesMap[t.id] || []).slice().reverse();
-          if (!ups.length) return '<span style="color:var(--muted);font-size:11px">—</span>';
+          const thread = (updatesMap[t.id] || []).slice().reverse();
+          const main = (t.comments || '').trim();
+          if (!main && !thread.length) return '<span style="color:var(--muted);font-size:11px">—</span>';
           return `<div style="max-height:110px;overflow-y:auto;padding-right:4px">
-            ${ups.map(u => `<div style="font-size:11px;line-height:1.4;padding:4px 0;border-bottom:1px dashed var(--border)">
+            ${main ? `<div style="font-size:11px;line-height:1.45;padding:4px 0">${esc(main)}</div>` : ''}
+            ${thread.map(u => `<div style="font-size:11px;line-height:1.4;padding:4px 0;border-top:1px dashed var(--border)">
               <b style="color:var(--navy)">${esc(u.updated_by_name||'')}</b>
               <span style="color:var(--muted);font-size:9px">${fmtDate(u.created_at)}</span><br>
               ${esc(u.update_text)}
