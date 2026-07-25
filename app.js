@@ -2974,12 +2974,31 @@ const todayDate = new Date().toISOString().split('T')[0];
 const { data: leaveTodayCount } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date',todayDate).gte('to_date',todayDate);
   const leaveEmails = new Set((leaveTodayCount||[]).map(l=>l.employee_email));
   const onLeaveCount = leaveEmails.size;
-  const presentEmails = new Set((todayAtt||[]).filter(a=>(a.status==='Present'||a.status==='Half Day') && !ceoEmailSet.has(a.employee_email) && !leaveEmails.has(a.employee_email)).map(a=>a.employee_email));
+const presentEmails = new Set((todayAtt||[]).filter(a=>(a.status==='Present'||a.status==='Half Day') && !ceoEmailSet.has(a.employee_email) && !leaveEmails.has(a.employee_email)).map(a=>a.employee_email));
   const presentToday = presentEmails.size;
-  const { data: allActiveEmps } = await sb.from('employees').select('email').eq('is_active',true).not('role','in','(ceo,hr)');
-  const isWeekendNow = [0,6].includes(new Date().getDay());
-  const absentToday = isWeekendNow ? 0 : (allActiveEmps||[]).filter(e => !presentEmails.has(e.email) && !leaveEmails.has(e.email)).length;
-  
+  const { data: allActiveEmps } = await sb.from('employees').select('email, weekly_off_pattern').eq('is_active',true).not('role','in','(ceo,hr)');
+
+  function isOffToday(pattern, dateObj) {
+    const day = dateObj.getDay(); // 0=Sun, 6=Sat
+    if (!pattern || pattern === 'sunday_only') return day === 0;
+    if (pattern === 'sat_sun_both') return day === 0 || day === 6;
+    if (pattern === 'alternate_saturday') {
+      if (day === 0) return true;
+      if (day === 6) {
+        const nth = Math.ceil(dateObj.getDate() / 7);
+        return nth === 2 || nth === 4; // 2nd & 4th Saturday off
+      }
+      return false;
+    }
+    return day === 0;
+  }
+
+  const todayObjForOff = new Date();
+  const absentToday = (allActiveEmps||[]).filter(e =>
+    !presentEmails.has(e.email) &&
+    !leaveEmails.has(e.email) &&
+    !isOffToday(e.weekly_off_pattern, todayObjForOff)
+  ).length;  
   const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
   const today2 = new Date(); today2.setHours(0,0,0,0);
   const delayedTasks = (allTasks||[]).filter(t=>{
