@@ -3647,6 +3647,19 @@ async function renderMyTasks() {
   await Promise.all(filtered.map(async t => {
     fileMap[t.id] = await getTaskFiles(t.id);
   }));
+  // Comments (task_updates) load karo
+  const updatesMap = {};
+  const taskIdsForUpdates = filtered.map(t => t.id);
+  if (taskIdsForUpdates.length) {
+    const { data: allUpdates } = await sb.from('task_updates')
+      .select('task_id, update_text, updated_by_name, created_at')
+      .in('task_id', taskIdsForUpdates)
+      .order('created_at', { ascending: false });
+    (allUpdates||[]).forEach(u => {
+      if (!updatesMap[u.task_id]) updatesMap[u.task_id] = [];
+      updatesMap[u.task_id].push(u);
+    });
+  }
 
   tbody.innerHTML = filtered.map(t => {
     const endD = t.end_date ? new Date(t.end_date) : null;
