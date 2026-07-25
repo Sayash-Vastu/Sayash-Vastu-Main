@@ -2897,8 +2897,6 @@ const isOverdueEmp = f.next_followup < today;
       return '<span class="badge b-blue" style="font-size:10px">🏠 WFH</span>';
     if (a.work_type === 'On Site')
       return '<span class="badge b-green" style="font-size:10px">📍 On Site</span>';
-    if (onSiteToday)
-      return '<span class="badge b-navy" style="font-size:10px">🏢 Office / 📍 On Site</span>';
     return '<span class="badge b-navy" style="font-size:10px">🏢 Office</span>';
   };
 
