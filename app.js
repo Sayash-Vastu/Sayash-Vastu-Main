@@ -3686,13 +3686,17 @@ async function renderMyTasks() {
 <td style="min-width:160px">
         ${(t.voice_notes && t.voice_notes.length) ? t.voice_notes.map((url, vi) => `<audio src="${url}" controls style="height:26px;width:150px;display:block;margin-bottom:4px"></audio>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}
       </td>
-      <td style="min-width:170px;max-width:230px">
+<td style="min-width:200px;max-width:280px">
         ${(() => {
-          const ups = updatesMap[t.id] || [];
+          const ups = (updatesMap[t.id] || []).slice().reverse();
           if (!ups.length) return '<span style="color:var(--muted);font-size:11px">—</span>';
-          const latest = ups[0];
-          const more = ups.length > 1 ? `<div style="font-size:10px;color:var(--gold);font-weight:600;margin-top:3px">+${ups.length-1} more</div>` : '';
-          return `<div style="font-size:11px;line-height:1.45"><b style="color:var(--navy)">${esc(latest.updated_by_name||'')}</b>: ${esc(latest.update_text.substring(0,60))}${latest.update_text.length>60?'…':''}</div>${more}`;
+          return `<div style="max-height:110px;overflow-y:auto;padding-right:4px">
+            ${ups.map(u => `<div style="font-size:11px;line-height:1.4;padding:4px 0;border-bottom:1px dashed var(--border)">
+              <b style="color:var(--navy)">${esc(u.updated_by_name||'')}</b>
+              <span style="color:var(--muted);font-size:9px">${fmtDate(u.created_at)}</span><br>
+              ${esc(u.update_text)}
+            </div>`).join('')}
+          </div>`;
         })()}
       </td>
       <td style="display:flex;gap:5px">
