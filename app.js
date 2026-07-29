@@ -8610,8 +8610,9 @@ let myApprovalType = null;
   if (currentUser.email === 'alisha@sayashvastu.com') myApprovalType = 'Approval for Alisha';
   else if (currentUser.email === 'rajendra@sayashvastu.com') myApprovalType = 'Approval for Rajendra';
 
-  allReports = myApprovalType ? (tasks || []).filter(t => t.approval_type === myApprovalType) : (tasks || []);
-
+allReports = myApprovalType
+    ? (tasks || []).filter(t => t.approval_type === myApprovalType)
+    : (tasks || []).filter(t => t.approval_type === 'Approval for SG' || t.approval_type === 'Approval for YG');
   const titleEl = document.getElementById('ra-page-title');
   const subtitleEl = document.getElementById('ra-page-subtitle');
   if (myApprovalType) {
