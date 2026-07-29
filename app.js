@@ -3873,6 +3873,9 @@ if (newTaskDetail) updates.task_detail = newTaskDetail;
     updates.ceo_approval = approvalVal;
     updates.approval_type = approvalVal;
     updates.approval_status = 'Pending';
+    // Approval flow aur Forward alag rakho — dono ek saath nahi
+    updates.pending_with_email = null;
+    updates.pending_with_name = null;
   }
   if (status === 'Completed' && ceoVal) updates.ceo_approval = ceoVal;
   // Handle forwarding
