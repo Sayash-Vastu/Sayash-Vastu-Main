@@ -3901,9 +3901,10 @@ if (newTaskDetail) updates.task_detail = newTaskDetail;
       await sbClient.from('project_records').update({ tracker_status: newTrackerStatus }).eq('id', currentTaskRow.linked_record_id);
     }
   }
-  // Send email + notify when forwarded
-  if (sendToEmail && sendToName) {
-    // Create notification in DB
+// Send email + notify when forwarded (approval submission ho to skip)
+  const isApprovalSubmission = (status === 'Sent for Review' && approvalVal);
+  if (sendToEmail && sendToName && !isApprovalSubmission) {
+  // Create notification in DB
     await createNotification(
       sendToEmail,
       `📌 Task forwarded by ${currentUser.name}`,
