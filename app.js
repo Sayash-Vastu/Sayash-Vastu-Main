@@ -3011,11 +3011,6 @@ const presentEmails = new Set((todayAtt||[]).filter(a=>(a.status==='Present'||a.
 
 document.getElementById('ceoDashStats').innerHTML = `
     <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:12px;margin-bottom:20px">
-    <div style="background:var(--navy);border-radius:10px;padding:14px 12px;cursor:pointer" onclick="showView('employees')">
-        <div style="font-size:16px;margin-bottom:6px">👥</div>
-        <div style="font-size:22px;font-weight:800;color:#fff;line-height:1">${totalEmp||0}</div>
-        <div style="font-size:9px;color:rgba(255,255,255,0.45);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;font-weight:700">Employees</div>
-      </div>
       <div style="background:var(--navy);border-radius:10px;padding:14px 12px;cursor:pointer" onclick="showView('allTasks')">
         <div style="font-size:16px;margin-bottom:6px">📋</div>
         <div style="font-size:22px;font-weight:800;color:#fff;line-height:1">${totalTasks||0}</div>
