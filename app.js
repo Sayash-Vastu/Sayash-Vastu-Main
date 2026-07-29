@@ -3932,10 +3932,17 @@ Sayash Vastu Portal`,
   } else {
     showToast('✅ Task updated!', 'ok');
   }
-  // Notify CEO if Sent for Review
+// Notify the correct approver
   if (status === 'Sent for Review' && approvalVal) {
+    const APPROVER_EMAILS = {
+      'Approval for Rajendra': 'rajendra@sayashvastu.com',
+      'Approval for Alisha':   'alisha@sayashvastu.com',
+      'Approval for SG':       CEO_EMAIL,
+      'Approval for YG':       CEO_EMAIL,
+    };
+    const approverEmail = APPROVER_EMAILS[approvalVal] || CEO_EMAIL;
     await createNotification(
-      CEO_EMAIL,
+      approverEmail,
       `📑 Report pending ${approvalVal} — ${currentTaskRow.project}`,
       `${currentUser.name} submitted a report for ${approvalVal}. Project: ${currentTaskRow.project}`,
       'task', 'reportsApproval'
