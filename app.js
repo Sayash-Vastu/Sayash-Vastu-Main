@@ -4556,7 +4556,8 @@ allTasksData = (data || []).filter(t => {
 });
   renderAllTasks();
   const today=new Date(); today.setHours(0,0,0,0);
-  const total=allTasksData.length;
+const total=allTasksData.length;
+  const notStart=allTasksData.filter(t=>t.work_status==='Not Started').length;
   const ip=allTasksData.filter(t=>t.work_status==='In Progress').length;
   const done=allTasksData.filter(t=>t.work_status==='Completed').length;
   const delayed=allTasksData.filter(t=>{
@@ -4565,12 +4566,12 @@ allTasksData = (data || []).filter(t => {
   }).length;
   document.getElementById('allTaskStats').innerHTML=`
     <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${total}</div><div class="stat-lbl">Total Tasks</div></div>
+    <div class="stat-card sc-gray"><div class="stat-icon">○</div><div class="stat-num">${notStart}</div><div class="stat-lbl">Not Started</div></div>
     <div class="stat-card sc-blue"><div class="stat-icon">⚡</div><div class="stat-num">${ip}</div><div class="stat-lbl">In Progress</div></div>
-    <div class="stat-card sc-red"><div class="stat-icon">⚠️</div><div class="stat-num">${delayed}</div><div class="stat-lbl">Delayed</div></div>
+    <div class="stat-card sc-red"><div class="stat-icon">⚠️</div><div class="stat-num">${delayed}</div><div class="stat-lbl">Delayed (overdue, includes overlaps)</div></div>
     <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num">${done}</div><div class="stat-lbl">Completed</div></div>
   `;
 }
-
 function filterAllTasks(val) { allTasksFilter=val; renderAllTasks(); }
 
 async function renderAllTasks() {
