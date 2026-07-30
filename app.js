@@ -4558,7 +4558,7 @@ allTasksData = (data || []).filter(t => {
   const today=new Date(); today.setHours(0,0,0,0);
 const total=allTasksData.length;
   const notStart=allTasksData.filter(t=>t.work_status==='Not Started').length;
-  const ip=allTasksData.filter(t=>t.work_status==='In Progress').length;
+const ip=allTasksData.filter(t=>t.work_status==='In Progress' || t.work_status==='Sent for Review').length;
   const done=allTasksData.filter(t=>t.work_status==='Completed').length;
   const delayed=allTasksData.filter(t=>{
     const ed=t.end_date?new Date(t.end_date):null;
