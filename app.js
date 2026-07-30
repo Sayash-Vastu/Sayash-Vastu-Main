@@ -4568,7 +4568,7 @@ const ip=allTasksData.filter(t=>t.work_status==='In Progress' || t.work_status==
     <div class="stat-card sc-navy"><div class="stat-icon">📋</div><div class="stat-num">${total}</div><div class="stat-lbl">Total Tasks</div></div>
     <div class="stat-card sc-gray"><div class="stat-icon">○</div><div class="stat-num">${notStart}</div><div class="stat-lbl">Not Started</div></div>
     <div class="stat-card sc-blue"><div class="stat-icon">⚡</div><div class="stat-num">${ip}</div><div class="stat-lbl">In Progress</div></div>
-    <div class="stat-card sc-red"><div class="stat-icon">⚠️</div><div class="stat-num">${delayed}</div><div class="stat-lbl">Delayed (overdue, includes overlaps)</div></div>
+<div class="stat-card sc-red"><div class="stat-icon">⚠️</div><div class="stat-num">${delayed}</div><div class="stat-lbl">Delayed</div></div>
     <div class="stat-card sc-green"><div class="stat-icon">✅</div><div class="stat-num">${done}</div><div class="stat-lbl">Completed</div></div>
   `;
 }
