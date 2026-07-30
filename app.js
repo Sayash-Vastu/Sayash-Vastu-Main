@@ -1546,6 +1546,12 @@ function openAddVisitEmpGlobal() {
             <input id="avg-onedrive-link" placeholder="https://sayashvastucorp-my.sharepoint.com/...">
             <div style="font-size:11px;color:var(--muted);margin-top:4px">📌 File already OneDrive par hai toh share link yahan paste karo</div>
           </div>
+          <div class="field" style="grid-column:1/-1"><label>🚁 Drone Shoot Link (Optional)</label>
+            <input id="avg-drone-url" placeholder="https://sayashvastucorp-my.sharepoint.com/... (OneDrive drone shoot link)">
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Drone Shoot Caption</label>
+            <input id="avg-drone-caption" placeholder="e.g. Aerial view of site, North side">
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeModal('addVisitGlobalModal')">Cancel</button>
@@ -2436,10 +2442,12 @@ visit_date: visitDate,
         location: location,
         discussion: discussion,
         suggestions: suggestions,
-        remarks: document.getElementById('avg-remarks').value.trim(),
+remarks: document.getElementById('avg-remarks').value.trim(),
         voice_notes: voiceNoteUrls,
+        drone_shoot_url: document.getElementById('avg-drone-url').value.trim() || null,
+        drone_shoot_caption: document.getElementById('avg-drone-caption').value.trim() || null,
       });
-      if (error) { allErrors.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ': ' + error.message); continue; }
+        if (error) { allErrors.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ': ' + error.message); continue; }
 
       let trackerPayload = {
         client_id: clientId,
