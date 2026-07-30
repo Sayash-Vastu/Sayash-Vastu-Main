@@ -2793,14 +2793,19 @@ const { data: existingNotifs } = await sb.from('notifications')
       }
     }
   }
-    // Upcoming Birthdays (this month)
+// Upcoming Birthdays (next 30 days)
   const { data: allEmps } = await sb.from('employees').select('name,designation,date_of_birth').eq('is_active', true);
-  const upcomingBdays = (allEmps || []).filter(e => {
-    if (!e.date_of_birth) return false;
+  const _bdayToday = new Date();
+  const upcomingBdays = (allEmps || []).map(e => {
+    if (!e.date_of_birth) return null;
     const dob = new Date(e.date_of_birth);
-    return String(dob.getMonth()+1).padStart(2,'0') === mm;
-  }).sort((a,b) => new Date(a.date_of_birth).getDate() - new Date(b.date_of_birth).getDate());
-
+    const thisYear = new Date(_bdayToday.getFullYear(), dob.getMonth(), dob.getDate());
+    const nextYear = new Date(_bdayToday.getFullYear()+1, dob.getMonth(), dob.getDate());
+    const upcoming = thisYear >= new Date(_bdayToday.getFullYear(), _bdayToday.getMonth(), _bdayToday.getDate()) ? thisYear : nextYear;
+    const daysLeft = Math.ceil((upcoming - _bdayToday) / (1000*60*60*24));
+    return { ...e, _upcomingDate: upcoming, _daysLeft: daysLeft };
+  }).filter(e => e && e._daysLeft <= 30)
+    .sort((a,b) => a._daysLeft - b._daysLeft);
   const bdayEl = document.getElementById('empBirthdays');
   if (!upcomingBdays.length) {
     bdayEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No birthdays this month</div>';
