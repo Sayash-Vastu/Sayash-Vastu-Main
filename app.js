@@ -3273,13 +3273,19 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
     }
   }
 
-  // Upcoming Birthdays for CEO
+// Upcoming Birthdays for CEO (next 30 days)
   const { data: allEmpsBday } = await sb.from('employees').select('name,designation,date_of_birth').eq('is_active',true);
-  const upBdays = (allEmpsBday||[]).filter(e => {
-    if (!e.date_of_birth) return false;
+  const _ceoBdayToday = new Date();
+  const upBdays = (allEmpsBday||[]).map(e => {
+    if (!e.date_of_birth) return null;
     const dob = new Date(e.date_of_birth);
-    return String(dob.getMonth()+1).padStart(2,'0')===mm;
-  }).sort((a,b)=>new Date(a.date_of_birth).getDate()-new Date(b.date_of_birth).getDate());
+    const thisYear = new Date(_ceoBdayToday.getFullYear(), dob.getMonth(), dob.getDate());
+    const nextYear = new Date(_ceoBdayToday.getFullYear()+1, dob.getMonth(), dob.getDate());
+    const upcoming = thisYear >= new Date(_ceoBdayToday.getFullYear(), _ceoBdayToday.getMonth(), _ceoBdayToday.getDate()) ? thisYear : nextYear;
+    const daysLeft = Math.ceil((upcoming - _ceoBdayToday) / (1000*60*60*24));
+    return { ...e, _upcomingDate: upcoming, _daysLeft: daysLeft };
+  }).filter(e => e && e._daysLeft <= 30)
+    .sort((a,b) => a._daysLeft - b._daysLeft);
   const ceoBdayEl = document.getElementById('ceoBirthdays');
   if (ceoBdayEl) {
     if (!upBdays.length) {
