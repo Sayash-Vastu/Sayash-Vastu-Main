@@ -2467,6 +2467,9 @@ remarks: document.getElementById('avg-remarks').value.trim(),
         voice_notes: voiceNoteUrls,
         drone_shoot_url: document.getElementById('avg-drone-url').value.trim() || null,
         drone_shoot_caption: document.getElementById('avg-drone-caption').value.trim() || null,
+        city: city,
+        residential_type: restype,
+        family_details: familyDetails || null,
       });
         if (error) { allErrors.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ': ' + error.message); continue; }
 
