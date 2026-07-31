@@ -2414,7 +2414,12 @@ async function saveVisitGlobal() {
 const selectedAssignees = window._avgSelectedAssignees || [];
   const assignedToName = selectedAssignees.join(', ');
   const visitedBy = (window._avgSelectedVisitors || []).join(', ');
-  if (!visitedBy) { showToast('⚠️ Kam se kam ek visitor select karo', 'warn'); return; }
+if (!visitedBy) { showToast('⚠️ Kam se kam ek visitor select karo', 'warn'); return; }
+  const city = document.getElementById('avg-city').value;
+  if (!city) { showToast('⚠️ City select karna zaroori hai', 'warn'); return; }
+  const restype = document.getElementById('avg-restype').value;
+  if (!restype) { showToast('⚠️ Residential Type select karna zaroori hai', 'warn'); return; }
+  const familyDetails = document.getElementById('avg-family').value.trim();
   const visitType = document.getElementById('avg-type').value;
   const discussion = document.getElementById('avg-discussion').value.trim();
   const location = document.getElementById('avg-location').value.trim();
