@@ -1525,12 +1525,12 @@ function openAddVisitEmpGlobal() {
             </select>
           </div>
 <div class="field"><label>City *</label>
-            <select id="avg-city" required>
-              <option value="">Select City...</option>
+            <input id="avg-city" list="avgCityList" placeholder="Select or type city">
+            <datalist id="avgCityList">
               <option>Delhi</option><option>Noida</option><option>Gurugram</option>
               <option>Karnal</option><option>Bangalore</option><option>Bundi</option>
-              <option>Panipat</option><option>Faridabad</option><option>Other</option>
-            </select>
+              <option>Panipat</option><option>Faridabad</option>
+            </datalist>
           </div>
           <div class="field"><label>Residential Type *</label>
             <select id="avg-restype" required>
