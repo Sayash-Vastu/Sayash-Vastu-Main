@@ -2473,13 +2473,15 @@ remarks: document.getElementById('avg-remarks').value.trim(),
       });
         if (error) { allErrors.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ': ' + error.message); continue; }
 
-      let trackerPayload = {
+let trackerPayload = {
         client_id: clientId,
         project_name: currentProject,
         sub_project_name: currentSubProject,
         tracker_status: 'Pending',
         hyperlink: attachmentUrl,
         assigned_to_name: assignedToName || null,
+        city: city,
+        residential_type: restype,
       };
       if (isMaxHealthcare) {
         trackerPayload.coordinator = visitedBy;
