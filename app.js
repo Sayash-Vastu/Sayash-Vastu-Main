@@ -1538,8 +1538,10 @@ function openAddVisitEmpGlobal() {
               <option>Residential</option><option>Commercial</option><option>Industrial</option>
             </select>
           </div>
-          <div class="field" style="grid-column:1/-1"><label>Family Details (Optional)</label>
+<div class="field" style="grid-column:1/-1"><label>Family Details (Optional)</label>
             <input id="avg-family" placeholder="e.g. Family of 4, joint family with 2 sons"></div>
+          <div class="field" style="grid-column:1/-1"><label>Contact Person</label>
+            <input id="avg-contact" placeholder="e.g. Mr. Sharma - 9876543210"></div>
           <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address or Google Maps link"></div>
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
@@ -2470,9 +2472,9 @@ remarks: document.getElementById('avg-remarks').value.trim(),
         city: city,
         residential_type: restype,
         family_details: familyDetails || null,
+        contact_person: document.getElementById('avg-contact').value.trim() || null,
       });
         if (error) { allErrors.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ': ' + error.message); continue; }
-
 let trackerPayload = {
         client_id: clientId,
         project_name: currentProject,
@@ -2482,8 +2484,9 @@ let trackerPayload = {
         assigned_to_name: assignedToName || null,
         city: city,
         residential_type: restype,
+        contact_person: document.getElementById('avg-contact').value.trim() || null,
       };
-      if (isMaxHealthcare) {
+        if (isMaxHealthcare) {
         trackerPayload.coordinator = visitedBy;
         trackerPayload.site_visit_date = visitDate;
         trackerPayload.recommendation = discussion || null;
