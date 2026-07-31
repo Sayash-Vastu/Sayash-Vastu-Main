@@ -1524,6 +1524,22 @@ function openAddVisitEmpGlobal() {
               <option>Mail</option>
             </select>
           </div>
+<div class="field"><label>City *</label>
+            <select id="avg-city" required>
+              <option value="">Select City...</option>
+              <option>Delhi</option><option>Noida</option><option>Gurugram</option>
+              <option>Karnal</option><option>Bangalore</option><option>Bundi</option>
+              <option>Panipat</option><option>Faridabad</option><option>Other</option>
+            </select>
+          </div>
+          <div class="field"><label>Residential Type *</label>
+            <select id="avg-restype" required>
+              <option value="">Select Type...</option>
+              <option>Residential</option><option>Commercial</option><option>Industrial</option>
+            </select>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Family Details (Optional)</label>
+            <input id="avg-family" placeholder="e.g. Family of 4, joint family with 2 sons"></div>
           <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address or Google Maps link"></div>
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
