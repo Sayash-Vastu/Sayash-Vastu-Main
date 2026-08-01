@@ -5255,8 +5255,23 @@ async function loadAttReport() {
   const start=`${yr}-${mo}-01`;
 const lastDay = new Date(yr, mo, 0).getDate();
 const end = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-  const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true).neq('role','ceo');
+const { data: emps } = await sb.from('employees').select('name,email,weekly_off_pattern').eq('is_active',true).neq('role','ceo');
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
+
+  function isOffPatternDay(pattern, dateObj) {
+    const day = dateObj.getDay();
+    if (!pattern || pattern === 'sunday_only') return day === 0;
+    if (pattern === 'sat_sun_both') return day === 0 || day === 6;
+    if (pattern === 'alternate_saturday') {
+      if (day === 0) return true;
+      if (day === 6) {
+        const nth = Math.ceil(dateObj.getDate() / 7);
+        return nth === 2 || nth === 4;
+      }
+      return false;
+    }
+    return day === 0;
+  }
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
   const { data: holidaysReport } = await sb.from('holidays').select('date').gte('date',start).lte('date',end);
   const tbody=document.getElementById('attReportBody');
@@ -5280,15 +5295,17 @@ const end = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0
     const attMapR = {};
     (attData||[]).filter(a=>a.employee_email===e.email).forEach(a => { attMapR[a.date] = a; });
     const empLeavesR = (leaveDataReport||[]).filter(l=>l.employee_email===e.email);
-    let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0;
+let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 0;
     const halfDatesR = [], leaveDatesR = [];
     const dIter = new Date(yr, mo-1, 1);
     while (dIter.getMonth() === mo-1) {
       const dsIter = dIter.getFullYear() + '-' + String(dIter.getMonth()+1).padStart(2,'0') + '-' + String(dIter.getDate()).padStart(2,'0');
-      const isSunIter = dIter.getDay() === 0;
+      const isOffIter = isOffPatternDay(e.weekly_off_pattern, dIter);
+      const isHolidayIter = holidayDatesSet.has(dsIter);
       const isFutureIter = dIter > todayForReport;
       const onLeaveIter = empLeavesR.find(l => dsIter >= l.from_date && dsIter <= l.to_date);
       const attRec = attMapR[dsIter];
+      if (!isOffIter && !isHolidayIter) workingDaysR++;
       if (onLeaveIter) {
         leaveR++; leaveDatesR.push(dsIter);
       } else if (attRec) {
@@ -5299,12 +5316,12 @@ const end = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0
           const t = new Date(attRec.check_in);
           if (t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>30)) lateR++;
         }
-      } else if (!isSunIter && !isFutureIter) {
+      } else if (!isOffIter && !isHolidayIter && !isFutureIter) {
         absentR++;
       }
       dIter.setDate(dIter.getDate()+1);
     }
-    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, halfDates: halfDatesR, leaveDates: leaveDatesR };
+    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, workingDays: workingDaysR, halfDates: halfDatesR, leaveDates: leaveDatesR };
   });
 
   const totalPresent = Object.values(empCalc).reduce((s,v)=>s+v.present,0);
