@@ -5363,9 +5363,10 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     `;
   }
 
-  tbody.innerHTML=emps.map(e=>{
-    const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,halfDates:[],leaveDates:[]};
-    const pct=totalDays>0?Math.round((c.present/totalDays)*100):0;
+tbody.innerHTML=emps.map(e=>{
+    const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,halfDates:[],leaveDates:[]};
+    const empWorkingDays = c.workingDays || totalDays;
+    const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const empAtt=(attData||[]).filter(a=>a.employee_email===e.email);
     const totalHrs = empAtt.reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
     return `<tr>
@@ -5375,8 +5376,8 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
-      <td style="font-weight:700">${totalDays}</td>
-      <td style="font-weight:700;color:var(--navy)">${totalHrs.toFixed(1)}h</td>
+      <td style="font-weight:700">${empWorkingDays}</td>
+    <td style="font-weight:700;color:var(--navy)">${totalHrs.toFixed(1)}h</td>
       <td style="font-size:11px">
         ${c.half > 0 ? `<span class="badge b-amber">Half Day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
         ${c.leave > 0 ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
