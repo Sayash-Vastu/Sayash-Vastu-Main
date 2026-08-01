@@ -5253,7 +5253,8 @@ async function loadAttReport() {
   if (!monthVal) return;
   const [yr,mo]=monthVal.split('-');
   const start=`${yr}-${mo}-01`;
-  const end=new Date(yr,mo,0).toISOString().split('T')[0];
+const lastDay = new Date(yr, mo, 0).getDate();
+const end = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
   const { data: emps } = await sb.from('employees').select('name,email').eq('is_active',true).neq('role','ceo');
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
