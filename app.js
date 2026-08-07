@@ -10209,9 +10209,10 @@ async function loadAllInvoices() {
         <td style="padding:9px 10px">${inv.due_date?fmtDate(inv.due_date):'—'}</td>
         <td style="padding:9px 10px">${esc(inv.employee_name)}</td>
         <td style="padding:9px 10px">${inv.file_url ? inv.file_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" class="btn btn-outline btn-sm" style="margin:2px;font-size:10px">📄 ${idx+1}</a>`).join('') : '—'}</td>
-        <td style="padding:9px 10px"><span class="badge ${isPaid?'b-green':'b-amber'}">${isPaid?'✅ Paid':'⏳ Not Paid'}</span></td>
+<td style="padding:9px 10px"><span class="badge ${isPaid?'b-green':'b-amber'}">${isPaid?'✅ Paid':'⏳ Not Paid'}</span></td>
         <td style="padding:9px 10px">
           <button class="btn btn-sm ${isPaid?'btn-outline':'btn-gold'}" onclick="toggleInvoiceStatus('${inv.id}','${isPaid?'Not Paid':'Paid'}')" style="font-size:10px">${isPaid?'Mark Unpaid':'Mark Paid'}</button>
+          <button class="btn btn-sm" onclick="deleteInvoiceAdmin('${inv.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);font-size:10px;margin-left:4px">🗑️</button>
         </td>
       </tr>`;
     }).join('')}
