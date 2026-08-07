@@ -10229,6 +10229,13 @@ async function toggleInvoiceStatus(id, newStatus) {
   loadAllInvoices();
 }
 
+async function deleteInvoiceAdmin(id) {
+  if (!confirm('Yeh invoice delete karna hai? Yeh permanent hai.')) return;
+  await sb.from('invoices').delete().eq('id', id);
+  showToast('✅ Invoice deleted!','ok');
+  loadAllInvoices();
+}
+
 window._invoiceFiles = [];
 function addInvoiceFiles(input) {
   for (const f of input.files) {
