@@ -10211,7 +10211,7 @@ async function loadAllInvoices() {
         <td style="padding:9px 10px">${inv.file_url ? inv.file_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" class="btn btn-outline btn-sm" style="margin:2px;font-size:10px">📄 ${idx+1}</a>`).join('') : '—'}</td>
 <td style="padding:9px 10px"><span class="badge ${isPaid?'b-green':'b-amber'}">${isPaid?'✅ Paid':'⏳ Not Paid'}</span></td>
         <td style="padding:9px 10px">
-          <button class="btn btn-sm ${isPaid?'btn-outline':'btn-gold'}" onclick="toggleInvoiceStatus('${inv.id}','${isPaid?'Not Paid':'Paid'}')" style="font-size:10px">${isPaid?'Mark Unpaid':'Mark Paid'}</button>
+<button class="btn btn-sm ${isPaid?'btn-outline':'btn-gold'}" onclick="toggleInvoiceStatus('${inv.id}','${isPaid?'Not Paid':'Paid'}','${inv.employee_email}','${esc(inv.vendor_name).replace(/'/g,"\\'")}')" style="font-size:10px">${isPaid?'Mark Unpaid':'Mark Paid'}</button>
           <button class="btn btn-sm" onclick="deleteInvoiceAdmin('${inv.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);font-size:10px;margin-left:4px">🗑️</button>
         </td>
       </tr>`;
@@ -10220,15 +10220,21 @@ async function loadAllInvoices() {
   </table></div>`;
 }
 
-async function toggleInvoiceStatus(id, newStatus) {
+async function toggleInvoiceStatus(id, newStatus, empEmail, vendorName) {
   const payload = { payment_status: newStatus };
   if (newStatus === 'Paid') { payload.paid_date = new Date().toISOString().split('T')[0]; payload.paid_by = currentUser.name; }
   else { payload.paid_date = null; payload.paid_by = null; }
   await sb.from('invoices').update(payload).eq('id', id);
+  if (newStatus === 'Paid' && empEmail) {
+    await createNotification(empEmail,
+      '💰 Invoice Paid',
+      `Your invoice from ${vendorName || 'vendor'} has been marked as paid by ${currentUser.name}.`,
+      'info', 'invoices'
+    );
+  }
   showToast('✅ Status updated!','ok');
   loadAllInvoices();
 }
-
 async function deleteInvoiceAdmin(id) {
   if (!confirm('Yeh invoice delete karna hai? Yeh permanent hai.')) return;
   await sb.from('invoices').delete().eq('id', id);
@@ -10335,8 +10341,20 @@ async function submitInvoice() {
     return;
   }
 
-  msgEl.textContent='✅ Invoice submitted!'; msgEl.style.color='var(--green)';
-  document.getElementById('inv-vendor').value='';
+msgEl.textContent='✅ Invoice submitted!'; msgEl.style.color='var(--green)';
+  await createNotification(CEO_EMAIL,
+    `🧾 New Invoice — ${currentUser.name}`,
+    `${currentUser.name} submitted an invoice from ${vendor} of ₹${amount}.`,
+    'info', 'invoices'
+  );
+  if ('alisha@sayashvastu.com' !== CEO_EMAIL) {
+    await createNotification('alisha@sayashvastu.com',
+      `🧾 New Invoice — ${currentUser.name}`,
+      `${currentUser.name} submitted an invoice from ${vendor} of ₹${amount}.`,
+      'info', 'invoices'
+    );
+  }
+  document.getElementById('inv-vendor').value='';  
   document.getElementById('inv-number').value='';
   document.getElementById('inv-amount').value='';
   document.getElementById('inv-date').value='';
