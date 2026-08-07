@@ -10143,9 +10143,10 @@ async function loadMyInvoices() {
           </div>
           ${inv.remarks?`<div style="font-size:12px;color:var(--text);margin-top:6px">💬 ${esc(inv.remarks)}</div>`:''}
         </div>
-        <div style="text-align:right">
+<div style="text-align:right">
           <div style="font-size:22px;font-weight:800;color:var(--navy)">₹${parseFloat(inv.amount).toLocaleString('en-IN')}</div>
           ${inv.file_url ? `<div style="margin-top:6px">${inv.file_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" class="btn btn-outline btn-sm" style="font-size:10px;margin:2px 0">📄 View ${inv.file_url.split(',').length > 1 ? (idx+1) : ''}</a>`).join('')}</div>` : ''}
+          ${!isPaid ? `<button onclick="deleteInvoice('${inv.id}')" class="btn btn-sm" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-top:6px;font-size:10px">🗑️ Delete</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -10339,6 +10340,12 @@ async function submitInvoice() {
   loadMyInvoices();
   if (isInvoiceFinance()) loadAllInvoices();
   if (btn) { btn.disabled = false; btn.textContent = '🧾 Submit Invoice'; }
+}
+async function deleteInvoice(id) {
+  if (!confirm('Yeh invoice delete karna hai?')) return;
+  await sb.from('invoices').delete().eq('id', id);
+  showToast('✅ Invoice deleted!','ok');
+  loadMyInvoices();
 }
 // ═══════════════════════════════════════════
 //  MOBILE SIDEBAR TOGGLE
