@@ -1189,7 +1189,8 @@ if (name === 'offerLetters') loadOfferLetters();
   if (name === 'salaryStructure') loadSalaryStructure();
   if (name === 'salarySlips') loadSalarySlips();
     if (name === 'calendar') loadCalendar();
-  if (name === 'expenses') loadExpenses();
+if (name === 'expenses') loadExpenses();
+  if (name === 'invoices') loadInvoices();
   if (name === 'compliance') loadCompliance();
   if (name === 'attendance') loadMyRegularizations();
 if (name === 'clientsList') loadClientsList();
@@ -10096,6 +10097,248 @@ async function deleteExpense(id) {
   await sb.from('expense_claims').update({is_archived: true}).eq('id', id);
   showToast('✅ Expense archived!','ok');
   loadAllExpenses();
+}
+// ═══════════════════════════════════════════
+//  INVOICES
+// ═══════════════════════════════════════════
+function isInvoiceFinance() {
+  return currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com';
+}
+
+async function loadInvoices() {
+  const allPanel = document.getElementById('allInvoicesPanel');
+  if (isInvoiceFinance()) {
+    if (allPanel) allPanel.style.display = 'block';
+    loadAllInvoices();
+  } else {
+    if (allPanel) allPanel.style.display = 'none';
+  }
+  loadMyInvoices();
+}
+
+async function loadMyInvoices() {
+  const { data } = await sb.from('invoices')
+    .select('*').eq('employee_email', currentUser.email)
+    .eq('is_archived', false)
+    .order('created_at', {ascending: false});
+  const el = document.getElementById('myInvoiceList');
+  if (!el) return;
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No invoices submitted yet</div>';
+    return;
+  }
+  el.innerHTML = data.map(inv => {
+    const isPaid = inv.payment_status === 'Paid';
+    return `<div style="padding:14px;background:var(--bg);border-radius:10px;margin-bottom:12px;border-left:3px solid ${isPaid?'var(--green)':'var(--amber)'}">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+            <span style="font-size:14px;font-weight:700;color:var(--navy)">${esc(inv.vendor_name)}</span>
+            <span class="badge ${isPaid?'b-green':'b-amber'}">${isPaid?'✅ Paid':'⏳ Not Paid'}</span>
+          </div>
+          ${inv.invoice_number?`<div style="font-size:11px;color:var(--muted);margin-bottom:4px">Invoice #: ${esc(inv.invoice_number)}</div>`:''}
+          <div style="display:flex;gap:14px;font-size:11px;color:var(--muted);flex-wrap:wrap">
+            <span>📅 Invoice Date: <strong>${fmtDate(inv.invoice_date)}</strong></span>
+            ${inv.due_date?`<span>⏰ Due: <strong>${fmtDate(inv.due_date)}</strong></span>`:''}
+          </div>
+          ${inv.remarks?`<div style="font-size:12px;color:var(--text);margin-top:6px">💬 ${esc(inv.remarks)}</div>`:''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:22px;font-weight:800;color:var(--navy)">₹${parseFloat(inv.amount).toLocaleString('en-IN')}</div>
+          ${inv.file_url ? `<div style="margin-top:6px">${inv.file_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" class="btn btn-outline btn-sm" style="font-size:10px;margin:2px 0">📄 View ${inv.file_url.split(',').length > 1 ? (idx+1) : ''}</a>`).join('')}</div>` : ''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function loadAllInvoices() {
+  if (!isInvoiceFinance()) return;
+  const statusVal = document.getElementById('inv-status-filter')?.value || 'all';
+  const monthVal = document.getElementById('inv-month-filter')?.value || '';
+  let query = sb.from('invoices').select('*').eq('is_archived', false).order('invoice_date', {ascending: false});
+  if (statusVal !== 'all') query = query.eq('payment_status', statusVal);
+  if (monthVal) {
+    const [yr, mo] = monthVal.split('-');
+    const start = `${yr}-${mo}-01`;
+    const lastDay = new Date(yr, mo, 0).getDate();
+    const end = `${yr}-${mo}-${String(lastDay).padStart(2,'0')}`;
+    query = query.gte('invoice_date', start).lte('invoice_date', end);
+  }
+  const { data } = await query;
+  const el = document.getElementById('allInvoiceList');
+  const summaryEl = document.getElementById('inv-summary');
+  if (!el) return;
+
+  const totalCount = (data||[]).length;
+  const paidAmt = (data||[]).filter(i=>i.payment_status==='Paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const pendingAmt = (data||[]).filter(i=>i.payment_status!=='Paid').reduce((s,i)=>s+parseFloat(i.amount||0),0);
+  const pendingCount = (data||[]).filter(i=>i.payment_status!=='Paid').length;
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <div><div style="font-size:20px;font-weight:800;color:var(--navy)">${totalCount}</div><div style="font-size:11px;color:var(--muted)">Total Invoices</div></div>
+      <div><div style="font-size:20px;font-weight:800;color:var(--amber)">${pendingCount}</div><div style="font-size:11px;color:var(--muted)">Pending</div></div>
+      <div><div style="font-size:20px;font-weight:800;color:var(--green)">₹${paidAmt.toLocaleString('en-IN')}</div><div style="font-size:11px;color:var(--muted)">Paid Amount</div></div>
+      <div><div style="font-size:20px;font-weight:800;color:var(--red)">₹${pendingAmt.toLocaleString('en-IN')}</div><div style="font-size:11px;color:var(--muted)">Pending Amount</div></div>
+    `;
+  }
+
+  if (!data || !data.length) {
+    el.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">No invoices found</div>';
+    return;
+  }
+  el.innerHTML = `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px">
+    <thead><tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
+      <th style="padding:10px;text-align:left">Vendor</th>
+      <th style="padding:10px;text-align:left">Amount</th>
+      <th style="padding:10px;text-align:left">Invoice Date</th>
+      <th style="padding:10px;text-align:left">Due Date</th>
+      <th style="padding:10px;text-align:left">Submitted By</th>
+      <th style="padding:10px;text-align:left">File</th>
+      <th style="padding:10px;text-align:left">Status</th>
+      <th style="padding:10px;text-align:left">Action</th>
+    </tr></thead>
+    <tbody>
+    ${data.map(inv => {
+      const isPaid = inv.payment_status === 'Paid';
+      return `<tr style="border-bottom:1px solid #f5f6fa">
+        <td style="padding:9px 10px;font-weight:600">${esc(inv.vendor_name)}${inv.invoice_number?`<div style="font-size:10px;color:var(--muted)">#${esc(inv.invoice_number)}</div>`:''}</td>
+        <td style="padding:9px 10px;font-weight:700">₹${parseFloat(inv.amount).toLocaleString('en-IN')}</td>
+        <td style="padding:9px 10px">${fmtDate(inv.invoice_date)}</td>
+        <td style="padding:9px 10px">${inv.due_date?fmtDate(inv.due_date):'—'}</td>
+        <td style="padding:9px 10px">${esc(inv.employee_name)}</td>
+        <td style="padding:9px 10px">${inv.file_url ? inv.file_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" class="btn btn-outline btn-sm" style="margin:2px;font-size:10px">📄 ${idx+1}</a>`).join('') : '—'}</td>
+        <td style="padding:9px 10px"><span class="badge ${isPaid?'b-green':'b-amber'}">${isPaid?'✅ Paid':'⏳ Not Paid'}</span></td>
+        <td style="padding:9px 10px">
+          <button class="btn btn-sm ${isPaid?'btn-outline':'btn-gold'}" onclick="toggleInvoiceStatus('${inv.id}','${isPaid?'Not Paid':'Paid'}')" style="font-size:10px">${isPaid?'Mark Unpaid':'Mark Paid'}</button>
+        </td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+async function toggleInvoiceStatus(id, newStatus) {
+  const payload = { payment_status: newStatus };
+  if (newStatus === 'Paid') { payload.paid_date = new Date().toISOString().split('T')[0]; payload.paid_by = currentUser.name; }
+  else { payload.paid_date = null; payload.paid_by = null; }
+  await sb.from('invoices').update(payload).eq('id', id);
+  showToast('✅ Status updated!','ok');
+  loadAllInvoices();
+}
+
+window._invoiceFiles = [];
+function addInvoiceFiles(input) {
+  for (const f of input.files) {
+    if (!window._invoiceFiles.some(x => x.name === f.name && x.size === f.size)) {
+      window._invoiceFiles.push(f);
+    }
+  }
+  input.value = '';
+  renderInvoiceFileList();
+}
+function removeInvoiceFile(idx) {
+  window._invoiceFiles.splice(idx, 1);
+  renderInvoiceFileList();
+}
+function renderInvoiceFileList() {
+  const el = document.getElementById('inv-preview');
+  if (!el) return;
+  if (!window._invoiceFiles.length) {
+    el.innerHTML = '<div class="upload-zone-text">Click to upload invoice</div><div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>';
+    return;
+  }
+  el.innerHTML = window._invoiceFiles.map((f, i) => `
+    <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 12px;margin-bottom:6px" onclick="event.stopPropagation()">
+      <span style="font-size:12px;color:var(--navy)">📎 ${f.name} <span style="color:var(--muted)">(${(f.size/1024).toFixed(0)} KB)</span></span>
+      <button onclick="event.stopPropagation();removeInvoiceFile(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px">❌</button>
+    </div>
+`).join('') + '<div class="upload-zone-hint" style="margin-top:4px;font-size:16px">+</div>';
+}
+
+async function submitInvoice() {
+  const btn = document.querySelector('[onclick="submitInvoice()"]');
+  if (btn && btn.disabled) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting...'; }
+
+  const vendor = document.getElementById('inv-vendor').value.trim();
+  const number = document.getElementById('inv-number').value.trim();
+  const amount = document.getElementById('inv-amount').value;
+  const date = document.getElementById('inv-date').value;
+  const dueDate = document.getElementById('inv-duedate').value;
+  const remarks = document.getElementById('inv-remarks').value.trim();
+  const files = window._invoiceFiles;
+  const msgEl = document.getElementById('invMsg');
+
+  if (!vendor || !amount || !date) {
+    msgEl.textContent='⚠️ Vendor, Amount aur Date required';
+    msgEl.style.color='var(--red)';
+    if (btn) { btn.disabled = false; btn.textContent = '🧾 Submit Invoice'; }
+    return;
+  }
+
+  const onedriveLink = document.getElementById('inv-onedrive-link') ? document.getElementById('inv-onedrive-link').value.trim() : '';
+  let fileUrls = []; let fileNames = [];
+  if (onedriveLink) {
+    fileUrls.push(onedriveLink);
+    fileNames.push('OneDrive Link');
+  }
+  if (files && files.length) {
+    msgEl.textContent='⏳ Uploading files...'; msgEl.style.color='var(--muted)';
+    for (const file of files) {
+      if (file.size > 5*1024*1024) {
+        msgEl.textContent='❌ Max 5MB per file allowed';
+        msgEl.style.color='var(--red)';
+        if (btn) { btn.disabled = false; btn.textContent = '🧾 Submit Invoice'; }
+        return;
+      }
+      const path = `invoices/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_').toLowerCase()}`;
+      const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
+      if (uploadErr) {
+        msgEl.textContent='❌ Upload failed: '+uploadErr.message;
+        msgEl.style.color='var(--red)';
+        if (btn) { btn.disabled = false; btn.textContent = '🧾 Submit Invoice'; }
+        return;
+      }
+      const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
+      fileUrls.push(urlData.publicUrl);
+      fileNames.push(file.name);
+    }
+  }
+
+  const { error } = await sb.from('invoices').insert({
+    employee_email: currentUser.email,
+    employee_name: currentUser.name,
+    vendor_name: vendor,
+    invoice_number: number || null,
+    amount: parseFloat(amount),
+    invoice_date: date,
+    due_date: dueDate || null,
+    file_url: fileUrls.join(', ') || null,
+    file_name: fileNames.join(', ') || null,
+    remarks: remarks || null,
+    payment_status: 'Not Paid'
+  });
+  if (error) {
+    msgEl.textContent='❌ '+error.message;
+    msgEl.style.color='var(--red)';
+    if (btn) { btn.disabled = false; btn.textContent = '🧾 Submit Invoice'; }
+    return;
+  }
+
+  msgEl.textContent='✅ Invoice submitted!'; msgEl.style.color='var(--green)';
+  document.getElementById('inv-vendor').value='';
+  document.getElementById('inv-number').value='';
+  document.getElementById('inv-amount').value='';
+  document.getElementById('inv-date').value='';
+  document.getElementById('inv-duedate').value='';
+  document.getElementById('inv-remarks').value='';
+  document.getElementById('inv-onedrive-link').value='';
+  window._invoiceFiles = [];
+  renderInvoiceFileList();
+  loadMyInvoices();
+  if (isInvoiceFinance()) loadAllInvoices();
+  if (btn) { btn.disabled = false; btn.textContent = '🧾 Submit Invoice'; }
 }
 // ═══════════════════════════════════════════
 //  MOBILE SIDEBAR TOGGLE
