@@ -166,12 +166,16 @@
   <button class="nav-btn" onclick="showView('compliance')" id="nav-compliance" style="padding-left:32px">
     <span class="ni">📊</span><span>Compliance</span>
   </button>
-  <button class="nav-btn" onclick="showView('expenses')" id="nav-expenses" style="padding-left:32px">
+<button class="nav-btn" onclick="showView('expenses')" id="nav-expenses" style="padding-left:32px">
       <span class="ni">💰</span><span>Expense Claims</span>
   <span class="nav-badge" id="nb-expenses" style="display:none">0</span>
 </button>
+  <button class="nav-btn" onclick="showView('invoices')" id="nav-invoices" style="padding-left:32px">
+      <span class="ni">🧾</span><span>Invoices</span>
+  <span class="nav-badge" id="nb-invoices" style="display:none">0</span>
+</button>
   </div>
-<div class="sidebar-section">Account</div>
+  <div class="sidebar-section">Account</div>
       <button class="nav-btn" id="nav-profile" onclick="showView('myProfile')"><span class="ni">⚙️</span><span>My Profile</span></button>
       
       <div class="sidebar-section" id="ceo-section" style="display:none">CEO Panel</div>
@@ -1667,13 +1671,91 @@
         <option value="Approved">Approved</option>
         <option value="Rejected">Rejected</option>
       </select>
-    </div>
+</div>
     <div id="allExpenseList" style="padding:14px 16px"></div>
   </div>
 </div>
       </div>
+      <!-- INVOICES VIEW -->
+      <div class="view" id="view-invoices">
+        <div class="page-header">
+          <h2>Invoices</h2>
+          <p>Upload and track vendor invoices</p>
+        </div>
+        <div class="panel" style="margin-bottom:20px" id="invoice-form-panel">
+          <div class="panel-head"><div class="panel-title">➕ Add Invoice</div></div>
+          <div class="panel-body">
+            <div class="form-grid cols-2">
+              <div class="field">
+                <label>Vendor / Client Name</label>
+                <input type="text" id="inv-vendor" placeholder="e.g. XYZ Suppliers"/>
+              </div>
+              <div class="field">
+                <label>Invoice Number (Optional)</label>
+                <input type="text" id="inv-number" placeholder="e.g. INV-2026-045"/>
+              </div>
+              <div class="field">
+                <label>Amount (₹)</label>
+                <input type="number" id="inv-amount" placeholder="e.g. 15000"/>
+              </div>
+              <div class="field">
+                <label>Invoice Date</label>
+                <input type="date" id="inv-date"/>
+              </div>
+              <div class="field">
+                <label>Due Date (Optional)</label>
+                <input type="date" id="inv-duedate"/>
+              </div>
+              <div class="field" style="grid-column:1/-1">
+                <label>Upload Invoice (PDF/Image)</label>
+                <div class="upload-zone" onclick="document.getElementById('inv-file').click()" style="padding:12px">
+                  <input type="file" id="inv-file" accept=".pdf,.jpg,.jpeg,.png" multiple style="display:none" onchange="addInvoiceFiles(this)"/>
+                  <div id="inv-preview">
+                    <div class="upload-zone-text">Click to upload invoice</div>
+                    <div class="upload-zone-hint">PDF, JPG, PNG — max 5MB</div>
+                  </div>
+                </div>
+              </div>
+              <div class="field" style="grid-column:1/-1">
+                <label>Or OneDrive / SharePoint Link (Optional)</label>
+                <input id="inv-onedrive-link" placeholder="https://sayashvastucorp-my.sharepoint.com/..." />
+              </div>
+              <div class="field" style="grid-column:1/-1">
+                <label>Remarks (Optional)</label>
+                <input type="text" id="inv-remarks" placeholder="Any notes about this invoice"/>
+              </div>
+            </div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:10px">
+              <button class="btn btn-gold" onclick="submitInvoice()">🧾 Submit Invoice</button>
+              <span id="invMsg" style="font-size:12px;font-weight:600"></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head"><div class="panel-title">📋 My Invoices</div></div>
+          <div id="myInvoiceList" style="padding:14px 16px"></div>
+        </div>
+
+        <div class="panel" id="allInvoicesPanel" style="margin-top:16px;display:none">
+          <div class="panel-head" style="flex-wrap:wrap;gap:10px">
+            <div class="panel-title">👑 All Invoices</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <select id="inv-status-filter" onchange="loadAllInvoices()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;outline:none">
+                <option value="all">All Status</option>
+                <option value="Not Paid">Not Paid</option>
+                <option value="Paid">Paid</option>
+              </select>
+              <input type="month" id="inv-month-filter" onchange="loadAllInvoices()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:12px;outline:none"/>
+              <button class="btn btn-outline btn-sm" onclick="document.getElementById('inv-month-filter').value='';document.getElementById('inv-status-filter').value='all';loadAllInvoices()">Clear</button>
+            </div>
+          </div>
+          <div id="inv-summary" style="padding:14px 16px;display:flex;gap:20px;flex-wrap:wrap;border-bottom:1px solid var(--border)"></div>
+          <div id="allInvoiceList" style="padding:14px 16px"></div>
+        </div>
+      </div>
       <!-- MY PROFILE VIEW -->
-      <div class="view" id="view-myProfile">
+    <div class="view" id="view-myProfile">
         <div class="page-header">
           <h2>My Profile</h2>
           <p>Update your personal information</p>
