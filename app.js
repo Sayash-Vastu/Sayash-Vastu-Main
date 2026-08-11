@@ -1533,7 +1533,7 @@ function openAddVisitEmpGlobal() {
               <option>Panipat</option><option>Faridabad</option>
             </datalist>
           </div>
-          <div class="field"><label>Residential Type *</label>
+<div class="field"><label>Project Type *</label>
             <select id="avg-restype" required>
               <option value="">Select Type...</option>
               <option>Residential</option><option>Commercial</option><option>Industrial</option>
@@ -2421,7 +2421,7 @@ if (!visitedBy) { showToast('⚠️ Kam se kam ek visitor select karo', 'warn');
   const city = document.getElementById('avg-city').value;
   if (!city) { showToast('⚠️ City select karna zaroori hai', 'warn'); return; }
   const restype = document.getElementById('avg-restype').value;
-  if (!restype) { showToast('⚠️ Residential Type select karna zaroori hai', 'warn'); return; }
+if (!restype) { showToast('⚠️ Project Type select karna zaroori hai', 'warn'); return; }
   const familyDetails = document.getElementById('avg-family').value.trim();
   const visitType = document.getElementById('avg-type').value;
   const discussion = document.getElementById('avg-discussion').value.trim();
