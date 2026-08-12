@@ -2505,8 +2505,8 @@ let trackerPayload = {
         trackerPayload.visited_by = visitedBy;
         trackerPayload.recommendation = discussion || null;
         trackerPayload.site_visit_date = visitDate;
-        trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : visitType === 'Mail' ? 'Mail Consultation' : 'Other';
-        trackerPayload.location_link = location || null;
+trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : visitType === 'Mail' ? 'Mail Consultation' : visitType === 'Telephonic' ? 'Telephonic' : (visitType || 'Other');
+          trackerPayload.location_link = location || null;
         trackerPayload.comments = suggestions || null;
       }
 
