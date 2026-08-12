@@ -1302,7 +1302,7 @@ document.getElementById('clientVisitsList').innerHTML = `
 <td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
                 <td style="padding:9px 14px"><span class="badge b-navy" style="font-size:10px">${esc(v.visit_type||'-')}</span></td>
                 <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
-                <td style="padding:9px 14px;max-width:150px">${esc(v.location||'-')}</td>
+<td style="padding:9px 14px;max-width:150px">${v.location ? `<a href="${mapsHref(v.location)}" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">📍 ${esc(v.location)}</a>` : '-'}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
 <td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="openEditSiteVisit('${v.id}')" style="margin-right:6px">✏️</button><button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
@@ -8868,6 +8868,13 @@ function toggleSideMenu(menuId) {
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+function mapsHref(v) {
+  if (!v) return '';
+  const s = String(v).trim();
+  if (/^https?:\/\//i.test(s)) return s;
+  return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s);
+}
+
 function getDisplayName(empName, allEmployees) {
   if (!empName) return '';
   const firstName = empName.trim().split(' ')[0];
@@ -10603,7 +10610,7 @@ async function openEmpClientDetail(clientId) {
         ${visits.map(v => `
           <div style="padding:10px 0;border-bottom:1px solid #f5f6fa">
             <div style="font-weight:600;color:var(--navy)">📅 ${fmtDate(v.visit_date)} · ${esc(v.visited_by||'—')}</div>
-            ${v.location?`<div style="font-size:12px;color:var(--muted)">📍 ${esc(v.location)}</div>`:''}
+${v.location?`<div style="font-size:12px"><a href="${mapsHref(v.location)}" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">📍 ${esc(v.location)}</a></div>`:''}
             ${v.discussion?`<div style="font-size:12px;color:var(--muted);margin-top:3px">💬 ${esc(v.discussion.substring(0,80))}...</div>`:''}
           </div>
         `).join('')}
@@ -10992,7 +10999,7 @@ async function openSubProjectDetail(projectId, projectName, clientId, clientName
               <div style="font-weight:600;color:var(--navy)">📅 ${fmtDate(v.visit_date)}</div>
               <span class="badge b-blue">${esc(v.visited_by||'—')}</span>
             </div>
-            ${v.location?`<div style="font-size:12px;color:var(--muted);margin-top:3px">📍 ${esc(v.location)}</div>`:''}
+${v.location?`<div style="font-size:12px;margin-top:3px"><a href="${mapsHref(v.location)}" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">📍 ${esc(v.location)}</a></div>`:''}
             ${v.discussion?`<div style="font-size:12px;color:var(--muted);margin-top:3px">💬 ${esc(v.discussion.substring(0,80))}...</div>`:''}
             ${v.suggestions?`<div style="font-size:12px;color:var(--muted);margin-top:3px">✨ ${esc(v.suggestions.substring(0,80))}...</div>`:''}
           </div>
