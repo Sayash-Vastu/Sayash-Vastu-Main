@@ -11190,7 +11190,7 @@ function filterAudits() {
               <td style="padding:9px 14px;text-align:center;font-weight:800;color:${scoreCl}">${r.svr_score ?? '-'}</td>
               <td style="padding:9px 14px"><span class="badge ${vBadge}" style="font-size:10px">${esc((r.verdict||'-').split(' — ')[0])}</span></td>
               <td style="padding:9px 14px;font-size:11px">${esc(r.inspector_name)||'-'}</td>
-              <td style="padding:9px 14px"><button class="btn btn-sm btn-outline" onclick="viewAuditReport('${r.id}')">👁 View</button></td>
+<td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="viewAuditReport('${r.id}')">👁 View</button> <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#f3c9c9" onclick="deleteAuditReport('${r.id}')">🗑</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -11241,6 +11241,17 @@ function viewAuditReport(id) {
       </div>
     </div>
   `);
+}
+async function deleteAuditReport(id) {
+  const r = (_auditsAll || []).find(x => x.id === id);
+  if (!r) return;
+  const label = (r.client_name || r.property_name || r.ref_id || 'this report');
+  if (!confirm('Delete audit report "' + label + '"?\n\nYeh permanently delete ho jayega.')) return;
+  const { error } = await sb.from('vastu_audits').delete().eq('id', id);
+  if (error) { showToast('❌ Delete failed: ' + error.message, 'err'); return; }
+  _auditsAll = (_auditsAll || []).filter(x => x.id !== id);
+  filterAudits();
+  showToast('✅ Report deleted', 'ok');
 }
 function printAuditReport(id) {
   const r = (_auditsAll || []).find(x => x.id === id);
