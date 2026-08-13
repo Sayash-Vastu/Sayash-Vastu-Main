@@ -197,6 +197,8 @@ function openPptPicker(auditId){
     +'<div style="display:flex;gap:8px"><button id="vp-cancel" style="flex:1;padding:9px;border:1px solid #e2e5ec;background:#fff;border-radius:8px;cursor:pointer">Cancel</button>'
     +'<button id="vp-go" style="flex:1;padding:9px;border:0;background:#8a6d2f;color:#fff;border-radius:8px;cursor:pointer;font-weight:600">Generate</button></div></div>';
   document.body.appendChild(box);
+  vtFillSelect('vp-tpl');
+  box.querySelector('#vp-cancel').onclick=()=>box.remove();
   box.querySelector('#vp-cancel').onclick=()=>box.remove();
   box.onclick=e=>{if(e.target===box)box.remove();};
   box.querySelector('#vp-go').onclick=()=>{const t=box.querySelector('#vp-tpl').value;box.remove();generateAuditPPT(auditId,t);};
