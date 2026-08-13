@@ -84,7 +84,7 @@ async function vpUrlToB64(url){
 
 async function generateAuditPPT(auditId, tplKey){
   const row=(_auditsAll||[]).find(x=>x.id===auditId);
-  if(!row){ showToast('Report nahi mili','err'); return; }
+  if(!row){ showToast('Report not found','err'); return; }
   const T=PPT_TEMPLATES[tplKey||'ckpc'];
   const fd=row.form_data||{};
   const photos=fd.pointer_photos||{}, notes=fd.pointer_notes||{};
@@ -93,9 +93,9 @@ async function generateAuditPPT(auditId, tplKey){
     .filter(k=>(notes[k]&&String(notes[k]).trim())||(photos[k]&&photos[k].length))
     .map(k=>({key:k,label:VP_LABELS[k],val:vpFindVal(fd,k),note:String(notes[k]||'').trim(),urls:photos[k]||[]}));
 
-  if(!items.length){ showToast('Is report me koi observation ya photo nahi hai','warn'); return; }
+  if(!items.length){ showToast('This report has no observations or photos','warn'); return; }
 
-  showToast('⏳ PPT ban raha hai...','warn');
+  showToast('⏳ Generating PPT...','warn');
   try{
     const propName=row.property_name||'Property';
     const clientNm=(row.client_name||'CLIENT').toUpperCase();
@@ -197,8 +197,6 @@ function openPptPicker(auditId){
     +'<div style="display:flex;gap:8px"><button id="vp-cancel" style="flex:1;padding:9px;border:1px solid #e2e5ec;background:#fff;border-radius:8px;cursor:pointer">Cancel</button>'
     +'<button id="vp-go" style="flex:1;padding:9px;border:0;background:#8a6d2f;color:#fff;border-radius:8px;cursor:pointer;font-weight:600">Generate</button></div></div>';
   document.body.appendChild(box);
-  vtFillSelect('vp-tpl');
-  box.querySelector('#vp-cancel').onclick=()=>box.remove();
   box.querySelector('#vp-cancel').onclick=()=>box.remove();
   box.onclick=e=>{if(e.target===box)box.remove();};
   box.querySelector('#vp-go').onclick=()=>{const t=box.querySelector('#vp-tpl').value;box.remove();generateAuditPPT(auditId,t);};
