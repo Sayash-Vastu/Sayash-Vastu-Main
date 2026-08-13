@@ -11122,7 +11122,7 @@ let _auditsAll = null;
 async function loadAuditReports() {
   const el = document.getElementById('view-auditReports');
   el.innerHTML = `
-    <div class="page-header"><h2>🕉 Audit Reports</h2><p>Vastu audit form submissions — site inspection reports</p></div>
+<div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start"><div><h2>🕉 Audit Reports</h2><p>Vastu audit form submissions — site inspection reports</p></div><button class="btn btn-sm btn-outline" style="color:#8a6d2f;border-color:#e0d0a8" onclick="openTemplateManager()">＋ Add Template</button></div>
     <div class="panel" style="margin-bottom:14px">
       <div class="panel-body" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap">
         <div class="field" style="flex:2;min-width:200px"><label>Search Client / Property / Inspector</label>
