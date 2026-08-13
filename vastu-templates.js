@@ -31,7 +31,7 @@ function vtPics(xml){
 async function vtDetect(zip){
   const g = async n => { const f=zip.file('ppt/slides/slide'+n+'.xml'); return f?await f.async('string'):''; };
   const s1=await g(1), s2=await g(2), s3=await g(3);
-  if(!s1||!s2||!s3) throw new Error('Template me kam se kam 3 slides honi chahiye (cover, direction, key considerations)');
+  if(!s1||!s2||!s3) throw new Error('Template needs at least 3 slides (cover, direction, key considerations)');
 
   const p1=vtParas(s1), p2=vtParas(s2), p3=vtParas(s3);
   const find=(arr,re)=>{ const h=arr.find(p=>re.test(p.txt)); return h?h.first:null; };
@@ -66,14 +66,14 @@ async function vtDetect(zip){
   const fv=(p2.find(p=>/Facing$|facing\.?$/i.test(p.txt)&&p.txt.length<28&&!/The site|The plot/i.test(p.txt))||{}).first;
   if(fv && fv!==cfg.site.facing) cfg.site.facingVal=fv;
   if(cfg.site.prop===cfg.obs.prop && cfg.site.prop===null) cfg.site.prop=null;
-  if(!cfg.obs.body) throw new Error('Slide 3 me koi bada paragraph nahi mila — observation slide chahiye');
+  if(!cfg.obs.body) throw new Error('No body paragraph found on slide 3 — an observation slide is required');
   return cfg;
 }
 
 // ── upload ──
 async function vtUpload(file, label){
-  if(!VT_SB) throw new Error('Supabase client nahi mila');
-  if(!/\.pptx$/i.test(file.name)) throw new Error('Sirf .pptx file chalegi');
+  if(!VT_SB) throw new Error('Supabase client not found');
+  if(!/\.pptx$/i.test(file.name)) throw new Error('Only .pptx files are supported');
   const buf=await file.arrayBuffer();
   const zip=await JSZip.loadAsync(buf);
   const cfg=await vtDetect(zip);
@@ -118,8 +118,8 @@ function openTemplateManager(){
   box.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center';
   box.innerHTML='<div style="background:#fff;border-radius:12px;padding:22px;width:400px;box-shadow:0 12px 40px rgba(0,0,0,.25)">'
    +'<div style="font-weight:700;font-size:15px;margin-bottom:3px">Add PPT Template</div>'
-   +'<div style="font-size:12px;color:#6b7280;margin-bottom:14px">Koi bhi purani Vastu report PPT upload karo — usi design me aage se report banegi.</div>'
-   +'<input id="vt-label" placeholder="Client / template ka naam" style="width:100%;padding:9px;border:1px solid #e2e5ec;border-radius:8px;font:inherit;margin-bottom:10px">'
+   +'<div style="font-size:12px;color:#6b7280;margin-bottom:14px">Upload any existing Vastu report PPT — future reports will use its design.</div>'
+   +'<input id="vt-label" placeholder="Client / template name" style="width:100%;padding:9px;border:1px solid #e2e5ec;border-radius:8px;font:inherit;margin-bottom:10px">'
    +'<input type="file" id="vt-file" accept=".pptx" style="width:100%;padding:9px;border:1px solid #e2e5ec;border-radius:8px;font:inherit;margin-bottom:6px">'
    +'<div id="vt-msg" style="font-size:12px;color:#6b7280;margin-bottom:12px;min-height:16px"></div>'
    +'<div style="display:flex;gap:8px"><button id="vt-cancel" style="flex:1;padding:9px;border:1px solid #e2e5ec;background:#fff;border-radius:8px;cursor:pointer">Cancel</button>'
@@ -131,11 +131,11 @@ function openTemplateManager(){
   box.querySelector('#vt-save').onclick=async()=>{
     const lab=box.querySelector('#vt-label').value.trim();
     const f=box.querySelector('#vt-file').files[0];
-    if(!lab||!f){ msg('Naam aur file dono chahiye'); return; }
-    msg('⏳ Analyse ho raha hai...');
+    if(!lab||!f){ msg('Both name and file are required'); return; }
+    msg('⏳ Analysing...');
     try{
       const r=await vtUpload(f,lab);
-      msg('✅ "'+lab+'" add ho gaya');
+      msg('✅ "'+lab+'" added successfully');
       setTimeout(()=>{ box.remove(); if(typeof loadAuditReports==='function') loadAuditReports(); },1200);
     }catch(e){ msg('❌ '+e.message); }
   };
