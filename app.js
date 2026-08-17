@@ -1563,7 +1563,7 @@ function openAddVisitEmpGlobal() {
           </div>
           <div class="field" style="grid-column:1/-1"><label>Or OneDrive / SharePoint Link (Optional)</label>
             <input id="avg-onedrive-link" placeholder="https://sayashvastucorp-my.sharepoint.com/...">
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">📌 File already OneDrive par hai toh share link yahan paste karo</div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">📌 If the file is already on OneDrive, paste the share link here</div>
           </div>
           <div class="field" style="grid-column:1/-1"><label>🚁 Drone Shoot Link (Optional)</label>
             <input id="avg-drone-url" placeholder="https://sayashvastucorp-my.sharepoint.com/... (OneDrive drone shoot link)">
@@ -1808,7 +1808,7 @@ async function savePaymentFollowup(clientId) {
   const nextDate = document.getElementById('pf-nextdate').value || null;
   const notes = document.getElementById('pf-notes').value.trim();
 
-  if (!outcome) { showToast('⚠️ Outcome select karo', 'warn'); return; }
+  if (!outcome) { showToast('⚠️ Select an outcome', 'warn'); return; }
 
   // Record the actual payment if an amount was collected
   if (amountCollected > 0) {
@@ -1942,7 +1942,7 @@ async function savePaymentFollowupRecord() {
     if (newClient) clientId = newClient.id;
   }
 
-  if (!clientId) { showToast('❌ Client create nahi ho saka', 'err'); return; }
+  if (!clientId) { showToast('❌ Could not create client', 'err'); return; }
 
   // Save followup record
   const { error } = await sbClient.from('followups').insert({
@@ -2033,7 +2033,7 @@ async function saveAddPendingPayment() {
     if (newClient) clientId = newClient.id;
   }
 
-  if (!clientId) { showToast('❌ Client create nahi ho saka', 'err'); return; }
+  if (!clientId) { showToast('❌ Could not create client', 'err'); return; }
 
   const { error } = await sbClient.from('projects').insert({
     client_id: clientId,
@@ -2399,7 +2399,7 @@ async function saveVisitGlobal() {
       window._avgAllClients.push(newClient);
       showToast('✅ New client "' + clientName + '" created!', 'ok');
     } else {
-      showToast('❌ Client create nahi ho saka', 'err');
+      showToast('❌ Could not create client', 'err');
       return;
     }
   }
@@ -2417,11 +2417,11 @@ async function saveVisitGlobal() {
 const selectedAssignees = window._avgSelectedAssignees || [];
   const assignedToName = selectedAssignees.join(', ');
   const visitedBy = (window._avgSelectedVisitors || []).join(', ');
-if (!visitedBy) { showToast('⚠️ Kam se kam ek visitor select karo', 'warn'); return; }
+if (!visitedBy) { showToast('⚠️ Select at least one visitor', 'warn'); return; }
   const city = document.getElementById('avg-city').value;
-  if (!city) { showToast('⚠️ City select karna zaroori hai', 'warn'); return; }
+  if (!city) { showToast('⚠️ City is required', 'warn'); return; }
   const restype = document.getElementById('avg-restype').value;
-if (!restype) { showToast('⚠️ Project Type select karna zaroori hai', 'warn'); return; }
+if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   const familyDetails = document.getElementById('avg-family').value.trim();
   const visitType = document.getElementById('avg-type').value;
   const discussion = document.getElementById('avg-discussion').value.trim();
@@ -2541,10 +2541,10 @@ for (const em of assigneeMatches) {
   }
 
 if (selectedAssignees.length && !assigneeMatches.length) {
-    showToast('⚠️ Task create nahi hua — koi employee select nahi hua tha', 'warn');
+    showToast('⚠️ Task not created — no employee was selected', 'warn');
   }
   if (allErrors.length) {
-    showToast('⚠️ Kuch entries fail hui: ' + allErrors.join(', '), 'warn');
+    showToast('⚠️ Some entries failed:  ' + allErrors.join(', '), 'warn');
   } else {
     showToast('✅ Site visit(s) saved' + (assignedToName ? ' & task(s) assigned!' : '!'), 'ok');
   }
@@ -4129,7 +4129,7 @@ const atClientInput = document.getElementById('at-client');
   const msg = document.getElementById('assignMsg');
 
   if (!empsToAssign.length) { 
-    msg.textContent='⚠️ Kam se kam ek employee select karo'; 
+    msg.textContent='⚠️ Select at least one employee'; 
     msg.style.color='var(--red)'; 
     btn.disabled = false; btn.textContent = '➕ Assign Task';
     return; 
@@ -4932,7 +4932,7 @@ async function loadSalarySlips() {
 async function generateSalarySlip() {
   const email = document.getElementById('ss-employee').value;
   const monthVal = document.getElementById('ss-month').value;
-  if (!email || !monthVal) { showToast('⚠️ Employee aur Month select karo', 'warn'); return; }
+  if (!email || !monthVal) { showToast('⚠️ Select an employee and month', 'warn'); return; }
   const [year, month] = monthVal.split('-').map(Number);
 
   const resultEl = document.getElementById('salarySlipResult');
@@ -5011,7 +5011,7 @@ function numberToWords(num) {
 
 async function exportSalarySlipPDF() {
   const r = window._currentSalarySlip;
-  if (!r) { showToast('⚠️ Pehle slip calculate karo', 'warn'); return; }
+  if (!r) { showToast('⚠️ Calculate the slip first', 'warn'); return; }
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -7648,7 +7648,7 @@ async function openTaskViewModal(taskId) {
 async function addTaskUpdate(taskId) {
   const ta = document.getElementById('tu-new-' + taskId);
   const text = ta?.value.trim();
-  if (!text) { showToast('⚠️ Update likho pehle', 'warn'); return; }
+  if (!text) { showToast('⚠️ Write an update first', 'warn'); return; }
 
   const { error } = await sb.from('task_updates').insert({
     task_id: taskId,
@@ -10006,7 +10006,7 @@ const files = window._expenseFiles;
   const today = new Date(); today.setHours(0,0,0,0);
   const diffDays = Math.floor((today - expDate) / 86400000);
   if (diffDays > 7) { 
-    msgEl.textContent='❌ 1 week se purani expense claim nahi kar sakte!'; 
+    msgEl.textContent='❌ Expenses older than one week cannot be claimed'; 
     msgEl.style.color='var(--red)'; 
     if (btn) { btn.disabled = false; btn.textContent = '📤 Submit Claim'; }
     return; 
@@ -10270,7 +10270,7 @@ async function toggleInvoiceStatus(id, newStatus, empEmail, vendorName) {
   loadAllInvoices();
 }
 async function deleteInvoiceAdmin(id) {
-  if (!confirm('Yeh invoice delete karna hai? Yeh permanent hai.')) return;
+  if (!confirm('Delete this invoice? This cannot be undone.')) return;
   await sb.from('invoices').delete().eq('id', id);
   showToast('✅ Invoice deleted!','ok');
   loadAllInvoices();
@@ -10402,7 +10402,7 @@ msgEl.textContent='✅ Invoice submitted!'; msgEl.style.color='var(--green)';
   if (btn) { btn.disabled = false; btn.textContent = '🧾 Submit Invoice'; }
 }
 async function deleteInvoice(id) {
-  if (!confirm('Yeh invoice delete karna hai?')) return;
+  if (!confirm('Delete this invoice?')) return;
   await sb.from('invoices').delete().eq('id', id);
   showToast('✅ Invoice deleted!','ok');
   loadMyInvoices();
@@ -11273,7 +11273,7 @@ async function deleteAuditReport(id) {
   const r = (_auditsAll || []).find(x => x.id === id);
   if (!r) return;
   const label = (r.client_name || r.property_name || r.ref_id || 'this report');
-  if (!confirm('Delete audit report "' + label + '"?\n\nYeh permanently delete ho jayega.')) return;
+  if (!confirm('Delete audit report "' + label + '"?\n\nThis will be permanently deleted.')) return;
   const { error } = await sb.from('vastu_audits').delete().eq('id', id);
   if (error) { showToast('❌ Delete failed: ' + error.message, 'err'); return; }
   _auditsAll = (_auditsAll || []).filter(x => x.id !== id);
