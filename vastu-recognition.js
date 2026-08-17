@@ -44,7 +44,7 @@ async function perfComputeStats(period){
   const today = new Date(); today.setHours(0,0,0,0);
 
   const [{data:emps},{data:tasks},{data:att},{data:hlds}] = await Promise.all([
-    sb.from('employees').select('name,email,designation').eq('is_active',true).order('name'),
+    sb.from('employees').select('name,email,designation,role').eq('is_active',true).order('name'),
     sb.from('tasks').select('*').eq('is_archived',false),
     sb.from('attendance').select('*').eq('is_archived',false).gte('date',R.start).lte('date',R.end),
     sb.from('holidays').select('date').gte('date',R.start).lte('date',R.end)
@@ -71,7 +71,8 @@ async function perfComputeStats(period){
     return ds >= R.start && ds <= R.end;
   };
 
-  const rows = (emps||[]).map(e => {
+  const EXCLUDE_ROLES = ['ceo','hr'];
+  const rows = (emps||[]).filter(e => !EXCLUDE_ROLES.includes(String(e.role||'').toLowerCase())).map(e => {
     const mine = (tasks||[]).filter(t => (t.assigned_to_email||'').toLowerCase() === (e.email||'').toLowerCase());
     const finished = mine.filter(t => done.includes(t.work_status) && inRange(t));
     const onTime = finished.filter(t => {
