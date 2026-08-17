@@ -7923,9 +7923,20 @@ async function openEmpPerfReport(empEmail, empName) {
     return ed && today > ed && t.work_status !== 'Completed';
   }).length;
   const completionPct = total > 0 ? Math.round((completed/total)*100) : 0;
-  const presentDays = (attData||[]).filter(a => a.status==='Present').length;
-  const totalDays = new Date(now.getFullYear(), now.getMonth()+1, 0).getDate();
-  const attPct = totalDays > 0 ? Math.round((presentDays/totalDays)*100) : 0;
+const presentDays = (attData||[]).filter(a => a.status==='Present').length;
+  const halfDays = (attData||[]).filter(a => a.status==='Half Day').length;
+  const { data: hlds } = await sb.from('holidays').select('date').gte('date', monthStart).lte('date', monthEnd);
+  const holidaySet = new Set((hlds||[]).map(h => h.date));
+  let workingDays = 0;
+  const lastDay = Math.min(now.getDate(), new Date(now.getFullYear(), now.getMonth()+1, 0).getDate());
+  for (let d = 1; d <= lastDay; d++) {
+    const dt = new Date(now.getFullYear(), now.getMonth(), d);
+    const ds = `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if (dt.getDay() === 0) continue;              // Sunday
+    if (holidaySet.has(ds)) continue;             // Holiday
+    workingDays++;
+  }
+  const attPct = workingDays > 0 ? Math.round(((presentDays + halfDays*0.5)/workingDays)*100) : 0;
   const totalHrs = (attData||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
   const score = (completionPct * 0.6) + (attPct * 0.4);
   let status, statusColor;
