@@ -2,29 +2,45 @@
 // No buttons to press: scores compute from tasks + attendance.
 
 let PERF_PERIOD = 'month';   // month | quarter | year
+let PERF_OFFSET = 0;         // 0 = current, -1 = previous, ...
 
-function perfRange(period){
+function perfRange(period, off){
+  off = off || 0;
   const n = new Date(), y = n.getFullYear(), m = n.getMonth();
   let s, e, label;
   if(period === 'year'){
-    s = new Date(y,0,1); e = new Date(y,11,31);
-    label = String(y);
+    const yy = y + off;
+    s = new Date(yy,0,1); e = new Date(yy,11,31);
+    label = String(yy);
   } else if(period === 'quarter'){
-    const q = Math.floor(m/3);
-    s = new Date(y,q*3,1); e = new Date(y,q*3+3,0);
-    label = 'Q'+(q+1)+' '+y;
+    const q = Math.floor(m/3) + off;
+    const yy = y + Math.floor(q/4);
+    const qq = ((q % 4) + 4) % 4;
+    s = new Date(yy,qq*3,1); e = new Date(yy,qq*3+3,0);
+    label = 'Q'+(qq+1)+' '+yy;
   } else {
-    s = new Date(y,m,1); e = new Date(y,m+1,0);
+    s = new Date(y, m+off, 1); e = new Date(y, m+off+1, 0);
     label = s.toLocaleDateString('en-IN',{month:'long',year:'numeric'});
   }
   const f = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   return {start:f(s), end:f(e), startD:s, endD:e, label};
 }
 
+function perfPeriodOptions(period){
+  const out = [];
+  for(let i=0; i>=-11; i--){
+    const r = perfRange(period, i);
+    out.push({off:i, label:r.label});
+    if(period==='year' && i<=-4) break;
+    if(period==='quarter' && i<=-7) break;
+  }
+  return out;
+}
+
 function perfInitials(n){ return String(n||'').trim().split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
 
 async function perfComputeStats(period){
-  const R = perfRange(period);
+  const R = perfRange(period, PERF_OFFSET);
   const today = new Date(); today.setHours(0,0,0,0);
 
   const [{data:emps},{data:tasks},{data:att},{data:hlds}] = await Promise.all([
@@ -45,10 +61,13 @@ async function perfComputeStats(period){
   }
 
   const done = ['Completed','Report Ready'];
+  const taskDate = t => t.updated_at || t.end_date || t.created_at || null;
+  const taskDue  = t => t.end_date || null;
   const inRange = t => {
-    const d = t.completed_at || t.updated_at || t.end_date || t.created_at;
-    if(!d) return false;
+    const d = taskDate(t);
+    if(!d) return true;                       // date hi nahi hai to count kar lo
     const ds = String(d).slice(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return true;
     return ds >= R.start && ds <= R.end;
   };
 
@@ -56,16 +75,17 @@ async function perfComputeStats(period){
     const mine = (tasks||[]).filter(t => (t.assigned_to_email||'').toLowerCase() === (e.email||'').toLowerCase());
     const finished = mine.filter(t => done.includes(t.work_status) && inRange(t));
     const onTime = finished.filter(t => {
-      if(!t.end_date) return true;
-      const fin = new Date(t.completed_at || t.updated_at || t.end_date);
-      return fin <= new Date(new Date(t.end_date).setHours(23,59,59));
+      const due = taskDue(t);
+      if(!due) return true;
+      const fin = new Date(taskDate(t) || due);
+      return fin <= new Date(new Date(due).setHours(23,59,59));
     }).length;
-    const overdue = mine.filter(t => t.end_date && !done.includes(t.work_status) && today > new Date(t.end_date)).length;
+    const overdue = mine.filter(t => taskDue(t) && !done.includes(t.work_status) && today > new Date(taskDue(t))).length;
     const onTimePct = finished.length ? Math.round(onTime/finished.length*100) : 0;
 
     let turn = 0, tc = 0;
     finished.forEach(t => {
-      const st = t.start_date || t.created_at, fin = t.completed_at || t.updated_at;
+      const st = t.start_date || t.created_at, fin = t.updated_at;
       if(st && fin){ const d = (new Date(fin)-new Date(st))/86400000; if(d>=0 && d<180){ turn += d; tc++; } }
     });
     const avgTurn = tc ? (turn/tc).toFixed(1) : null;
@@ -83,7 +103,8 @@ async function perfComputeStats(period){
   return {rows, label:R.label, workingDays};
 }
 
-function perfSetPeriod(p){ PERF_PERIOD = p; loadPerformancePanel(); }
+function perfSetPeriod(p){ PERF_PERIOD = p; PERF_OFFSET = 0; loadPerformancePanel(); }
+function perfSetOffset(v){ PERF_OFFSET = parseInt(v,10)||0; loadPerformancePanel(); }
 
 async function loadPerformancePanel(){
   const el = document.getElementById('perfPanel');
@@ -110,7 +131,12 @@ async function loadPerformancePanel(){
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;flex-wrap:wrap;gap:8px">
       <div style="font-weight:700;font-size:14px;color:var(--navy)">📊 Performance — ${esc(label)}</div>
-      <div style="display:flex;gap:6px">${tab('month','Month')}${tab('quarter','Quarter')}${tab('year','Year')}</div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+        ${tab('month','Month')}${tab('quarter','Quarter')}${tab('year','Year')}
+        <select onchange="perfSetOffset(this.value)" style="padding:6px 9px;border:1px solid #e2e5ec;border-radius:7px;font:inherit;font-size:12.5px;background:#fff;color:#1b2437">
+          ${perfPeriodOptions(PERF_PERIOD).map(o=>`<option value="${o.off}" ${o.off===PERF_OFFSET?'selected':''}>${esc(o.label)}</option>`).join('')}
+        </select>
+      </div>
     </div>
 
     ${top ? `<div style="background:#fdf6e6;border:1px solid #e8dcc0;border-radius:10px;padding:13px;margin-bottom:14px">
