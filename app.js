@@ -3915,7 +3915,8 @@ const newEndDate = document.getElementById('modal-end-date')?.value;
 const newStartDate = document.getElementById('modal-start-date')?.value;
 const newTaskDetail = document.getElementById('modal-task-detail')?.value?.trim();
 const updates = { work_status: status, comments, updated_at: new Date().toISOString() };
-if (newEndDate) updates.end_date = newEndDate;
+if (['Completed','Report Ready'].includes(status)) updates.completed_at = new Date().toISOString();
+  if (newEndDate) updates.end_date = newEndDate;
 if (newStartDate) updates.start_date = newStartDate;
 if (newTaskDetail) updates.task_detail = newTaskDetail;
   if (status === 'Sent for Review' && approvalVal) {
@@ -7519,8 +7520,9 @@ async function ceoFinalizeTask(taskId, decision) {
   if (!decision) return;
   const { error } = await sb.from('tasks').update({
     ceo_approval: decision,
-    work_status: 'Report Ready',
+work_status: 'Report Ready',
     report_status: 'Ready',
+    completed_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }).eq('id', taskId);
   if (error) { showToast('❌ '+error.message,'err'); return; }
@@ -8787,8 +8789,9 @@ function renderReportsApproval() {
 async function approveReport(taskId, empEmail, empName, project) {
   const { error } = await sb.from('tasks').update({
     approval_status: 'Approved',
-    work_status: 'Completed',
+work_status: 'Completed',
     ceo_approval: 'Approved',
+    completed_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }).eq('id', taskId);
 
