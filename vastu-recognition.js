@@ -61,7 +61,7 @@ async function perfComputeStats(period){
   }
 
   const done = ['Completed','Report Ready'];
-  const taskDate = t => t.updated_at || t.end_date || t.created_at || null;
+  const taskDate = t => t.completed_at || t.updated_at || t.end_date || t.created_at || null;
   const taskDue  = t => t.end_date || null;
   const inRange = t => {
     const d = taskDate(t);
@@ -86,7 +86,7 @@ async function perfComputeStats(period){
 
     let turn = 0, tc = 0;
     finished.forEach(t => {
-      const st = t.start_date || t.created_at, fin = t.updated_at;
+      const st = t.start_date || t.created_at, fin = t.completed_at || t.updated_at;
       if(st && fin){ const d = (new Date(fin)-new Date(st))/86400000; if(d>=0 && d<180){ turn += d; tc++; } }
     });
     const avgTurn = tc ? (turn/tc).toFixed(1) : null;
