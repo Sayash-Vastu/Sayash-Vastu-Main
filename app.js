@@ -6689,7 +6689,10 @@ const end = `${yr}-${mo}-${String(new Date(yr, mo, 0).getDate()).padStart(2,'0')
     .eq('is_archived', false)
     .gte('date', start).lte('date', end)
     .order('date', { ascending: true });
-
+  
+const { data: holidayDataMy } = await sb.from('holidays').select('*').gte('date', start).lte('date', end);
+  const holidayMapMy = {};
+  (holidayDataMy || []).forEach(h => { holidayMapMy[h.date] = h; });
   const { data: leaveDataMy } = await sb.from('leaves').select('*')
     .eq('employee_email', currentUser.email)
     .eq('status', 'Approved')
@@ -6710,6 +6713,7 @@ for (let d = 1; d <= totalDays; d++) {
     const a = attMapMy[dateStr];
     const onLeave = (leaveDataMy || []).find(l => leaveCoversDate(l, dateStr))
     const isFuture = dateObj > todayCheckMy;
+  const holidayMy = holidayMapMy[dateStr];
   
 if (a && !onLeave) {
       if (a.status === 'Present') present++;
@@ -6736,8 +6740,17 @@ if (a && !onLeave) {
         <td>${attBadge(isHalfDayLeave ? 'Half Day' : 'Leave')}</td>
         <td>${a ? `<button class="btn btn-sm" onclick="deleteAttendance('${a.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>` : '—'}</td>
       </tr>`);
-} else if (isWeekend) {
+} else if (holidayMy && !a) {
       weekOff++;
+      rowsHtml.push(`<tr style="background:#fffaf0">
+        <td style="font-weight:600">${fmtDate(dateStr)}</td>
+        <td style="font-size:11px;color:var(--muted)">${days2[dateObj.getDay()]}</td>
+        <td>—</td><td>—</td><td>—</td>
+        <td><span class="badge" style="background:#fdf6e6;color:#8a6d2f">🎉 ${esc(holidayMy.title || 'Holiday')}</span></td>
+        <td>—</td>
+      </tr>`);
+    } else if (isWeekend) {
+  weekOff++;
       rowsHtml.push(`<tr style="background:#f8f9fc">
         <td style="font-weight:600">${fmtDate(dateStr)}</td>
         <td style="font-size:11px;color:var(--muted)">${days2[dateObj.getDay()]}</td>
