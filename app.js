@@ -1174,7 +1174,7 @@ const el = document.getElementById('view-' + name);
   if (name === 'followUp') loadFollowUp();
   if (name === 'seniorReview') loadSeniorReview();
   if (name === 'myProfile') loadMyProfile();
-if (name === 'performance') { loadPerformance(); loadPerformancePanel(); }
+if (name === 'performance') loadPerformancePanel();if (name === 'performance') loadPerformancePanel();
   if (name === 'tickets') loadTickets();
   if (name === 'holidays') loadHolidays();
   if (name === 'hrPolicy') loadHRPolicies();
