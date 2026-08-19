@@ -144,7 +144,7 @@ async function loadPerformancePanel(){
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:42px;height:42px;border-radius:50%;background:#8a6d2f;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex-shrink:0">${esc(perfInitials(top.name))}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:11px;color:#8a6d2f;font-weight:600;letter-spacing:.5px">⭐ TOP PERFORMER</div>
+          <div style="font-size:11px;color:#8a6d2f;font-weight:600;letter-spacing:.5px">⭐ TOP PERFORMER OF THE TEAM</div>
           <div style="font-weight:700;font-size:15px;color:#5c4a1f">${esc(top.name)}${isTop?' <span style="font-size:10.5px;background:#8a6d2f;color:#fff;padding:2px 7px;border-radius:10px">That\'s you</span>':''}</div>
           <div style="font-size:11.5px;color:#8a6d2f;margin-top:1px">${top.onTimePct}% on-time · ${top.finished} tasks · ${top.attPct}% present</div>
         </div>
@@ -152,7 +152,8 @@ async function loadPerformancePanel(){
       </div>
     </div>` : ''}
 
-    ${mine ? `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
+    ${mine ? `<div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px;margin:16px 0 8px">YOUR NUMBERS — ${esc(currentUser && currentUser.name || 'You')}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
       ${stat('On-time delivery', mine.onTimePct+'%', mine.finished+' completed', mine.onTimePct>=80?'#1E8449':mine.onTimePct>=60?'#B7791F':'#C0392B')}
       ${stat('Avg turnaround', mine.avgTurn? mine.avgTurn+'d' : '—', 'per task')}
       ${stat('Attendance', mine.attPct+'%', null)}
