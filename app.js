@@ -1210,6 +1210,10 @@ async function loadClientVisitsAll() {
   el.innerHTML = `
     <div class="page-header"><h2>🏗️ Site Visit / MOM</h2><p>All client site visits</p></div>
     <div id="siteVisitSummary" style="margin-bottom:20px"></div>
+        <div style="margin-bottom:14px">
+      <input id="svSearch" placeholder="🔍 Search client, project, visitor, location, description..." oninput="filterClientVisits()"
+        style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+    </div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
       <button class="btn btn-gold" onclick="openAddVisitEmpGlobal()">➕ Add Site Visit</button>
     </div>
@@ -1277,6 +1281,7 @@ async function loadClientVisitsAll() {
     document.getElementById('clientVisitsList').innerHTML = '<div class="empty-state"><div class="empty-icon">🏗️</div><div class="empty-title">No site visits yet</div></div>';
     return;
   }
+    window._svAll = data;
 document.getElementById('clientVisitsList').innerHTML = `
     <div class="panel">
 <div class="panel-body" style="padding:0;max-height:68vh;overflow:auto">
@@ -1320,6 +1325,16 @@ async function deleteSiteVisitGlobal(visitId) {
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Site visit deleted!', 'ok');
   loadClientVisitsAll();
+}
+function filterClientVisits(){
+  const q = (document.getElementById('svSearch')?.value || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('#clientVisitsList tbody tr');
+  let shown = 0;
+  rows.forEach(tr => {
+    const hit = !q || tr.textContent.toLowerCase().includes(q);
+    tr.style.display = hit ? '' : 'none';
+    if(hit) shown++;
+  });
 }
 async function openEditSiteVisit(visitId) {
   const { data: v, error } = await sbClient.from('site_visits').select('*, clients(name)').eq('id', visitId).single();
