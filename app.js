@@ -2527,8 +2527,11 @@ trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitTy
 
       let linkedRecordId = null;
       const { data: trackerRecord, error: trackerErr } = await sbClient.from('project_records').insert(trackerPayload).select().single();
+      if (trackerErr) {
+        console.error('TRACKER INSERT FAILED:', trackerErr.message, trackerPayload);
+        showToast('⚠️ Visit saved, but Project Tracker was not updated: ' + trackerErr.message, 'warn');
+      }
       if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
-
 for (const em of assigneeMatches) {
         await sb.from('tasks').insert({
           project: clientName,
