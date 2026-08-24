@@ -2422,8 +2422,10 @@ async function saveVisitGlobal() {
   const newProjectTyped = document.getElementById('avg-project-new').value.trim();
   let projectsToProcess = [...(window._avgSelectedProjects || [])];
   if (newProjectTyped) projectsToProcess.push(newProjectTyped);
-  if (!projectsToProcess.length) projectsToProcess = ['Site Visit'];
-
+  if (!projectsToProcess.length) {
+    showToast('⚠️ Please select a project or type a new one', 'warn');
+    return;
+  }
   const newSubProjectTyped = document.getElementById('avg-subproject-new').value.trim();
   let subProjectsToProcess = [...(window._avgSelectedSubProjects || [])];
   if (newSubProjectTyped) subProjectsToProcess.push(newSubProjectTyped);
