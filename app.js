@@ -1307,7 +1307,7 @@ document.getElementById('clientVisitsList').innerHTML = `
 <td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
                 <td style="padding:9px 14px"><span class="badge b-navy" style="font-size:10px">${esc(v.visit_type||'-')}</span></td>
                 <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
-<td style="padding:9px 14px;max-width:150px">${v.location ? `<a href="${mapsHref(v.location)}" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">📍 ${esc(v.location)}</a>` : '-'}</td>
+<td style="padding:9px 14px;max-width:160px">${v.location ? `<a href="${mapsHref(v.location)}" target="_blank" title="${esc(v.location)}" style="color:var(--blue);font-weight:600;text-decoration:none;display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">📍 ${/^https?:\/\//i.test(String(v.location).trim()) ? 'Open in Maps' : esc(v.location)}</a>` : '-'}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
 <td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="openEditSiteVisit('${v.id}')" style="margin-right:6px">✏️</button><button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
