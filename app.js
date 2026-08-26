@@ -1294,6 +1294,7 @@ document.getElementById('clientVisitsList').innerHTML = `
               <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Type</th>
               <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Visited By</th>
               <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Location</th>
+              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Reference</th>
               <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Description</th>
               <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Suggestions</th>
               <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Action</th>
@@ -1308,6 +1309,7 @@ document.getElementById('clientVisitsList').innerHTML = `
                 <td style="padding:9px 14px"><span class="badge b-navy" style="font-size:10px">${esc(v.visit_type||'-')}</span></td>
                 <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
 <td style="padding:9px 14px;max-width:160px">${v.location ? `<a href="${mapsHref(v.location)}" target="_blank" title="${esc(v.location)}" style="color:var(--blue);font-weight:600;text-decoration:none;display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">📍 ${/^https?:\/\//i.test(String(v.location).trim()) ? 'Open in Maps' : esc(v.location)}</a>` : '-'}</td>
+                <td style="padding:9px 14px;max-width:160px">${v.reference ? esc(v.reference) : '-'}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
                 <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
 <td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="openEditSiteVisit('${v.id}')" style="margin-right:6px">✏️</button><button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
@@ -1354,6 +1356,7 @@ async function openEditSiteVisit(visitId) {
           </div>
           <div class="field"><label>Visited By</label><input id="ev-by" value="${esc(v.visited_by || '')}" placeholder="Comma separated names"></div>
           <div class="field"><label>Location</label><input id="ev-location" value="${esc(v.location || '')}"></div>
+          <div class="field"><label>Reference</label><input id="ev-reference" value="${esc(v.reference || '')}"></div>
           <div class="field"><label>Description / Discussion</label><textarea id="ev-discussion" rows="3">${esc(v.discussion || '')}</textarea></div>
           <div class="field"><label>Suggestions</label><textarea id="ev-suggestions" rows="3">${esc(v.suggestions || '')}</textarea></div>
         </div>
@@ -1375,7 +1378,8 @@ async function saveEditSiteVisit(visitId) {
     visited_by: document.getElementById('ev-by').value.trim() || null,
     location: document.getElementById('ev-location').value.trim() || null,
     discussion: document.getElementById('ev-discussion').value.trim() || null,
-    suggestions: document.getElementById('ev-suggestions').value.trim() || null
+    suggestions: document.getElementById('ev-suggestions').value.trim() || null,
+    reference: document.getElementById('ev-reference').value.trim() || null
   };
   const { error } = await sbClient.from('site_visits').update(upd).eq('id', visitId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
@@ -1559,6 +1563,7 @@ function openAddVisitEmpGlobal() {
           <div class="field" style="grid-column:1/-1"><label>Contact Person</label>
             <input id="avg-contact" placeholder="e.g. Mr. Sharma - 9876543210"></div>
           <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address or Google Maps link"></div>
+          <div class="field" style="grid-column:1/-1"><label>Reference</label><input id="avg-reference" placeholder="e.g. Referred by Mr. Verma / Ref #123"></div>
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
 <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
@@ -2483,6 +2488,7 @@ visit_date: visitDate,
         location: location,
         discussion: discussion,
         suggestions: suggestions,
+        reference: document.getElementById('avg-reference').value.trim() || null,
 remarks: document.getElementById('avg-remarks').value.trim(),
         voice_notes: voiceNoteUrls,
         drone_shoot_url: document.getElementById('avg-drone-url').value.trim() || null,
