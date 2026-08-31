@@ -518,6 +518,26 @@ function renderFileChips(files) {
 // ═══════════════════════════════════════════
 //  PDF EXPORT
 // ═══════════════════════════════════════════
+function exportMyTasksExcel() {
+  const rows = (typeof myTasks !== 'undefined' && myTasks) ? myTasks : [];
+  if (!rows.length) { showToast('No tasks to export', 'warn'); return; }
+  const headers = ['#','Project','Task','Start Date','End Date','Status','Pending With','Assigned By'];
+  const cell = v => { const x = (v==null?'':String(v)); return /[",\n]/.test(x) ? '"'+x.replace(/"/g,'""')+'"' : x; };
+  const d = v => v ? new Date(v).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  const lines = [headers.join(',')];
+  rows.forEach((t,i) => {
+    lines.push([ i+1, t.project||'', t.task_detail||'', d(t.start_date), d(t.end_date),
+                 t.work_status||'', t.pending_with_name||'', t.assigned_by_name||'' ].map(cell).join(','));
+  });
+  const csv = '\uFEFF' + lines.join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'My_Tasks_' + new Date().toISOString().slice(0,10) + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✅ Exported to Excel', 'ok');
+}
 async function exportTasksPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
