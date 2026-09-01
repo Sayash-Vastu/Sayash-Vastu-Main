@@ -8627,7 +8627,7 @@ async function openEditLeadModal(leadId) {
           <div class="field"><label>Full Name *</label><input id="el-name" value="${esc(v(l.name))}"></div>
           <div class="field"><label>Phone</label><input id="el-phone" value="${esc(v(l.phone))}"></div>
           <div class="field"><label>Email</label><input id="el-email" value="${esc(v(l.email))}"></div>
-          <div class="field"><label>Birthday</label><input type="date" id="el-birthday" value="${v(l.birthday)}"></div>
+          <div class="field"><label>Added Date</label><input type="date" id="el-added" value="${v(l.created_at).slice(0,10)}"></div>
           <div class="field"><label>State</label><input id="el-state" value="${esc(v(l.state))}"></div>
           <div class="field"><label>City</label><input id="el-city" value="${esc(v(l.city))}"></div>
           <div class="field"><label>Property Type</label>
@@ -8689,7 +8689,6 @@ async function updateLead(leadId) {
     name,
     phone: document.getElementById('el-phone').value.trim() || null,
     email: document.getElementById('el-email').value.trim() || null,
-    birthday: document.getElementById('el-birthday').value || null,
     state: document.getElementById('el-state').value.trim() || null,
     city: document.getElementById('el-city').value.trim() || null,
     property_type: document.getElementById('el-property').value || null,
@@ -8707,6 +8706,8 @@ async function updateLead(leadId) {
     notes: document.getElementById('el-notes').value.trim() || null,
   };
   if (assignedEmail) { payload.assigned_to_email = assignedEmail; payload.assigned_to_name = assignedName; }
+  const addedVal = document.getElementById('el-added').value;
+  if (addedVal) payload.created_at = addedVal;
 
   const { error } = await sbClient.from('clients').update(payload).eq('id', leadId);
   if (error) { if (msg) { msg.textContent = '❌ ' + error.message; msg.style.color = 'var(--red)'; } return; }
@@ -9122,7 +9123,7 @@ function closeModal(id) {
   if (el) {
     el.classList.remove('open');
     // Dynamically added modals remove karo
-if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal','addPaymentFollowupRecordModal','postQuoteModal'].includes(id)) {
+if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal','addPaymentFollowupRecordModal','postQuoteModal','editLeadModal','addLeadModal'].includes(id)) {
     el.remove();
     }
   }
