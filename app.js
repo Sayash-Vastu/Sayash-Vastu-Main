@@ -3834,7 +3834,7 @@ async function openTaskModal(taskId) {
       <div style="margin-top:8px;font-size:11px;color:var(--muted)">End: ${fmtDate(t.end_date)}</div>
     </div>
     `}
-    ${locked ? '<div class="badge b-green" style="margin-bottom:12px">✅ Task Completed — locked</div>' : `
+    ${locked ? '<div class="badge b-green" style="margin-bottom:12px">✅ Task Completed — only comments can be edited</div>' : `
     <div class="field" style="margin-bottom:14px">
       <label>Update Status</label>
       <select id="modal-status" onchange="handleStatusChange(this.value)">
@@ -3864,7 +3864,7 @@ async function openTaskModal(taskId) {
     `}
     <div class="field" style="margin-bottom:14px">
       <label>Comments / Notes</label>
-      <textarea id="modal-comments" ${locked?'disabled':''}>${esc(t.comments||'')}</textarea>
+<textarea id="modal-comments">${esc(t.comments||'')}</textarea>
     </div>
     ${!locked?`
     <div class="field">
@@ -3924,7 +3924,19 @@ function handleFileDrop(event) {
 async function saveTaskUpdate() {
   if (!currentTaskRow) return;
   const locked = currentTaskRow.work_status === 'Completed';
-  if (locked) { closeModal('taskModal'); return; }
+  if (locked) {
+    // task is locked, but comments/notes can still be updated
+    const cEl = document.getElementById('modal-comments');
+    const cVal = cEl ? cEl.value.trim() : '';
+    const mEl = document.getElementById('modalMsg');
+    if (mEl) { mEl.textContent = 'Saving...'; mEl.style.color = 'var(--muted)'; }
+    const { error: cErr } = await sb.from('tasks').update({ comments: cVal || null }).eq('id', currentTaskRow.id);
+    if (cErr) { if (mEl) { mEl.textContent = '❌ ' + cErr.message; mEl.style.color = 'var(--red)'; } return; }
+    showToast('✅ Comment saved', 'ok');
+    closeModal('taskModal');
+    if (typeof loadMyTasks === 'function') loadMyTasks();
+    return;
+  }
   const status = document.getElementById('modal-status').value;
   const comments = document.getElementById('modal-comments').value.trim();
   const ceoVal = (document.getElementById('modal-ceo')||{}).value || currentTaskRow.ceo_approval;
@@ -7769,7 +7781,7 @@ async function openCeoTaskUpdateModal(taskId) {
     )
     + '<div class="field" style="margin-bottom:14px">'
     + '<label>Comments / Notes</label>'
-    + '<textarea id="modal-comments"' + (locked ? ' disabled' : '') + '>' + esc(t.comments || '') + '</textarea>'
++ '<textarea id="modal-comments">' + esc(t.comments || '') + '</textarea>'
     + '</div>'
     + '<div class="field">'
     + '<label>Upload File (Optional)</label>'
