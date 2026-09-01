@@ -536,8 +536,9 @@ function exportMyTasksExcel() {
   a.href = url; a.download = 'My_Tasks_' + new Date().toISOString().slice(0,10) + '.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('✅ Exported to Excel', 'ok');
+  showToast('\u2705 Exported to Excel', 'ok');
 }
+
 async function exportTasksPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -755,8 +756,8 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
     const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
     const late    = dailyRows.filter(r => r[6] === 'Yes').length;
 const futureDays = dailyRows.filter(r => r[2] === '—').length;
-const attPct = (totalDays - weekOff - futureDays) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff - futureDays)) * 100)).toFixed(2) + '%' : '0%';
-    
+    const attPct = (totalDays - weekOff - futureDays) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff - futureDays)) * 100)).toFixed(2) + '%' : '0%';
+      
     // HEADER
     setFill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
     try {
@@ -2883,7 +2884,7 @@ const { data: existingNotifs } = await sb.from('notifications')
   }).filter(e => e && e._daysLeft <= 15)
     .sort((a,b) => a._daysLeft - b._daysLeft);
   const bdayEl = document.getElementById('empBirthdays');
-    if (!upcomingBdays.length) {
+  if (!upcomingBdays.length) {
     bdayEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No birthdays this month</div>';
   } else {
     bdayEl.innerHTML = upcomingBdays.map(e => {
@@ -3363,7 +3364,7 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
   }).filter(e => e && e._daysLeft <= 15)
     .sort((a,b) => a._daysLeft - b._daysLeft);
   const ceoBdayEl = document.getElementById('ceoBirthdays');
-    if (ceoBdayEl) {
+  if (ceoBdayEl) {
     if (!upBdays.length) {
       ceoBdayEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px">No birthdays this month</div>';
     } else {
@@ -3864,7 +3865,7 @@ async function openTaskModal(taskId) {
     `}
     <div class="field" style="margin-bottom:14px">
       <label>Comments / Notes</label>
-<textarea id="modal-comments">${esc(t.comments||'')}</textarea>
+      <textarea id="modal-comments">${esc(t.comments||'')}</textarea>
     </div>
     ${!locked?`
     <div class="field">
@@ -6840,7 +6841,7 @@ if (a && !onLeave) {
 
   const denom = totalDays - weekOff - future;
   const pct = denom > 0 ? Math.min(100, Math.round(((present + half*0.5) / denom) * 100)) : 0;
-  
+
   document.getElementById('att-present').textContent = present;
   document.getElementById('att-absent').textContent = absent;
   document.getElementById('att-half').textContent = half;
@@ -6946,7 +6947,7 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
   const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
   const futureDaysPdf = dailyRows.filter(r => r[2] === '—').length;
   const late    = dailyRows.filter(r => r[6] === 'Yes').length;
-const attPct = (totalDays - weekOff - futureDaysPdf) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff - futureDaysPdf)) * 100)).toFixed(2) + '%' : '0%'
+  const attPct = (totalDays - weekOff - futureDaysPdf) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff - futureDaysPdf)) * 100)).toFixed(2) + '%' : '0%';
   const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
   const MUTED  = [85,85,85];  const BORDER= [200,213,229]; const LIGHT = [245,248,252];
   const GREEN  = [26,110,60]; const RED   = [163,45,45];  const AMBER = [133,79,11];
@@ -7781,7 +7782,7 @@ async function openCeoTaskUpdateModal(taskId) {
     )
     + '<div class="field" style="margin-bottom:14px">'
     + '<label>Comments / Notes</label>'
-+ '<textarea id="modal-comments">' + esc(t.comments || '') + '</textarea>'
+    + '<textarea id="modal-comments">' + esc(t.comments || '') + '</textarea>'
     + '</div>'
     + '<div class="field">'
     + '<label>Upload File (Optional)</label>'
@@ -7861,7 +7862,7 @@ const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigne
       const presentDays = empAtt.filter(a => a.status === 'Present').length;
       const _nw = new Date(); let _wd = 0; const _dim = new Date(_nw.getFullYear(), _nw.getMonth()+1, 0).getDate();
       for (let _d = 1; _d <= _dim; _d++) { const _dt = new Date(_nw.getFullYear(), _nw.getMonth(), _d); if (_dt > _nw || _dt.getDay() === 0) continue; _wd++; }
-    const _halfC = empAtt.filter(a => a.status === 'Half Day').length;
+      const _halfC = empAtt.filter(a => a.status === 'Half Day').length;
     const attPct = Math.min(100, Math.round(((presentDays + _halfC*0.5) / Math.max(1, _wd - empAtt.filter(a => a.status === 'Leave').length)) * 100));
       let status, statusClass;
       const score = (completionPct * 0.6) + (attPct * 0.4);
@@ -8611,6 +8612,109 @@ function openAddLeadModal() {
     }
   });
 }
+async function openEditLeadModal(leadId) {
+  const { data: l, error } = await sbClient.from('clients').select('*').eq('id', leadId).single();
+  if (error || !l) { showToast('❌ Lead not found', 'err'); return; }
+  const v = x => (x === null || x === undefined) ? '' : String(x);
+  const opts = (list, cur) => ['<option value="">Select</option>']
+    .concat(list.map(o => `<option ${o===cur?'selected':''}>${o}</option>`)).join('');
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="editLeadModal">
+      <div class="modal">
+        <div class="modal-title">✏️ Edit Lead</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Full Name *</label><input id="el-name" value="${esc(v(l.name))}"></div>
+          <div class="field"><label>Phone</label><input id="el-phone" value="${esc(v(l.phone))}"></div>
+          <div class="field"><label>Email</label><input id="el-email" value="${esc(v(l.email))}"></div>
+          <div class="field"><label>Birthday</label><input type="date" id="el-birthday" value="${v(l.birthday)}"></div>
+          <div class="field"><label>State</label><input id="el-state" value="${esc(v(l.state))}"></div>
+          <div class="field"><label>City</label><input id="el-city" value="${esc(v(l.city))}"></div>
+          <div class="field"><label>Property Type</label>
+            <select id="el-property">${opts(['Residential','Commercial','Plot','Office','Villa','Other'], v(l.property_type))}</select>
+          </div>
+          <div class="field"><label>Source</label>
+            <select id="el-source">${opts(['Google','Referral','Walk-in','Social Media','Phone','Other'], v(l.source))}</select>
+          </div>
+          <div class="field"><label>Assigned To</label>
+            <select id="el-assigned"><option value="">Select Employee</option></select>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>📍 Location</label><input id="el-location" value="${esc(v(l.location_link))}" placeholder="Site address or Google Maps link"></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>OneDrive / SharePoint Link</label>
+          <input id="el-onedrive" value="${esc(v(l.onedrive_link || l.file_url))}" placeholder="https://sayashvastucorp-my.sharepoint.com/...">
+        </div>
+        <div class="section-div"><div class="sd-line"></div><div class="sd-label">🎂 BIRTHDAYS & ANNIVERSARIES</div><div class="sd-line"></div></div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Spouse Birthday</label><input type="date" id="el-spouse-bday" value="${v(l.spouse_birthday)}"></div>
+          <div class="field"><label>Anniversary</label><input type="date" id="el-anniversary" value="${v(l.anniversary)}"></div>
+          <div class="field"><label>Child 1 Name</label><input id="el-child1-name" value="${esc(v(l.child1_name))}"></div>
+          <div class="field"><label>Child 1 Birthday</label><input type="date" id="el-child1-bday" value="${v(l.child1_birthday)}"></div>
+          <div class="field"><label>Child 2 Name</label><input id="el-child2-name" value="${esc(v(l.child2_name))}"></div>
+          <div class="field"><label>Child 2 Birthday</label><input type="date" id="el-child2-bday" value="${v(l.child2_birthday)}"></div>
+          <div class="field"><label>Child 3 Name</label><input id="el-child3-name" value="${esc(v(l.child3_name))}"></div>
+          <div class="field"><label>Child 3 Birthday</label><input type="date" id="el-child3-bday" value="${v(l.child3_birthday)}"></div>
+        </div>
+        <div class="field" style="margin-top:14px"><label>Notes</label><textarea id="el-notes">${esc(v(l.notes))}</textarea></div>
+        <div id="editLeadMsg" style="font-size:12px;font-weight:600;margin-top:8px"></div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('editLeadModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="updateLead('${l.id}')">💾 Update Lead</button>
+        </div>
+      </div>
+    </div>
+  `);
+
+  // fill employee dropdown
+  const { data: emps } = await sb.from('employees').select('name,email').eq('is_active', true).order('name');
+  const sel = document.getElementById('el-assigned');
+  (emps || []).forEach(e => {
+    const o = document.createElement('option');
+    o.value = e.email; o.textContent = e.name; o.dataset.name = e.name;
+    if ((l.assigned_to_email || '').toLowerCase() === (e.email || '').toLowerCase()) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+async function updateLead(leadId) {
+  const name = document.getElementById('el-name').value.trim();
+  if (!name) { showToast('⚠️ Name required', 'warn'); return; }
+  const sel = document.getElementById('el-assigned');
+  const assignedEmail = sel.value;
+  const assignedName = sel.options[sel.selectedIndex]?.dataset.name || '';
+  const msg = document.getElementById('editLeadMsg');
+  if (msg) { msg.textContent = 'Saving...'; msg.style.color = 'var(--muted)'; }
+
+  const payload = {
+    name,
+    phone: document.getElementById('el-phone').value.trim() || null,
+    email: document.getElementById('el-email').value.trim() || null,
+    birthday: document.getElementById('el-birthday').value || null,
+    state: document.getElementById('el-state').value.trim() || null,
+    city: document.getElementById('el-city').value.trim() || null,
+    property_type: document.getElementById('el-property').value || null,
+    source: document.getElementById('el-source').value || null,
+    location_link: document.getElementById('el-location').value.trim() || null,
+    onedrive_link: document.getElementById('el-onedrive').value.trim() || null,
+    spouse_birthday: document.getElementById('el-spouse-bday').value || null,
+    anniversary: document.getElementById('el-anniversary').value || null,
+    child1_name: document.getElementById('el-child1-name').value.trim() || null,
+    child1_birthday: document.getElementById('el-child1-bday').value || null,
+    child2_name: document.getElementById('el-child2-name').value.trim() || null,
+    child2_birthday: document.getElementById('el-child2-bday').value || null,
+    child3_name: document.getElementById('el-child3-name').value.trim() || null,
+    child3_birthday: document.getElementById('el-child3-bday').value || null,
+    notes: document.getElementById('el-notes').value.trim() || null,
+  };
+  if (assignedEmail) { payload.assigned_to_email = assignedEmail; payload.assigned_to_name = assignedName; }
+
+  const { error } = await sbClient.from('clients').update(payload).eq('id', leadId);
+  if (error) { if (msg) { msg.textContent = '❌ ' + error.message; msg.style.color = 'var(--red)'; } return; }
+  showToast('✅ Lead updated', 'ok');
+  closeModal('editLeadModal');
+  if (typeof loadLeadsManagement === 'function') loadLeadsManagement();
+}
+
 async function saveLead() {
   const name = document.getElementById('lead-name').value.trim();
   const assignedSel = document.getElementById('lead-assigned');
