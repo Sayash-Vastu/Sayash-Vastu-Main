@@ -118,9 +118,9 @@ async function loadPerformancePanel(){
   const canSeeTeam = role === 'ceo';
   const mine = rows.find(r => (r.email||'').toLowerCase() === me);
   const myRank = mine ? rows.indexOf(mine)+1 : null;
-  const top = rows[0];
+  const top = (rows[0] && (rows[0].finished > 0 || rows[0].attPct > 0)) ? rows[0] : null;
   const isTop = top && mine && top.email === mine.email;
-
+  
   const tab = (k,t) => `<button onclick="perfSetPeriod('${k}')" style="padding:6px 14px;border-radius:7px;font:inherit;font-size:12.5px;cursor:pointer;border:1px solid ${PERF_PERIOD===k?'#8a6d2f':'#e2e5ec'};background:${PERF_PERIOD===k?'#fdf6e6':'#fff'};color:${PERF_PERIOD===k?'#8a6d2f':'#6b7280'};font-weight:${PERF_PERIOD===k?'600':'400'}">${t}</button>`;
 
   const stat = (lbl,val,sub,col) => `<div style="background:#f8f9fc;border-radius:9px;padding:11px 13px">
