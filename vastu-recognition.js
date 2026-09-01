@@ -96,8 +96,12 @@ async function perfComputeStats(period){
     const halfd = myAtt.filter(a => a.status==='Half Day').length;
     const attPct = workingDays ? Math.min(100, Math.round((present + halfd*0.5)/workingDays*100)) : 0;
 
-    const score = Math.round(onTimePct*0.45 + Math.min(finished.length*10,100)*0.25 + attPct*0.20 + Math.max(0,100-overdue*25)*0.10);
-    return {...e, finished:finished.length, onTimePct, overdue, attPct, avgTurn, score};
+    const hasWork = finished.length > 0 || overdue > 0 || mine.length > 0;
+    // no work in this period -> no 'free' credit from attendance / no-overdue
+    const score = hasWork
+      ? Math.round(onTimePct*0.45 + Math.min(finished.length*10,100)*0.25 + attPct*0.20 + Math.max(0,100-overdue*25)*0.10)
+      : 0;
+    return {...e, finished:finished.length, onTimePct, overdue, attPct, avgTurn, score, hasWork};
   });
 
   rows.sort((a,b) => b.score - a.score);
@@ -118,7 +122,7 @@ async function loadPerformancePanel(){
   const canSeeTeam = role === 'ceo';
   const mine = rows.find(r => (r.email||'').toLowerCase() === me);
   const myRank = mine ? rows.indexOf(mine)+1 : null;
-  const top = (rows[0] && (rows[0].finished > 0 || rows[0].attPct > 0)) ? rows[0] : null;
+  const top = rows.find(r => r.finished > 0 && r.score > 0) || null;   // must have completed work, not just attendance
   const isTop = top && mine && top.email === mine.email;
   
   const tab = (k,t) => `<button onclick="perfSetPeriod('${k}')" style="padding:6px 14px;border-radius:7px;font:inherit;font-size:12.5px;cursor:pointer;border:1px solid ${PERF_PERIOD===k?'#8a6d2f':'#e2e5ec'};background:${PERF_PERIOD===k?'#fdf6e6':'#fff'};color:${PERF_PERIOD===k?'#8a6d2f':'#6b7280'};font-weight:${PERF_PERIOD===k?'600':'400'}">${t}</button>`;
