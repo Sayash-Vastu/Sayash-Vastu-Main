@@ -43,12 +43,19 @@ async function perfComputeStats(period){
   const R = perfRange(period, PERF_OFFSET);
   const today = new Date(); today.setHours(0,0,0,0);
 
-  const [{data:emps},{data:tasks},{data:att},{data:hlds}] = await Promise.all([
+  const [{data:emps},{data:tasks},{data:att},{data:hlds},svRes,auRes] = await Promise.all([
     sb.from('employees').select('name,email,designation,role').eq('is_active',true).order('name'),
     sb.from('tasks').select('*').eq('is_archived',false),
     sb.from('attendance').select('*').eq('is_archived',false).gte('date',R.start).lte('date',R.end),
-    sb.from('holidays').select('date').gte('date',R.start).lte('date',R.end)
+    sb.from('holidays').select('date').gte('date',R.start).lte('date',R.end),
+    (typeof sbClient!=='undefined'
+      ? sbClient.from('site_visits').select('visited_by,visit_date').gte('visit_date',R.start).lte('visit_date',R.end)
+      : Promise.resolve({data:[]})).catch(()=>({data:[]})),
+    sb.from('vastu_audits').select('inspector_name,created_at')
+      .gte('created_at',R.start).lte('created_at',R.end+'T23:59:59').catch(()=>({data:[]}))
   ]);
+  const siteVisits = (svRes && svRes.data) || [];
+  const audits     = (auRes && auRes.data) || [];
 
   const holidaySet = new Set((hlds||[]).map(h=>h.date));
   let workingDays = 0;
@@ -96,15 +103,41 @@ async function perfComputeStats(period){
     const halfd = myAtt.filter(a => a.status==='Half Day').length;
     const attPct = workingDays ? Math.min(100, Math.round((present + halfd*0.5)/workingDays*100)) : 0;
 
-    const hasWork = finished.length > 0 || overdue > 0 || mine.length > 0;
-    // no work in this period -> no 'free' credit from attendance / no-overdue
+    // ── work output from ALL sources the CRM tracks ──
+    const nm = String(e.name||'').toLowerCase().trim();
+    const visits = siteVisits.filter(v => String(v.visited_by||'').toLowerCase().includes(nm)).length;
+    const auditsDone = audits.filter(a => String(a.inspector_name||'').toLowerCase().includes(nm)).length;
+    const output = finished.length + visits + auditsDone;          // total delivered work
+    const outputPct = Math.min(100, output * 12);                  // ~8 items = full marks
+
+    const hasWork = output > 0 || overdue > 0 || mine.length > 0;
+    // Score: delivery quality 35 · work output 35 · reliability 20 · attendance 10
     const score = hasWork
-      ? Math.round(onTimePct*0.45 + Math.min(finished.length*10,100)*0.25 + attPct*0.20 + Math.max(0,100-overdue*25)*0.10)
+      ? Math.round(onTimePct*0.35 + outputPct*0.35 + Math.max(0,100-overdue*25)*0.20 + attPct*0.10)
       : 0;
-    return {...e, finished:finished.length, onTimePct, overdue, attPct, avgTurn, score, hasWork};
+    return {...e, finished:finished.length, visits, auditsDone, output, onTimePct, overdue, attPct, avgTurn, score, hasWork};
   });
 
   rows.sort((a,b) => b.score - a.score);
+
+  // ── Badges: spread recognition so everyone can earn something ──
+  const worked = rows.filter(r => r.hasWork);
+  const maxOf = (key) => worked.reduce((m,r) => Math.max(m, r[key]||0), 0);
+  const bMaxVisits = maxOf('visits'), bMaxAudits = maxOf('auditsDone'), bMaxTasks = maxOf('finished');
+  const fastest = worked.filter(r => r.avgTurn !== null)
+                        .sort((a,b) => parseFloat(a.avgTurn) - parseFloat(b.avgTurn))[0];
+  rows.forEach(r => {
+    const b = [];
+    if (r.visits    > 0 && r.visits    === bMaxVisits) b.push({icon:'🚗', text:'Most Site Visits'});
+    if (r.auditsDone> 0 && r.auditsDone=== bMaxAudits) b.push({icon:'📋', text:'Most Audits'});
+    if (r.finished  > 0 && r.finished  === bMaxTasks)  b.push({icon:'✅', text:'Most Tasks Done'});
+    if (fastest && r.email === fastest.email)          b.push({icon:'⚡', text:'Fastest Turnaround'});
+    if (r.output > 0 && r.overdue === 0)               b.push({icon:'🎯', text:'Zero Overdue'});
+    if (r.finished >= 2 && r.onTimePct === 100)        b.push({icon:'⏱️', text:'100% On-Time'});
+    if (r.attPct === 100)                              b.push({icon:'📅', text:'Perfect Attendance'});
+    r.badges = b;
+  });
+
   return {rows, label:R.label, workingDays};
 }
 
@@ -122,7 +155,7 @@ async function loadPerformancePanel(){
   const canSeeTeam = role === 'ceo';
   const mine = rows.find(r => (r.email||'').toLowerCase() === me);
   const myRank = mine ? rows.indexOf(mine)+1 : null;
-  const top = rows.find(r => r.finished > 0 && r.score > 0) || null;   // must have completed work, not just attendance
+  const top = rows.find(r => r.output > 0 && r.score > 0) || null;   // must have delivered real work
   const isTop = top && mine && top.email === mine.email;
   
   const tab = (k,t) => `<button onclick="perfSetPeriod('${k}')" style="padding:6px 14px;border-radius:7px;font:inherit;font-size:12.5px;cursor:pointer;border:1px solid ${PERF_PERIOD===k?'#8a6d2f':'#e2e5ec'};background:${PERF_PERIOD===k?'#fdf6e6':'#fff'};color:${PERF_PERIOD===k?'#8a6d2f':'#6b7280'};font-weight:${PERF_PERIOD===k?'600':'400'}">${t}</button>`;
@@ -150,7 +183,7 @@ async function loadPerformancePanel(){
         <div style="flex:1;min-width:0">
           <div style="font-size:11px;color:#8a6d2f;font-weight:600;letter-spacing:.5px">⭐ TOP PERFORMER OF THE TEAM</div>
           <div style="font-weight:700;font-size:15px;color:#5c4a1f">${esc(top.name)}${isTop?' <span style="font-size:10.5px;background:#8a6d2f;color:#fff;padding:2px 7px;border-radius:10px">That\'s you</span>':''}</div>
-          <div style="font-size:11.5px;color:#8a6d2f;margin-top:1px">${top.onTimePct}% on-time · ${top.finished} tasks · ${top.attPct}% present</div>
+          <div style="font-size:11.5px;color:#8a6d2f;margin-top:1px">${top.onTimePct}% on-time · ${top.finished} tasks · ${top.visits} visits · ${top.auditsDone} audits · ${top.attPct}% present</div>
         </div>
         <div style="font-size:24px;font-weight:700;color:#8a6d2f">${top.score}</div>
       </div>
@@ -161,8 +194,9 @@ async function loadPerformancePanel(){
       ${stat('On-time delivery', mine.onTimePct+'%', mine.finished+' completed', mine.onTimePct>=80?'#1E8449':mine.onTimePct>=60?'#B7791F':'#C0392B')}
       ${stat('Avg turnaround', mine.avgTurn? mine.avgTurn+'d' : '—', 'per task')}
       ${stat('Attendance', mine.attPct+'%', null)}
-      ${canSeeTeam ? stat('Your rank', '#'+myRank, 'of '+rows.length, myRank===1?'#8a6d2f':null) : stat('Tasks completed', mine.finished, 'this period')}
+      ${canSeeTeam ? stat('Your rank', '#'+myRank, 'of '+rows.length, myRank===1?'#8a6d2f':null) : stat('Work delivered', mine.output, mine.finished+' tasks · '+mine.visits+' visits · '+mine.auditsDone+' audits')}
     </div>
+    ${(mine.badges&&mine.badges.length)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${mine.badges.map(b=>`<span style="font-size:11px;background:#fdf6e6;color:#8a6d2f;border:1px solid #e8dcc0;border-radius:20px;padding:3px 10px;font-weight:600">${b.icon} ${b.text}</span>`).join('')}</div>`:''}
     ${mine.overdue ? `<div style="background:#fdeceb;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#8c2f26;font-weight:600;margin-bottom:14px">⚠️ ${mine.overdue} task${mine.overdue>1?'s':''} overdue — clearing ${mine.overdue>1?'them':'it'} lifts your score.</div>` : ''}` : ''}
 
     ${canSeeTeam ? `<div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px;margin-bottom:7px">TEAM</div>` : ''}
@@ -172,11 +206,12 @@ async function loadPerformancePanel(){
         <div style="width:24px;font-size:12px;font-weight:700;color:${i===0?'#8a6d2f':'#9aa0aa'}">${i===0?'🥇':'#'+(i+1)}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:#1b2437">${esc(s.name)}${isMe?' <span style="font-size:10px;color:#185FA5">(you)</span>':''}</div>
-          <div style="font-size:11px;color:#6b7280;margin-top:1px">${s.onTimePct}% on-time · ${s.finished} done · ${s.attPct}% present${s.overdue?` · <span style="color:#c0392b">${s.overdue} overdue</span>`:''}</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:1px">${s.onTimePct}% on-time · ${s.finished} tasks · ${s.visits} visits · ${s.auditsDone} audits · ${s.attPct}% present${s.overdue?` · <span style="color:#c0392b">${s.overdue} overdue</span>`:''}</div>
+          ${(s.badges&&s.badges.length)?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${s.badges.map(b=>`<span style="font-size:10px;background:#eef4ff;color:#2c5aa0;border:1px solid #d4e2f7;border-radius:20px;padding:2px 7px">${b.icon} ${b.text}</span>`).join('')}</div>`:''}
         </div>
         <div style="font-size:15px;font-weight:700;color:${i===0?'#8a6d2f':'#6b7280'}">${s.score}</div>
       </div>`;
     }).join('')}
 
-    <div style="font-size:10.5px;color:#9aa0aa;margin-top:11px;line-height:1.6">Score = on-time delivery 45% · tasks completed 25% · attendance 20% · no overdue 10%</div>`;
+    <div style="font-size:10.5px;color:#9aa0aa;margin-top:11px;line-height:1.6">Score = on-time delivery 35% · work output 35% (tasks + site visits + audits) · no overdue 20% · attendance 10%</div>`;
 }
