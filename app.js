@@ -2880,7 +2880,7 @@ const { data: existingNotifs } = await sb.from('notifications')
     const upcoming = thisYear >= new Date(_bdayToday.getFullYear(), _bdayToday.getMonth(), _bdayToday.getDate()) ? thisYear : nextYear;
     const daysLeft = Math.ceil((upcoming - _bdayToday) / (1000*60*60*24));
     return { ...e, _upcomingDate: upcoming, _daysLeft: daysLeft };
-  }).filter(e => e && e._daysLeft <= 14)
+  }).filter(e => e && e._daysLeft <= 15)
     .sort((a,b) => a._daysLeft - b._daysLeft);
   const bdayEl = document.getElementById('empBirthdays');
     if (!upcomingBdays.length) {
@@ -3360,7 +3360,7 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
     const upcoming = thisYear >= new Date(_ceoBdayToday.getFullYear(), _ceoBdayToday.getMonth(), _ceoBdayToday.getDate()) ? thisYear : nextYear;
     const daysLeft = Math.ceil((upcoming - _ceoBdayToday) / (1000*60*60*24));
     return { ...e, _upcomingDate: upcoming, _daysLeft: daysLeft };
-  }).filter(e => e && e._daysLeft <= 14)
+  }).filter(e => e && e._daysLeft <= 15)
     .sort((a,b) => a._daysLeft - b._daysLeft);
   const ceoBdayEl = document.getElementById('ceoBirthdays');
     if (ceoBdayEl) {
