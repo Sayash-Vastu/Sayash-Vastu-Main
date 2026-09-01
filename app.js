@@ -755,8 +755,8 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
     const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
     const late    = dailyRows.filter(r => r[6] === 'Yes').length;
 const futureDays = dailyRows.filter(r => r[2] === '—').length;
-    const attPct = (totalDays - weekOff - futureDays) > 0 ? ((present / (totalDays - weekOff - futureDays)) * 100).toFixed(2) + '%' : '0%';
-      
+const attPct = (totalDays - weekOff - futureDays) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff - futureDays)) * 100)).toFixed(2) + '%' : '0%';
+    
     // HEADER
     setFill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
     try {
@@ -6827,8 +6827,8 @@ if (a && !onLeave) {
   }
 
   const denom = totalDays - weekOff - future;
-  const pct = denom > 0 ? Math.round((present / denom) * 100) : 0;
-
+  const pct = denom > 0 ? Math.min(100, Math.round(((present + half*0.5) / denom) * 100)) : 0;
+  
   document.getElementById('att-present').textContent = present;
   document.getElementById('att-absent').textContent = absent;
   document.getElementById('att-half').textContent = half;
@@ -6840,8 +6840,12 @@ if (a && !onLeave) {
   document.getElementById('attSummary').innerHTML = `
     <div style="display:flex;flex-direction:column;gap:8px">
       <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:8px">
-        <span style="font-size:12px;color:var(--muted)">Working Days</span>
-        <span style="font-size:13px;font-weight:700;color:var(--navy)">${totalDays}</span>
+        <span style="font-size:12px;color:var(--muted)">Working Days (so far)</span>
+        <span style="font-size:13px;font-weight:700;color:var(--navy)">${denom}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:8px">
+        <span style="font-size:12px;color:var(--muted)">Working Days (full month)</span>
+        <span style="font-size:13px;font-weight:700;color:var(--muted)">${totalDays - weekOff}</span>
       </div>
       <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--green-bg);border-radius:8px">
         <span style="font-size:12px;color:var(--green)">Attendance %</span>
@@ -6930,7 +6934,7 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
   const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
   const futureDaysPdf = dailyRows.filter(r => r[2] === '—').length;
   const late    = dailyRows.filter(r => r[6] === 'Yes').length;
-  const attPct = (totalDays - weekOff - futureDaysPdf) > 0 ? ((present / (totalDays - weekOff - futureDaysPdf)) * 100).toFixed(2) + '%' : '0%';
+const attPct = (totalDays - weekOff - futureDaysPdf) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff - futureDaysPdf)) * 100)).toFixed(2) + '%' : '0%'
   const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
   const MUTED  = [85,85,85];  const BORDER= [200,213,229]; const LIGHT = [245,248,252];
   const GREEN  = [26,110,60]; const RED   = [163,45,45];  const AMBER = [133,79,11];
@@ -7845,7 +7849,8 @@ const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigne
       const presentDays = empAtt.filter(a => a.status === 'Present').length;
       const _nw = new Date(); let _wd = 0; const _dim = new Date(_nw.getFullYear(), _nw.getMonth()+1, 0).getDate();
       for (let _d = 1; _d <= _dim; _d++) { const _dt = new Date(_nw.getFullYear(), _nw.getMonth(), _d); if (_dt > _nw || _dt.getDay() === 0) continue; _wd++; }
-    const attPct = Math.min(100, Math.round((presentDays / Math.max(1, _wd - empAtt.filter(a => a.status === 'Leave').length)) * 100));
+    const _halfC = empAtt.filter(a => a.status === 'Half Day').length;
+    const attPct = Math.min(100, Math.round(((presentDays + _halfC*0.5) / Math.max(1, _wd - empAtt.filter(a => a.status === 'Leave').length)) * 100));
       let status, statusClass;
       const score = (completionPct * 0.6) + (attPct * 0.4);
       if (score >= 90) { status = '🟢 Excellent'; statusClass = 'b-green'; }
@@ -7903,7 +7908,8 @@ const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigne
 const presentDays = (myAtt||[]).filter(a => a.status==='Present').length;
     const _nw = new Date(); let _wd = 0; const _dim = new Date(_nw.getFullYear(), _nw.getMonth()+1, 0).getDate();
     for (let _d = 1; _d <= _dim; _d++) { const _dt = new Date(_nw.getFullYear(), _nw.getMonth(), _d); if (_dt > _nw || _dt.getDay() === 0) continue; _wd++; }
-    const attPct = Math.min(100, Math.round((presentDays / Math.max(1, _wd - (myAtt||[]).filter(a => a.status==='Leave').length)) * 100));
+    const _halfM = (myAtt||[]).filter(a => a.status==='Half Day').length;
+    const attPct = Math.min(100, Math.round(((presentDays + _halfM*0.5) / Math.max(1, _wd - (myAtt||[]).filter(a => a.status==='Leave').length)) * 100));
     const totalHrs = (myAtt||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
     const avgHrs = presentDays > 0 ? (totalHrs/presentDays).toFixed(1) : '0.0';
     const { data: myVisits } = await sbClient.from('site_visits').select('id').eq('visited_by', currentUser.name);
@@ -7988,7 +7994,7 @@ const presentDays = (attData||[]).filter(a => a.status==='Present').length;
     if (holidaySet.has(ds)) continue;             // Holiday
     workingDays++;
   }
-  const attPct = workingDays > 0 ? Math.round(((presentDays + halfDays*0.5)/workingDays)*100) : 0;
+  const attPct = workingDays > 0 ? Math.min(100, Math.round(((presentDays + halfDays*0.5)/workingDays)*100)) : 0;
   const totalHrs = (attData||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
   const score = (completionPct * 0.6) + (attPct * 0.4);
   let status, statusColor;
