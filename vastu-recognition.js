@@ -76,9 +76,9 @@ async function perfComputeStats(period){
   const taskDue  = t => t.end_date || null;
   const inRange = t => {
     const d = taskDate(t);
-    if(!d) return true;                       // date hi nahi hai to count kar lo
+    if(!d) return false;                      // no date -> can't belong to any period
     const ds = String(d).slice(0,10);
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return true;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(ds)) return false;
     return ds >= R.start && ds <= R.end;
   };
 
