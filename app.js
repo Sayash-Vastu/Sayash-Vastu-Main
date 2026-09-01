@@ -2888,7 +2888,7 @@ const { data: existingNotifs } = await sb.from('notifications')
   } else {
     bdayEl.innerHTML = upcomingBdays.map(e => {
       const dob = new Date(e.date_of_birth);
-      const isToday = String(dob.getDate()).padStart(2,'0') === dd;
+      const isToday = dob.getDate()===_bdayToday.getDate() && dob.getMonth()===_bdayToday.getMonth();
       const months2 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa">
         <div class="av" style="background:${isToday?'var(--gold)':'var(--navy)'};width:32px;height:32px;font-size:11px;color:${isToday?'var(--navy)':'#fff'}">${esc(e.name).substring(0,2).toUpperCase()}</div>
@@ -3370,7 +3370,7 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
       const months2=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       ceoBdayEl.innerHTML = upBdays.map(e=>{
         const dob = new Date(e.date_of_birth);
-        const isToday = String(dob.getDate()).padStart(2,'0')===dd;
+        const isToday = dob.getDate()===_ceoBdayToday.getDate() && dob.getMonth()===_ceoBdayToday.getMonth();
         return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid #f5f6fa">
           <div class="av" style="background:${isToday?'var(--gold)':'var(--navy)'};width:28px;height:28px;font-size:10px;color:${isToday?'var(--navy)':'#fff'}">${esc(e.name).substring(0,2).toUpperCase()}</div>
           <div style="flex:1">
