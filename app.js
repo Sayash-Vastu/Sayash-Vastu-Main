@@ -2880,10 +2880,10 @@ const { data: existingNotifs } = await sb.from('notifications')
     const upcoming = thisYear >= new Date(_bdayToday.getFullYear(), _bdayToday.getMonth(), _bdayToday.getDate()) ? thisYear : nextYear;
     const daysLeft = Math.ceil((upcoming - _bdayToday) / (1000*60*60*24));
     return { ...e, _upcomingDate: upcoming, _daysLeft: daysLeft };
-  }).filter(e => e && e._daysLeft <= 30)
+  }).filter(e => e && e._daysLeft <= 14)
     .sort((a,b) => a._daysLeft - b._daysLeft);
   const bdayEl = document.getElementById('empBirthdays');
-  if (!upcomingBdays.length) {
+    if (!upcomingBdays.length) {
     bdayEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No birthdays this month</div>';
   } else {
     bdayEl.innerHTML = upcomingBdays.map(e => {
@@ -3360,10 +3360,10 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
     const upcoming = thisYear >= new Date(_ceoBdayToday.getFullYear(), _ceoBdayToday.getMonth(), _ceoBdayToday.getDate()) ? thisYear : nextYear;
     const daysLeft = Math.ceil((upcoming - _ceoBdayToday) / (1000*60*60*24));
     return { ...e, _upcomingDate: upcoming, _daysLeft: daysLeft };
-  }).filter(e => e && e._daysLeft <= 30)
+  }).filter(e => e && e._daysLeft <= 14)
     .sort((a,b) => a._daysLeft - b._daysLeft);
   const ceoBdayEl = document.getElementById('ceoBirthdays');
-  if (ceoBdayEl) {
+    if (ceoBdayEl) {
     if (!upBdays.length) {
       ceoBdayEl.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px">No birthdays this month</div>';
     } else {
