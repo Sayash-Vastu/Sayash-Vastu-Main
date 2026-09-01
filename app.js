@@ -7896,7 +7896,7 @@ const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigne
   } else {
 
     // Employee view
-    document.getElementById('myPerfCard').style.display = 'block';
+    document.getElementById('myPerfCard').style.display = 'none';   // hidden — new performance panel above replaces it
     document.getElementById('allPerfSection').style.display = 'none';
     const { data: myTasksData } = await sb.from('tasks').select('*').eq('assigned_to_email', currentUser.email).eq('is_archived',false);
     const { data: myAtt } = await sb.from('attendance').select('*').eq('employee_email', currentUser.email).eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
