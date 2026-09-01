@@ -7845,7 +7845,7 @@ const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigne
       const presentDays = empAtt.filter(a => a.status === 'Present').length;
       const _nw = new Date(); let _wd = 0; const _dim = new Date(_nw.getFullYear(), _nw.getMonth()+1, 0).getDate();
       for (let _d = 1; _d <= _dim; _d++) { const _dt = new Date(_nw.getFullYear(), _nw.getMonth(), _d); if (_dt > _nw || _dt.getDay() === 0) continue; _wd++; }
-      const attPct = Math.round((presentDays / Math.max(1, _wd - empAtt.filter(a => a.status === 'Leave').length)) * 100);
+    const attPct = Math.min(100, Math.round((presentDays / Math.max(1, _wd - empAtt.filter(a => a.status === 'Leave').length)) * 100));
       let status, statusClass;
       const score = (completionPct * 0.6) + (attPct * 0.4);
       if (score >= 90) { status = '🟢 Excellent'; statusClass = 'b-green'; }
@@ -7903,7 +7903,7 @@ const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigne
 const presentDays = (myAtt||[]).filter(a => a.status==='Present').length;
     const _nw = new Date(); let _wd = 0; const _dim = new Date(_nw.getFullYear(), _nw.getMonth()+1, 0).getDate();
     for (let _d = 1; _d <= _dim; _d++) { const _dt = new Date(_nw.getFullYear(), _nw.getMonth(), _d); if (_dt > _nw || _dt.getDay() === 0) continue; _wd++; }
-    const attPct = Math.round((presentDays / Math.max(1, _wd - (myAtt||[]).filter(a => a.status==='Leave').length)) * 100);
+    const attPct = Math.min(100, Math.round((presentDays / Math.max(1, _wd - (myAtt||[]).filter(a => a.status==='Leave').length)) * 100));
     const totalHrs = (myAtt||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
     const avgHrs = presentDays > 0 ? (totalHrs/presentDays).toFixed(1) : '0.0';
     const { data: myVisits } = await sbClient.from('site_visits').select('id').eq('visited_by', currentUser.name);
