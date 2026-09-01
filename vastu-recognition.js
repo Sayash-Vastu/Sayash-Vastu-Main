@@ -48,11 +48,15 @@ async function perfComputeStats(period){
     sb.from('tasks').select('*').eq('is_archived',false),
     sb.from('attendance').select('*').eq('is_archived',false).gte('date',R.start).lte('date',R.end),
     sb.from('holidays').select('date').gte('date',R.start).lte('date',R.end),
-    (typeof sbClient!=='undefined'
-      ? sbClient.from('site_visits').select('visited_by,visit_date').gte('visit_date',R.start).lte('visit_date',R.end)
-      : Promise.resolve({data:[]})).catch(()=>({data:[]})),
-    sb.from('vastu_audits').select('inspector_name,created_at')
-      .gte('created_at',R.start).lte('created_at',R.end+'T23:59:59').catch(()=>({data:[]}))
+    Promise.resolve(
+      typeof sbClient!=='undefined'
+        ? sbClient.from('site_visits').select('visited_by,visit_date').gte('visit_date',R.start).lte('visit_date',R.end)
+        : {data:[]}
+    ).then(r=>r||{data:[]}).catch(()=>({data:[]})),
+    Promise.resolve(
+      sb.from('vastu_audits').select('inspector_name,created_at')
+        .gte('created_at',R.start).lte('created_at',R.end+'T23:59:59')
+    ).then(r=>r||{data:[]}).catch(()=>({data:[]}))
   ]);
   const siteVisits = (svRes && svRes.data) || [];
   const audits     = (auRes && auRes.data) || [];
