@@ -119,7 +119,7 @@ async function perfComputeStats(period){
     const score = hasWork
       ? Math.round(onTimePct*0.35 + outputPct*0.35 + Math.max(0,100-overdue*25)*0.20 + attPct*0.10)
       : 0;
-    return {...e, finished:finished.length, visits, auditsDone, output, onTimePct, overdue, attPct, avgTurn, score, hasWork};
+    return {...e, finished:finished.length, visits, auditsDone, output, onTimePct, overdue, attPct, avgTurn, score, hasWork, presentDays:present, halfDays:halfd, workingDays};
   });
 
   rows.sort((a,b) => b.score - a.score);
@@ -197,7 +197,7 @@ async function loadPerformancePanel(){
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
       ${stat('On-time delivery', mine.onTimePct+'%', mine.finished+' completed', mine.onTimePct>=80?'#1E8449':mine.onTimePct>=60?'#B7791F':'#C0392B')}
       ${stat('Avg turnaround', mine.avgTurn? mine.avgTurn+'d' : '—', 'per task')}
-      ${stat('Attendance', mine.attPct+'%', null)}
+      ${stat('Attendance', mine.attPct+'%', (mine.presentDays + (mine.halfDays?mine.halfDays*0.5:0)) + ' of ' + mine.workingDays + ' working days')}
       ${canSeeTeam ? stat('Your rank', '#'+myRank, 'of '+rows.length, myRank===1?'#8a6d2f':null) : stat('Work delivered', mine.output, mine.finished+' tasks · '+mine.visits+' visits · '+mine.auditsDone+' audits')}
     </div>
     ${(mine.badges&&mine.badges.length)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${mine.badges.map(b=>`<span style="font-size:11px;background:#fdf6e6;color:#8a6d2f;border:1px solid #e8dcc0;border-radius:20px;padding:3px 10px;font-weight:600">${b.icon} ${b.text}</span>`).join('')}</div>`:''}
