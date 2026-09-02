@@ -6847,7 +6847,8 @@ if (a && !onLeave) {
   document.getElementById('att-half').textContent = half;
   document.getElementById('att-leave').textContent = leave;
   document.getElementById('att-pct').textContent = pct + '%';
-
+  const _sub = document.getElementById('att-pct-sub');
+  if (_sub) _sub.textContent = (present + (half ? half*0.5 : 0)) + ' of ' + denom + ' working days so far';
   const totalHrs = (attData || []).reduce((s, a) => s + parseFloat(a.working_hours || 0), 0);
   const avgHrs = present > 0 ? (totalHrs / present).toFixed(1) : 0;
   document.getElementById('attSummary').innerHTML = `
