@@ -756,8 +756,8 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
     const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
     const late    = dailyRows.filter(r => r[6] === 'Yes').length;
 const futureDays = dailyRows.filter(r => r[2] === '—').length;
-    const attPct = (totalDays - weekOff - futureDays) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff - futureDays)) * 100)).toFixed(2) + '%' : '0%';
-      
+const attPct = (totalDays - weekOff) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff)) * 100)).toFixed(2) + '%' : '0%';
+    
     // HEADER
     setFill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
     try {
@@ -6839,7 +6839,7 @@ if (a && !onLeave) {
     }
   }
 
-  const denom = totalDays - weekOff - future;
+const denom = totalDays - weekOff;   // full-month working days (grows to 100% by month end)
   const pct = denom > 0 ? Math.min(100, Math.round(((present + half*0.5) / denom) * 100)) : 0;
 
   document.getElementById('att-present').textContent = present;
@@ -6848,18 +6848,18 @@ if (a && !onLeave) {
   document.getElementById('att-leave').textContent = leave;
   document.getElementById('att-pct').textContent = pct + '%';
   const _sub = document.getElementById('att-pct-sub');
-  if (_sub) _sub.textContent = (present + (half ? half*0.5 : 0)) + ' of ' + denom + ' working days so far';
+  if (_sub) _sub.textContent = (present + (half ? half*0.5 : 0)) + ' of ' + denom + ' working days this month';
   const totalHrs = (attData || []).reduce((s, a) => s + parseFloat(a.working_hours || 0), 0);
   const avgHrs = present > 0 ? (totalHrs / present).toFixed(1) : 0;
   document.getElementById('attSummary').innerHTML = `
     <div style="display:flex;flex-direction:column;gap:8px">
       <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:8px">
-        <span style="font-size:12px;color:var(--muted)">Working Days (so far)</span>
+        <span style="font-size:12px;color:var(--muted)">Working Days (full month)</span>
         <span style="font-size:13px;font-weight:700;color:var(--navy)">${denom}</span>
       </div>
       <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:8px">
-        <span style="font-size:12px;color:var(--muted)">Working Days (full month)</span>
-        <span style="font-size:13px;font-weight:700;color:var(--muted)">${totalDays - weekOff}</span>
+        <span style="font-size:12px;color:var(--muted)">Days elapsed</span>
+        <span style="font-size:13px;font-weight:700;color:var(--muted)">${totalDays - weekOff - future}</span>
       </div>
       <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--green-bg);border-radius:8px">
         <span style="font-size:12px;color:var(--green)">Attendance %</span>
@@ -6948,7 +6948,7 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
   const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
   const futureDaysPdf = dailyRows.filter(r => r[2] === '—').length;
   const late    = dailyRows.filter(r => r[6] === 'Yes').length;
-  const attPct = (totalDays - weekOff - futureDaysPdf) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff - futureDaysPdf)) * 100)).toFixed(2) + '%' : '0%';
+const attPct = (totalDays - weekOff) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff)) * 100)).toFixed(2) + '%' : '0%'
   const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
   const MUTED  = [85,85,85];  const BORDER= [200,213,229]; const LIGHT = [245,248,252];
   const GREEN  = [26,110,60]; const RED   = [163,45,45];  const AMBER = [133,79,11];
