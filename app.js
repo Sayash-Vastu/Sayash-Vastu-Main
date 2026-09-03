@@ -6908,6 +6908,10 @@ const { data: empPatternPdf } = await sb.from('employees').select('weekly_off_pa
     .eq('status', 'Approved')
     .lte('from_date', end).gte('to_date', start);
 
+  const { data: holidayDataPdf } = await sb.from('holidays').select('*').gte('date', start).lte('date', end);
+  const holidayMapPdf = {};
+  (holidayDataPdf || []).forEach(h => { holidayMapPdf[h.date] = h; });
+  
   const rows = attData || [];
 
   const days3   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -6936,6 +6940,8 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
       dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
     } else if (isWeekend) {
       dailyRows.push([dispDate, dayName, 'Week Off', '—', '—', '—', '—', 'Week Off']);
+    } else if (holidayMapPdf[dateStr]) {
+      dailyRows.push([dispDate, dayName, 'Week Off', '—', '—', '—', '—', holidayMapPdf[dateStr].title || 'Holiday']);
     } else if (isFuturePdf) {
       dailyRows.push([dispDate, dayName, '—', '—', '—', '—', '—', '']);
     } else {
