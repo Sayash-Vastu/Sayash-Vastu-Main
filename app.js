@@ -756,7 +756,8 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
     const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
     const late    = dailyRows.filter(r => r[6] === 'Yes').length;
 const futureDays = dailyRows.filter(r => r[2] === '—').length;
-const attPct = (totalDays - weekOff) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff)) * 100)).toFixed(2) + '%' : '0%';
+const halfDayPdf = dailyRows.filter(r => r[2] === 'Half Day').length;
+const attPct = (totalDays - weekOff) > 0 ? Math.min(100, (((present + halfDayPdf*0.5) / (totalDays - weekOff)) * 100)).toFixed(2) + '%' : '0%'
     
     // HEADER
     setFill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
@@ -6948,7 +6949,8 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
   const weekOff = dailyRows.filter(r => r[2] === 'Week Off').length;
   const futureDaysPdf = dailyRows.filter(r => r[2] === '—').length;
   const late    = dailyRows.filter(r => r[6] === 'Yes').length;
-const attPct = (totalDays - weekOff) > 0 ? Math.min(100, (((present + halfDay*0.5) / (totalDays - weekOff)) * 100)).toFixed(2) + '%' : '0%'
+const halfDayPdf = dailyRows.filter(r => r[2] === 'Half Day').length;
+const attPct = (totalDays - weekOff) > 0 ? Math.min(100, (((present + halfDayPdf*0.5) / (totalDays - weekOff)) * 100)).toFixed(2) + '%' : '0%'
   const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
   const MUTED  = [85,85,85];  const BORDER= [200,213,229]; const LIGHT = [245,248,252];
   const GREEN  = [26,110,60]; const RED   = [163,45,45];  const AMBER = [133,79,11];
