@@ -11407,6 +11407,37 @@ function filterAudits() {
     </div></div>
   `;
 }
+async function downloadPhoto(url, name) {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const ext = (url.split('.').pop() || 'jpg').split('?')[0];
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (name || 'photo').replace(/[^a-zA-Z0-9-_ ]/g, '') + '.' + ext;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  } catch (e) {
+    window.open(url, '_blank');
+  }
+}
+
+async function downloadAllPhotos(id) {
+  const { data: r } = await sb.from('vastu_audits').select('*').eq('id', id).single();
+  if (!r) return;
+  const photos = (r.form_data || {}).pointer_photos || {};
+  const site = (r.property_name || r.client_name || 'site').replace(/[^a-zA-Z0-9-_ ]/g, '');
+  let n = 0;
+  for (const k of Object.keys(photos)) {
+    const arr = Array.isArray(photos[k]) ? photos[k].filter(Boolean) : [];
+    for (let i = 0; i < arr.length; i++) {
+      await downloadPhoto(arr[i], `${site}-${k}-${i + 1}`);
+      n++;
+      await new Promise(res => setTimeout(res, 350));
+    }
+  }
+  showToast(`⬇ ${n} photo${n === 1 ? '' : 's'} downloaded`, 'ok');
+}
 async function openAuditGallery(id) {
   const { data: r, error } = await sb.from('vastu_audits').select('*').eq('id', id).single();
   if (error || !r) { showToast('❌ Audit not found', 'err'); return; }
@@ -11432,6 +11463,7 @@ async function openAuditGallery(id) {
           ${esc(r.client_name) || '-'} &nbsp;·&nbsp; ${esc(r.property_name) || '-'}
           &nbsp;·&nbsp; ${r.visit_date ? fmtDate(r.visit_date) : ''}
           &nbsp;·&nbsp; <b>${totalPhotos}</b> photo${totalPhotos === 1 ? '' : 's'}
+          ${totalPhotos ? `<button class="btn btn-sm btn-outline" style="margin-left:10px;font-size:11px" onclick="downloadAllPhotos('${id}')">⬇ Download all</button>` : ''}
         </div>
         ${totalPhotos === 0 ? `
           <div style="text-align:center;padding:40px;color:var(--muted)">
@@ -11442,10 +11474,14 @@ async function openAuditGallery(id) {
             <div style="font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:2px">${esc(pretty(b.key))}</div>
             ${b.note ? `<div style="font-size:11px;color:var(--muted);margin-bottom:7px">${esc(b.note)}</div>` : '<div style="margin-bottom:7px"></div>'}
             <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
-              ${b.urls.map(u => `
-                <a href="${u}" target="_blank" style="display:block;border:1px solid var(--border);border-radius:8px;overflow:hidden">
-                  <img src="${u}" loading="lazy" style="width:100%;height:118px;object-fit:cover;display:block">
-                </a>`).join('')}
+              ${b.urls.map((u, ui) => `
+                <div style="position:relative;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                  <a href="${u}" target="_blank" title="Open full size">
+                    <img src="${u}" loading="lazy" style="width:100%;height:118px;object-fit:cover;display:block">
+                  </a>
+                  <button onclick="downloadPhoto('${u}','${esc(pretty(b.key))}-${ui + 1}')" title="Download"
+                    style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,.62);color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:13px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center">⬇</button>
+                </div>`).join('')}
             </div>
           </div>`).join('')}
         <div class="modal-actions">
