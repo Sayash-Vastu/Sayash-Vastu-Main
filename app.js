@@ -9132,7 +9132,7 @@ function closeModal(id) {
   if (el) {
     el.classList.remove('open');
     // Dynamically added modals remove karo
-if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal','addPaymentFollowupRecordModal','postQuoteModal','editLeadModal','addLeadModal'].includes(id)) {
+if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal','addPaymentFollowupRecordModal','postQuoteModal','editLeadModal','addLeadModal','auditGalleryModal'].includes(id)) {
     el.remove();
     }
   }
@@ -11399,7 +11399,7 @@ function filterAudits() {
               <td style="padding:9px 14px;text-align:center;font-weight:800;color:${scoreCl}">${r.svr_score ?? '-'}</td>
               <td style="padding:9px 14px"><span class="badge ${vBadge}" style="font-size:10px">${esc((r.verdict||'-').split(' — ')[0])}</span></td>
               <td style="padding:9px 14px;font-size:11px">${esc(r.inspector_name)||'-'}</td>
-<td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="viewAuditReport('${r.id}')">👁 View</button> <button class="btn btn-sm btn-outline" style="color:#8a6d2f;border-color:#e0d0a8" onclick="openPptPicker('${r.id}')">📊 PPT</button> <button class="btn btn-sm btn-outline" style="color:#185FA5;border-color:#bcd6ef" onclick="generateAuditPDF('${r.id}')">📄 PDF</button> <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#f3c9c9" onclick="deleteAuditReport('${r.id}')">🗑</button></td>
+<td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="viewAuditReport('${r.id}')">👁 View</button> <button class="btn btn-sm btn-outline" style="color:#1E6B40;border-color:#bfe0cd" onclick="openAuditGallery('${r.id}')">📷 Photos</button> <button class="btn btn-sm btn-outline" style="color:#8a6d2f;border-color:#e0d0a8" onclick="openPptPicker('${r.id}')">📊 PPT</button> <button class="btn btn-sm btn-outline" style="color:#185FA5;border-color:#bcd6ef" onclick="generateAuditPDF('${r.id}')">📄 PDF</button> <button class="btn btn-sm btn-outline" style="color:var(--red);border-color:#f3c9c9" onclick="deleteAuditReport('${r.id}')">🗑</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -11407,7 +11407,54 @@ function filterAudits() {
     </div></div>
   `;
 }
+async function openAuditGallery(id) {
+  const { data: r, error } = await sb.from('vastu_audits').select('*').eq('id', id).single();
+  if (error || !r) { showToast('❌ Audit not found', 'err'); return; }
 
+  const fd = r.form_data || {};
+  const photos = fd.pointer_photos || {};
+  const notes  = fd.pointer_notes  || {};
+
+  const blocks = [];
+  Object.keys(photos).forEach(k => {
+    const arr = Array.isArray(photos[k]) ? photos[k].filter(Boolean) : [];
+    if (arr.length) blocks.push({ key: k, urls: arr, note: notes[k] || '' });
+  });
+  const totalPhotos = blocks.reduce((a, b) => a + b.urls.length, 0);
+
+  const pretty = k => k.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="auditGalleryModal">
+      <div class="modal" style="max-width:900px">
+        <div class="modal-title">📷 Site Photos</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px">
+          ${esc(r.client_name) || '-'} &nbsp;·&nbsp; ${esc(r.property_name) || '-'}
+          &nbsp;·&nbsp; ${r.visit_date ? fmtDate(r.visit_date) : ''}
+          &nbsp;·&nbsp; <b>${totalPhotos}</b> photo${totalPhotos === 1 ? '' : 's'}
+        </div>
+        ${totalPhotos === 0 ? `
+          <div style="text-align:center;padding:40px;color:var(--muted)">
+            <div style="font-size:34px;margin-bottom:8px">📷</div>
+            No photos were uploaded for this visit
+          </div>` : blocks.map(b => `
+          <div style="margin-bottom:18px">
+            <div style="font-size:12.5px;font-weight:700;color:var(--navy);margin-bottom:2px">${esc(pretty(b.key))}</div>
+            ${b.note ? `<div style="font-size:11px;color:var(--muted);margin-bottom:7px">${esc(b.note)}</div>` : '<div style="margin-bottom:7px"></div>'}
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px">
+              ${b.urls.map(u => `
+                <a href="${u}" target="_blank" style="display:block;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+                  <img src="${u}" loading="lazy" style="width:100%;height:118px;object-fit:cover;display:block">
+                </a>`).join('')}
+            </div>
+          </div>`).join('')}
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('auditGalleryModal')">Close</button>
+        </div>
+      </div>
+    </div>
+  `);
+}
 function viewAuditReport(id) {
   const r = (_auditsAll || []).find(x => x.id === id);
   if (!r) return;
