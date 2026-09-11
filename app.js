@@ -978,7 +978,8 @@ function doLogout() {
 function showApp() {
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('appPage').style.display = 'block';
-  const av = currentUser.name.substring(0,2).toUpperCase();
+  subscribeToPush();
+const av = currentUser.name.substring(0,2).toUpperCase();
   const sidebarAvEl = document.getElementById('sidebarAv');
   if (currentUser.photo_url) {
     sidebarAvEl.innerHTML = `<img src="${currentUser.photo_url}" style="width:36px;height:36px;object-fit:cover;border-radius:50%"/>`;
@@ -10667,10 +10668,52 @@ document.getElementById('comp-add-particulars').value='';
   setTimeout(()=>msgEl.textContent='',3000);
 }
 // ═══════════════════════════════════════════
+//  WEB PUSH NOTIFICATIONS
+// ═══════════════════════════════════════════
+const VAPID_PUBLIC_KEY = 'BBvCN_dZeiKoX1wcY7qPnaO4Tk2UQS6V9TzsfCuK3UEGa6ydIYl2HTHRm28EbiwBJvWRRzCidr_I0Wojr9l6Eis';
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function subscribeToPush() {
+  try {
+    if (!currentUser || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    if (Notification.permission === 'denied') return;
+    if (Notification.permission === 'default') {
+      const perm = await Notification.requestPermission();
+      if (perm !== 'granted') return;
+    }
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    const j = sub.toJSON();
+    await sb.from('push_subscriptions').upsert({
+      user_email: currentUser.email,
+      endpoint: sub.endpoint,
+      p256dh: j.keys.p256dh,
+      auth: j.keys.auth,
+      user_agent: navigator.userAgent
+    }, { onConflict: 'endpoint' });
+    console.log('✅ Push subscribed:', currentUser.email);
+  } catch (e) { console.error('Push subscribe failed:', e); }
+}
+
+// ═══════════════════════════════════════════
 //  PWA SERVICE WORKER
 // ═══════════════════════════════════════════
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
+window.addEventListener('load', function() {
     navigator.serviceWorker.register('/sw.js')
       .then(function(reg) {
         console.log('✅ Service Worker registered!', reg.scope);
