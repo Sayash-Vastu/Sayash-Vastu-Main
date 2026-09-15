@@ -2555,7 +2555,7 @@ if (!visitedBy) { showToast('⚠️ Select at least one visitor', 'warn'); retur
 if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   const familyDetails = document.getElementById('avg-family').value.trim();
   const visitType = document.getElementById('avg-type').value;
-  const discussion = document.getElementById('avg-discussion').value.trim();
+  let discussion = document.getElementById('avg-discussion').value.trim();
   const location = document.getElementById('avg-location').value.trim();
   let visitDates = [...(window._avgDates || [])].sort();
   if (!visitDates.length) visitDates = [null];
@@ -2584,14 +2584,20 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
 const { data: allEmpForAssign } = await sb.from('employees').select('email,name').eq('is_active', true);
   const assigneeMatches = selectedAssignees.map(name => (allEmpForAssign||[]).find(e => e.name === name)).filter(Boolean);
   
-  // Build project/sub-project pairs — NO cartesian cross
+  // ── ONE record per visit (projects/sub-projects listed in description) ──
   let visitPairs = [];
   const _subs = subProjectsToProcess.filter(x => x !== null && x !== undefined);
-  if (projectsToProcess.length === 1 && _subs.length) {
-    _subs.forEach(sp => visitPairs.push([projectsToProcess[0], sp]));
+  let _projSummary = '';
+  if (projectsToProcess.length > 1) {
+    visitPairs.push(['Multiple Projects', null]);
+    _projSummary = 'Projects covered: ' + projectsToProcess.join(', ');
+  } else if (_subs.length > 1) {
+    visitPairs.push([projectsToProcess[0], null]);
+    _projSummary = 'Sub-projects covered: ' + _subs.join(', ');
   } else {
-    projectsToProcess.forEach(p => visitPairs.push([p, null]));
+    visitPairs.push([projectsToProcess[0], _subs[0] || null]);
   }
+  if (_projSummary) discussion = [discussion, _projSummary].filter(Boolean).join(' | ');
   for (const visitDate of visitDates) {
   const _isFirstDate = (visitDate === visitDates[0]);
   for (const [currentProject, currentSubProject] of visitPairs) {
