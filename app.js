@@ -2584,10 +2584,17 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
 const { data: allEmpForAssign } = await sb.from('employees').select('email,name').eq('is_active', true);
   const assigneeMatches = selectedAssignees.map(name => (allEmpForAssign||[]).find(e => e.name === name)).filter(Boolean);
   
+  // Build project/sub-project pairs — NO cartesian cross
+  let visitPairs = [];
+  const _subs = subProjectsToProcess.filter(x => x !== null && x !== undefined);
+  if (projectsToProcess.length === 1 && _subs.length) {
+    _subs.forEach(sp => visitPairs.push([projectsToProcess[0], sp]));
+  } else {
+    projectsToProcess.forEach(p => visitPairs.push([p, null]));
+  }
   for (const visitDate of visitDates) {
   const _isFirstDate = (visitDate === visitDates[0]);
-  for (const currentProject of projectsToProcess) {
-    for (const currentSubProject of subProjectsToProcess) {
+  for (const [currentProject, currentSubProject] of visitPairs) {
 
       // ── Duplicate guard: skip if same visit already exists ──
       let _dupQ = sbClient.from('site_visits').select('id').eq('client_id', clientId).eq('project_name', currentProject).eq('visit_type', visitType);
@@ -2683,7 +2690,6 @@ if (_isFirstDate) for (const em of assigneeMatches) {
           'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
       }
     }
-  }
   }
 
 if (selectedAssignees.length && !assigneeMatches.length) {
