@@ -1233,9 +1233,12 @@ async function loadClientVisitsAll() {
   el.innerHTML = `
     <div class="page-header"><h2>🏗️ Site Visit / MOM</h2><p>All client site visits</p></div>
     <div id="siteVisitSummary" style="margin-bottom:20px"></div>
-        <div style="margin-bottom:14px">
-      <input id="svSearch" placeholder="🔍 Search client, project, visitor, location, description..." oninput="filterClientVisits()"
-        style="width:100%;padding:10px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <input id="svSearch" placeholder="🔍 Search client, project, visitor, location..." oninput="applySvFilters()"
+        style="flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+      <select id="svClientFilter" onchange="applySvFilters()" style="padding:10px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff"><option value="">All clients</option></select>
+      <input type="date" id="svDateFilter" onchange="applySvFilters()" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+      <button type="button" class="btn btn-outline btn-sm" onclick="clearSvFilters()">Clear</button>
     </div>
     <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
       <button class="btn btn-gold" onclick="openAddVisitEmpGlobal()">➕ Add Site Visit</button>
@@ -1305,10 +1308,15 @@ async function loadClientVisitsAll() {
     return;
   }
     window._svAll = data;
-  renderClientVisits(data);
+  const cfSel = document.getElementById('svClientFilter');
+  if (cfSel) {
+    const names = [...new Set(data.map(v => v.clients?.name || '(No client)'))].sort();
+    cfSel.innerHTML = '<option value="">All clients</option>' + names.map(n => `<option>${esc(n)}</option>`).join('');
+  }
+  renderClientVisits(data, false);
 }
 
-function renderClientVisits(list){
+function renderClientVisits(list, expand){
   const groups = {};
   (list || []).forEach(v => {
     const key = v.clients?.name || '(No client)';
@@ -1324,14 +1332,14 @@ function renderClientVisits(list){
     body += `
       <tr class="grp-head" data-key="${gkey}" onclick="toggleGrp('${gkey}')" style="cursor:pointer;background:#f4f6fb;border-bottom:1px solid var(--border)">
         <td colspan="10" style="padding:11px 14px;font-weight:700;color:var(--navy)">
-          <span id="caret-${gkey}" style="display:inline-block;width:14px">▸</span>${esc(ck)}
+          <span id="caret-${gkey}" style="display:inline-block;width:14px">${expand?'▾':'▸'}</span>${esc(ck)}
           <span class="badge b-blue" style="margin-left:8px">${visits.length} visit${visits.length>1?'s':''}</span>
           <span style="color:var(--muted);font-weight:500;font-size:11px;margin-left:8px">latest: ${fmtDate(visits[0].visit_date)}</span>
         </td>
       </tr>`;
     visits.forEach(v => {
       body += `
-        <tr class="grp-row" data-grp="${gkey}" style="display:none;border-bottom:1px solid #f5f6fa">
+        <tr class="grp-row" data-grp="${gkey}" style="display:${expand?'':'none'};border-bottom:1px solid #f5f6fa">
           <td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(v.clients?.name||'-')}</td>
           <td style="padding:9px 14px;color:var(--muted)">${esc(v.project_name||'-')}${v.sub_project_name ? ' / ' + esc(v.sub_project_name) : ''}</td>
           <td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
@@ -1371,29 +1379,23 @@ async function deleteSiteVisitGlobal(visitId) {
   showToast('✅ Site visit deleted!', 'ok');
   loadClientVisitsAll();
 }
-function filterClientVisits(){
+function applySvFilters(){
   const q = (document.getElementById('svSearch')?.value || '').toLowerCase().trim();
-  const heads = document.querySelectorAll('#clientVisitsList tr.grp-head');
-  heads.forEach(h => {
-    const key = h.getAttribute('data-key');
-    const rows = document.querySelectorAll(`#clientVisitsList tr[data-grp="${key}"]`);
-    const caret = document.getElementById('caret-'+key);
-    if (!q) {
-      rows.forEach(r => r.style.display = 'none');
-      h.style.display = '';
-      if (caret) caret.textContent = '▸';
-      return;
-    }
-    const headHit = h.textContent.toLowerCase().includes(q);
-    let anyHit = false;
-    rows.forEach(r => {
-      const hit = headHit || r.textContent.toLowerCase().includes(q);
-      r.style.display = hit ? '' : 'none';
-      if (hit) anyHit = true;
-    });
-    h.style.display = anyHit ? '' : 'none';
-    if (caret) caret.textContent = anyHit ? '▾' : '▸';
-  });
+  const cf = document.getElementById('svClientFilter')?.value || '';
+  const df = document.getElementById('svDateFilter')?.value || '';
+  const _p = n => String(n).padStart(2,'0');
+  const toISO = d => { if(!d) return ''; const s2=(d.includes('-')&&d.split('-')[0].length<=2)?d.split('-').reverse().join('-'):d; const dt=new Date(s2); return isNaN(dt)?'':`${dt.getFullYear()}-${_p(dt.getMonth()+1)}-${_p(dt.getDate())}`; };
+  let list = window._svAll || [];
+  if (cf) list = list.filter(v => (v.clients?.name || '(No client)') === cf);
+  if (df) list = list.filter(v => toISO(v.visit_date) === df);
+  if (q) list = list.filter(v => `${v.clients?.name||''} ${v.project_name||''} ${v.sub_project_name||''} ${v.visited_by||''} ${v.location||''} ${v.discussion||''} ${v.suggestions||''} ${v.reference||''}`.toLowerCase().includes(q));
+  renderClientVisits(list, !!(q || cf || df));
+}
+function clearSvFilters(){
+  const a=document.getElementById('svSearch'); if(a) a.value='';
+  const b=document.getElementById('svClientFilter'); if(b) b.value='';
+  const c=document.getElementById('svDateFilter'); if(c) c.value='';
+  renderClientVisits(window._svAll || [], false);
 }
 async function openEditSiteVisit(visitId) {
   const { data: v, error } = await sbClient.from('site_visits').select('*, clients(name)').eq('id', visitId).single();
@@ -1545,6 +1547,40 @@ function toggleAssigneeSelect(checkbox) {
     if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
   }
 }
+function renderAvgCal(y, m){
+  window._avgCalY = y; window._avgCalM = m;
+  const el = document.getElementById('avg-cal'); if (!el) return;
+  const first = new Date(y, m, 1);
+  const startDow = (first.getDay() + 6) % 7;
+  const dim = new Date(y, m + 1, 0).getDate();
+  const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const t = new Date(); const _p = n => String(n).padStart(2,'0');
+  const todayStr = `${t.getFullYear()}-${_p(t.getMonth()+1)}-${_p(t.getDate())}`;
+  const dow = ['Mo','Tu','We','Th','Fr','Sa','Su'].map(x=>`<div style="text-align:center;font-size:10px;color:var(--muted);font-weight:700">${x}</div>`).join('');
+  let cells = '';
+  for (let i=0;i<startDow;i++) cells += '<div></div>';
+  for (let d=1; d<=dim; d++){
+    const ds = `${y}-${_p(m+1)}-${_p(d)}`;
+    const sel = window._avgDates && window._avgDates.has(ds);
+    cells += `<div onclick="toggleAvgDate('${ds}')" style="text-align:center;padding:6px 0;border-radius:6px;cursor:pointer;font-size:12px;${sel?'background:var(--gold);color:var(--navy);font-weight:700':(ds===todayStr?'border:1px solid var(--gold)':'')}">${d}</div>`;
+  }
+  el.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <button type="button" class="btn btn-sm btn-outline" onclick="avgCalNav(-1)">‹</button>
+      <span style="font-weight:700;font-size:13px">${months[m]} ${y}</span>
+      <button type="button" class="btn btn-sm btn-outline" onclick="avgCalNav(1)">›</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px">${dow}${cells}</div>`;
+  renderAvgDateChips();
+}
+function avgCalNav(delta){ let m=window._avgCalM+delta, y=window._avgCalY; if(m<0){m=11;y--;} if(m>11){m=0;y++;} renderAvgCal(y,m); }
+function toggleAvgDate(ds){ if(!window._avgDates) window._avgDates=new Set(); if(window._avgDates.has(ds)) window._avgDates.delete(ds); else window._avgDates.add(ds); renderAvgCal(window._avgCalY, window._avgCalM); }
+function renderAvgDateChips(){
+  const w = document.getElementById('avg-date-chips'); if(!w) return;
+  const arr = [...(window._avgDates||[])].sort();
+  w.innerHTML = arr.length ? arr.map(d=>`<span class="badge b-navy" style="margin:2px;display:inline-block">${fmtDate(d)} <span onclick="toggleAvgDate('${d}')" style="cursor:pointer;font-weight:700">✕</span></span>`).join('') : '<span style="font-size:11px;color:var(--muted)">No date selected — calendar se dates chuno</span>';
+}
+
 function addVisitDateField(){
   const wrap = document.getElementById('avg-date-list');
   if (!wrap) return;
@@ -1590,12 +1626,9 @@ function openAddVisitEmpGlobal() {
   </div>
   <input id="avg-subproject-new" placeholder="+ Add a new sub project (if not listed above)" style="margin-top:8px">
 </div>
-          <div class="field"><label>Visit Date(s)</label>
-            <div id="avg-date-list">
-              <input type="date" class="avg-date-input" value="${new Date().toISOString().split('T')[0]}" style="width:100%;margin-bottom:6px">
-            </div>
-            <button type="button" class="btn btn-outline btn-sm" onclick="addVisitDateField()">➕ Add another date</button>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">Ek hi client ki alag-alag din ki visits ek saath punch karne ke liye dates add karein</div>
+          <div class="field" style="grid-column:1/-1"><label>Visit Date(s) — calendar se ek ya zyada dates chuno</label>
+            <div id="avg-cal" style="border:1.5px solid var(--border);border-radius:8px;padding:10px;background:#fff;max-width:300px"></div>
+            <div id="avg-date-chips" style="margin-top:8px"></div>
           </div>
           <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
 <div class="field" style="grid-column:1/-1"><label>Visited By</label>
@@ -1671,6 +1704,10 @@ function openAddVisitEmpGlobal() {
       </div>
     </div>
   `);
+  window._avgDates = new Set();
+  const _tt = new Date(); const _pp = n => String(n).padStart(2,'0');
+  window._avgDates.add(`${_tt.getFullYear()}-${_pp(_tt.getMonth()+1)}-${_pp(_tt.getDate())}`);
+  renderAvgCal(_tt.getFullYear(), _tt.getMonth());
 sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
     window._avgAllClients = data || [];
     const dl = document.getElementById('avgClientList');
@@ -2520,8 +2557,7 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   const visitType = document.getElementById('avg-type').value;
   const discussion = document.getElementById('avg-discussion').value.trim();
   const location = document.getElementById('avg-location').value.trim();
-  let visitDates = Array.from(document.querySelectorAll('.avg-date-input')).map(el => el.value).filter(Boolean);
-  visitDates = [...new Set(visitDates)];
+  let visitDates = [...(window._avgDates || [])].sort();
   if (!visitDates.length) visitDates = [null];
   const suggestions = document.getElementById('avg-suggestions').value.trim();
 
@@ -11379,7 +11415,7 @@ function startAutoRefresh() {
       if (viewId === 'leaveApprove') await loadLeaveApprovals();
       if (viewId === 'clientsList') await loadClientsList();
       if (viewId === 'clientProjects') await loadClientProjectsAll();
-      if (viewId === 'clientVisits') await loadClientVisitsAll();
+      // clientVisits: auto-refresh disabled to preserve scroll position
     } catch(e) {
       console.log('Auto refresh error:', e);
     }
