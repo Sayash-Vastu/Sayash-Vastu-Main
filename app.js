@@ -2580,6 +2580,7 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   const isSignatureGlobal = clientName === 'Signature Global';
 
   let allErrors = [];
+  let skippedDupes = [];
 const { data: allEmpForAssign } = await sb.from('employees').select('email,name').eq('is_active', true);
   const assigneeMatches = selectedAssignees.map(name => (allEmpForAssign||[]).find(e => e.name === name)).filter(Boolean);
   
@@ -2588,6 +2589,12 @@ const { data: allEmpForAssign } = await sb.from('employees').select('email,name'
   for (const currentProject of projectsToProcess) {
     for (const currentSubProject of subProjectsToProcess) {
 
+      // ── Duplicate guard: skip if same visit already exists ──
+      let _dupQ = sbClient.from('site_visits').select('id').eq('client_id', clientId).eq('project_name', currentProject).eq('visit_type', visitType);
+      _dupQ = visitDate ? _dupQ.eq('visit_date', visitDate) : _dupQ.is('visit_date', null);
+      _dupQ = currentSubProject ? _dupQ.eq('sub_project_name', currentSubProject) : _dupQ.is('sub_project_name', null);
+      const { data: _dupRows } = await _dupQ;
+      if (_dupRows && _dupRows.length) { skippedDupes.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ' — ' + (visitDate || 'no date')); continue; }
       const { error } = await sbClient.from('site_visits').insert({
         client_id: clientId,
         project_name: currentProject,
@@ -2682,10 +2689,15 @@ if (_isFirstDate) for (const em of assigneeMatches) {
 if (selectedAssignees.length && !assigneeMatches.length) {
     showToast('⚠️ Task not created — no employee was selected', 'warn');
   }
+  if (skippedDupes.length) {
+    showToast('ℹ️ ' + skippedDupes.length + ' already existed — skipped (no duplicate created)', 'warn');
+  }
   if (allErrors.length) {
     showToast('⚠️ Some entries failed:  ' + allErrors.join(', '), 'warn');
-  } else {
+  } else if (!skippedDupes.length) {
     showToast('✅ Site visit(s) saved' + (assignedToName ? ' & task(s) assigned!' : '!'), 'ok');
+  } else {
+    showToast('✅ Saved — duplicates skipped', 'ok');
   }
   closeModal('addVisitGlobalModal');
   loadClientVisitsAll();
