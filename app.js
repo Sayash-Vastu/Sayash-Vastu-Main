@@ -2584,20 +2584,16 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
 const { data: allEmpForAssign } = await sb.from('employees').select('email,name').eq('is_active', true);
   const assigneeMatches = selectedAssignees.map(name => (allEmpForAssign||[]).find(e => e.name === name)).filter(Boolean);
   
-  // ── ONE record per visit (projects/sub-projects listed in description) ──
+  // ── ONE record per visit (projects AND sub-projects listed in description) ──
   let visitPairs = [];
   const _subs = subProjectsToProcess.filter(x => x !== null && x !== undefined);
-  let _projSummary = '';
-  if (projectsToProcess.length > 1) {
-    visitPairs.push(['Multiple Projects', null]);
-    _projSummary = 'Projects covered: ' + projectsToProcess.join(', ');
-  } else if (_subs.length > 1) {
-    visitPairs.push([projectsToProcess[0], null]);
-    _projSummary = 'Sub-projects covered: ' + _subs.join(', ');
-  } else {
-    visitPairs.push([projectsToProcess[0], _subs[0] || null]);
-  }
-  if (_projSummary) discussion = [discussion, _projSummary].filter(Boolean).join(' | ');
+  const _projLabel = projectsToProcess.length === 1 ? projectsToProcess[0] : 'Multiple Projects';
+  const _subLabel = _subs.length === 1 ? _subs[0] : null;
+  visitPairs.push([_projLabel, _subLabel]);
+  let _summ = [];
+  if (projectsToProcess.length > 1) _summ.push('Projects covered: ' + projectsToProcess.join(', '));
+  if (_subs.length > 1) _summ.push('Sub-projects covered: ' + _subs.join(', '));
+  if (_summ.length) discussion = [discussion, _summ.join(' | ')].filter(Boolean).join(' | ');
   for (const visitDate of visitDates) {
   const _isFirstDate = (visitDate === visitDates[0]);
   for (const [currentProject, currentSubProject] of visitPairs) {
