@@ -1305,45 +1305,65 @@ async function loadClientVisitsAll() {
     return;
   }
     window._svAll = data;
-document.getElementById('clientVisitsList').innerHTML = `
+  renderClientVisits(data);
+}
+
+function renderClientVisits(list){
+  const groups = {};
+  (list || []).forEach(v => {
+    const key = v.clients?.name || '(No client)';
+    (groups[key] = groups[key] || []).push(v);
+  });
+  const parseD = d => { if(!d) return 0; const p = (d.includes('-') && d.split('-')[0].length<=2) ? d.split('-').reverse().join('-') : d; return new Date(p).getTime() || 0; };
+  const clientKeys = Object.keys(groups).sort((a,b) => Math.max(...groups[b].map(v=>parseD(v.visit_date))) - Math.max(...groups[a].map(v=>parseD(v.visit_date))));
+  const th = ['Client','Project','Date','Type','Visited By','Location','Reference','Description','Suggestions','Action'].map(h=>`<th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">${h}</th>`).join('');
+  let body = '';
+  clientKeys.forEach((ck, gi) => {
+    const visits = groups[ck].slice().sort((a,b)=>parseD(b.visit_date)-parseD(a.visit_date));
+    const gkey = 'g'+gi;
+    body += `
+      <tr class="grp-head" data-key="${gkey}" onclick="toggleGrp('${gkey}')" style="cursor:pointer;background:#f4f6fb;border-bottom:1px solid var(--border)">
+        <td colspan="10" style="padding:11px 14px;font-weight:700;color:var(--navy)">
+          <span id="caret-${gkey}" style="display:inline-block;width:14px">▸</span>${esc(ck)}
+          <span class="badge b-blue" style="margin-left:8px">${visits.length} visit${visits.length>1?'s':''}</span>
+          <span style="color:var(--muted);font-weight:500;font-size:11px;margin-left:8px">latest: ${fmtDate(visits[0].visit_date)}</span>
+        </td>
+      </tr>`;
+    visits.forEach(v => {
+      body += `
+        <tr class="grp-row" data-grp="${gkey}" style="display:none;border-bottom:1px solid #f5f6fa">
+          <td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(v.clients?.name||'-')}</td>
+          <td style="padding:9px 14px;color:var(--muted)">${esc(v.project_name||'-')}${v.sub_project_name ? ' / ' + esc(v.sub_project_name) : ''}</td>
+          <td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
+          <td style="padding:9px 14px"><span class="badge b-navy" style="font-size:10px">${esc(v.visit_type||'-')}</span></td>
+          <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
+          <td style="padding:9px 14px;max-width:160px">${v.location ? `<a href="${mapsHref(v.location)}" target="_blank" title="${esc(v.location)}" style="color:var(--blue);font-weight:600;text-decoration:none;display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">📍 ${/^https?:\/\//i.test(String(v.location).trim()) ? 'Open in Maps' : esc(v.location)}</a>` : '-'}</td>
+          <td style="padding:9px 14px;max-width:160px">${v.reference ? esc(v.reference) : '-'}</td>
+          <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
+          <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
+          <td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openEditSiteVisit('${v.id}')" style="margin-right:6px">✏️</button><button class="btn btn-sm" onclick="event.stopPropagation();deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+        </tr>`;
+    });
+  });
+  document.getElementById('clientVisitsList').innerHTML = `
     <div class="panel">
-<div class="panel-body" style="padding:0;max-height:68vh;overflow:auto">
+      <div class="panel-body" style="padding:0;max-height:68vh;overflow:auto">
         <table style="width:100%;border-collapse:collapse;font-size:12px">
-<thead>
-<tr style="border-bottom:1px solid var(--border)">
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Client</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Project</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Date</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Type</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Visited By</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Location</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Reference</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Description</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Suggestions</th>
-              <th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${data.map(v => `
-              <tr style="border-bottom:1px solid #f5f6fa">
-<td style="padding:9px 14px;font-weight:600;color:var(--navy)">${esc(v.clients?.name||'-')}</td>
-                <td style="padding:9px 14px;color:var(--muted)">${esc(v.project_name||'-')}${v.sub_project_name ? ' / ' + esc(v.sub_project_name) : ''}</td>
-<td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
-                <td style="padding:9px 14px"><span class="badge b-navy" style="font-size:10px">${esc(v.visit_type||'-')}</span></td>
-                <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
-<td style="padding:9px 14px;max-width:160px">${v.location ? `<a href="${mapsHref(v.location)}" target="_blank" title="${esc(v.location)}" style="color:var(--blue);font-weight:600;text-decoration:none;display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">📍 ${/^https?:\/\//i.test(String(v.location).trim()) ? 'Open in Maps' : esc(v.location)}</a>` : '-'}</td>
-                <td style="padding:9px 14px;max-width:160px">${v.reference ? esc(v.reference) : '-'}</td>
-                <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
-                <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
-<td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="openEditSiteVisit('${v.id}')" style="margin-right:6px">✏️</button><button class="btn btn-sm" onclick="deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
-              </tr>
-            `).join('')}
-          </tbody>
+          <thead><tr style="border-bottom:1px solid var(--border)">${th}</tr></thead>
+          <tbody>${body}</tbody>
         </table>
       </div>
-    </div>
-  `;
+    </div>`;
 }
+
+function toggleGrp(key){
+  const rows = document.querySelectorAll(`#clientVisitsList tr[data-grp="${key}"]`);
+  const caret = document.getElementById('caret-'+key);
+  const open = caret && caret.textContent === '▾';
+  rows.forEach(r => r.style.display = open ? 'none' : '');
+  if (caret) caret.textContent = open ? '▸' : '▾';
+}
+
 async function deleteSiteVisitGlobal(visitId) {
   if (!confirm('Delete this site visit?')) return;
   const { error } = await sbClient.from('site_visits').delete().eq('id', visitId);
@@ -1353,12 +1373,26 @@ async function deleteSiteVisitGlobal(visitId) {
 }
 function filterClientVisits(){
   const q = (document.getElementById('svSearch')?.value || '').toLowerCase().trim();
-  const rows = document.querySelectorAll('#clientVisitsList tbody tr');
-  let shown = 0;
-  rows.forEach(tr => {
-    const hit = !q || tr.textContent.toLowerCase().includes(q);
-    tr.style.display = hit ? '' : 'none';
-    if(hit) shown++;
+  const heads = document.querySelectorAll('#clientVisitsList tr.grp-head');
+  heads.forEach(h => {
+    const key = h.getAttribute('data-key');
+    const rows = document.querySelectorAll(`#clientVisitsList tr[data-grp="${key}"]`);
+    const caret = document.getElementById('caret-'+key);
+    if (!q) {
+      rows.forEach(r => r.style.display = 'none');
+      h.style.display = '';
+      if (caret) caret.textContent = '▸';
+      return;
+    }
+    const headHit = h.textContent.toLowerCase().includes(q);
+    let anyHit = false;
+    rows.forEach(r => {
+      const hit = headHit || r.textContent.toLowerCase().includes(q);
+      r.style.display = hit ? '' : 'none';
+      if (hit) anyHit = true;
+    });
+    h.style.display = anyHit ? '' : 'none';
+    if (caret) caret.textContent = anyHit ? '▾' : '▸';
   });
 }
 async function openEditSiteVisit(visitId) {
@@ -1511,6 +1545,15 @@ function toggleAssigneeSelect(checkbox) {
     if (chip) { chip.style.background='var(--bg)'; chip.style.borderColor='var(--border)'; chip.style.color='var(--text)'; chip.style.fontWeight='400'; }
   }
 }
+function addVisitDateField(){
+  const wrap = document.getElementById('avg-date-list');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.style.display = 'flex'; row.style.gap = '6px'; row.style.marginBottom = '6px';
+  row.innerHTML = '<input type="date" class="avg-date-input" style="flex:1"><button type="button" class="btn btn-sm" onclick="this.parentElement.remove()" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">✕</button>';
+  wrap.appendChild(row);
+}
+
 function openAddVisitEmpGlobal() {
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="addVisitGlobalModal">
@@ -1547,7 +1590,13 @@ function openAddVisitEmpGlobal() {
   </div>
   <input id="avg-subproject-new" placeholder="+ Add a new sub project (if not listed above)" style="margin-top:8px">
 </div>
-          <div class="field"><label>Visit Date</label><input type="date" id="avg-date" value="${new Date().toISOString().split('T')[0]}"></div>
+          <div class="field"><label>Visit Date(s)</label>
+            <div id="avg-date-list">
+              <input type="date" class="avg-date-input" value="${new Date().toISOString().split('T')[0]}" style="width:100%;margin-bottom:6px">
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="addVisitDateField()">➕ Add another date</button>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Ek hi client ki alag-alag din ki visits ek saath punch karne ke liye dates add karein</div>
+          </div>
           <div class="field"><label>Layout Received Date</label><input type="date" id="avg-layout-date"></div>
 <div class="field" style="grid-column:1/-1"><label>Visited By</label>
   <div id="avg-by-list" style="display:flex;flex-wrap:wrap;gap:8px;padding:10px;border:1.5px solid var(--border);border-radius:8px;min-height:44px;background:#fff">
@@ -2471,7 +2520,9 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   const visitType = document.getElementById('avg-type').value;
   const discussion = document.getElementById('avg-discussion').value.trim();
   const location = document.getElementById('avg-location').value.trim();
-  const visitDate = document.getElementById('avg-date').value || null;
+  let visitDates = Array.from(document.querySelectorAll('.avg-date-input')).map(el => el.value).filter(Boolean);
+  visitDates = [...new Set(visitDates)];
+  if (!visitDates.length) visitDates = [null];
   const suggestions = document.getElementById('avg-suggestions').value.trim();
 
   let attachmentUrl = document.getElementById('avg-onedrive-link').value.trim() || null;
@@ -2496,6 +2547,8 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
 const { data: allEmpForAssign } = await sb.from('employees').select('email,name').eq('is_active', true);
   const assigneeMatches = selectedAssignees.map(name => (allEmpForAssign||[]).find(e => e.name === name)).filter(Boolean);
   
+  for (const visitDate of visitDates) {
+  const _isFirstDate = (visitDate === visitDates[0]);
   for (const currentProject of projectsToProcess) {
     for (const currentSubProject of subProjectsToProcess) {
 
@@ -2563,7 +2616,7 @@ trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitTy
         showToast('⚠️ Visit saved, but Project Tracker was not updated: ' + trackerErr.message, 'warn');
       }
       if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
-for (const em of assigneeMatches) {
+if (_isFirstDate) for (const em of assigneeMatches) {
         await sb.from('tasks').insert({
           project: clientName,
           task_detail: `Site visit report pending — ${clientName} / ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}. ${discussion || ''}`.trim(),
@@ -2587,6 +2640,7 @@ for (const em of assigneeMatches) {
           'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
       }
     }
+  }
   }
 
 if (selectedAssignees.length && !assigneeMatches.length) {
