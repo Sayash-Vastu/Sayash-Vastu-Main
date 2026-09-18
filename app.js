@@ -2733,7 +2733,9 @@ async function loadEmpDashboard() {
   try {
     const _now = new Date();
     const _mStart = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-01`;
-    const { data: _myAtt } = await sb.from('attendance').select('check_in').eq('employee_email', currentUser.email).eq('is_archived', false).gte('date', _mStart);
+    const _policyStart = '2026-09-21';           // late-warning fresh start; ignore check-ins before this
+    const _effStart = _mStart > _policyStart ? _mStart : _policyStart;
+    const { data: _myAtt } = await sb.from('attendance').select('check_in').eq('employee_email', currentUser.email).eq('is_archived', false).gte('date', _effStart);
     let _lateCount = 0;
     (_myAtt||[]).forEach(a => { if (a.check_in) { const t = new Date(a.check_in); if (t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 10)) _lateCount++; } });
     let _lb = document.getElementById('lateWarnBanner');
