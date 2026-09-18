@@ -3109,11 +3109,12 @@ const isOverdueEmp = f.next_followup < today;
   // On approved leave today -> exclude from absent
   const { data: leaveTodayTeam } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date', today).gte('to_date', today);
   const onLeaveEmailsTeam = new Set((leaveTodayTeam||[]).map(l => l.employee_email));
+  const excludeTeam = new Set(['yash@sayashvastu.com','neha@sayashvastu.com']);
 
   const empTeamEl = document.getElementById('empTeamToday');
   if (empTeamEl) {
     {
-      const _presentHtml = (teamToday||[]).map(a => {
+      const _presentHtml = (teamToday||[]).filter(a => !excludeTeam.has(a.employee_email)).map(a => {
         const isMe = a.employee_email === currentUser.email;
         const workTypeBadge = a.work_type === 'WFH'
           ? '<span class="badge b-blue" style="font-size:10px">🏠 WFH</span>'
@@ -3143,12 +3144,12 @@ return '<div onclick="openEmpQuickView(\'' + a.employee_email + '\')" style="dis
 + getWorkBadge(a)
   + '</div>';
       }).join('');
-      const _absentHtml = (empList||[]).filter(function(e){ return !(teamToday||[]).some(function(a){return a.employee_email===e.email;}) && !onLeaveEmailsTeam.has(e.email); }).map(function(e){
+      const _absentHtml = (empList||[]).filter(function(e){ return !(teamToday||[]).some(function(a){return a.employee_email===e.email;}) && !onLeaveEmailsTeam.has(e.email) && !excludeTeam.has(e.email); }).map(function(e){
         const _in = esc(e.name||e.email).substring(0,2).toUpperCase();
         const _dn = getDisplayName(e.name, (empList||[]).map(function(x){return {name:x.name};}));
         const _pu = photoMap[e.email];
-        const _av = (_pu && _pu!=='null' && _pu!=='') ? '<img src="'+_pu+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--border);opacity:0.55">' : '<div class="av" style="background:#c9ccd6;width:28px;height:28px;font-size:10px;color:#fff">'+_in+'</div>';
-        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa;opacity:0.85">'+_av+'<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--navy)">'+esc(_dn)+'</div><div style="font-size:10px;color:#c0392b;margin-top:2px">Not checked in</div></div><span style="font-size:10px;background:#fdecea;color:#c0392b;padding:2px 8px;border-radius:10px;font-weight:600">Absent</span></div>';
+        const _av = (_pu && _pu!=='null' && _pu!=='') ? '<img src="'+_pu+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">' : '<div class="av" style="background:#c9ccd6;width:28px;height:28px;font-size:10px;color:#fff">'+_in+'</div>';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa">'+_av+'<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--navy)">'+esc(_dn)+'</div><div style="font-size:10px;color:#c0392b;margin-top:2px">Not checked in</div></div><span style="font-size:10px;background:#fdecea;color:#c0392b;padding:2px 8px;border-radius:10px;font-weight:600">Absent</span></div>';
       }).join('');
       empTeamEl.innerHTML = (_presentHtml + _absentHtml) || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px">No team data</div>';
     }
