@@ -1672,6 +1672,13 @@ function openAddVisitEmpGlobal() {
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
 <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
+          <div class="field" style="grid-column:1/-1;background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:10px 12px">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;font-weight:600">
+              <input type="checkbox" id="avg-raise-bill" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold)">
+              <span>🧾 Bill to be raised for this client</span>
+            </label>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Tick karne par Alisha ko bill raise karne ki notification jayegi</div>
+          </div>
           <div class="field" style="grid-column:1/-1">
             <label>🎙️ Voice Notes (Optional)</label>
             <div id="avgVoiceList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px"></div>
@@ -2706,6 +2713,24 @@ if (selectedAssignees.length && !assigneeMatches.length) {
     showToast('✅ Site visit(s) saved' + (assignedToName ? ' & task(s) assigned!' : '!'), 'ok');
   } else {
     showToast('✅ Saved — duplicates skipped', 'ok');
+  }
+  // ── Billing pipeline: "Bill to be raised" ticked -> billing entry + notify Alisha (bell) ──
+  const _raiseBill = document.getElementById('avg-raise-bill');
+  if (_raiseBill && _raiseBill.checked) {
+    try {
+      const _billProj = projectsToProcess.length === 1 ? projectsToProcess[0] : 'Multiple Projects';
+      await sbClient.from('billing').insert({
+        client_id: clientId,
+        client_name: clientName,
+        project_name: _billProj,
+        visit_date: visitDates[0] || null,
+        status: 'To Raise',
+        raised_by_name: currentUser.name,
+        created_by: currentUser.email
+      });
+      await createNotification('alisha@sayashvastu.com', '🧾 New Bill to Raise',
+        currentUser.name + ' ne ' + clientName + ' ki site visit ki hai \u2014 bill raise karna hai.', 'Billing', null);
+    } catch(e) { console.error('billing create failed:', e); }
   }
   closeModal('addVisitGlobalModal');
   loadClientVisitsAll();
