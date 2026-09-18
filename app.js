@@ -5154,14 +5154,11 @@ async function generateSalarySlip() {
           <div>
             <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Earnings (Prorated)</div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Basic Salary</span><strong>₹${r.basicPaid.toLocaleString('en-IN')}</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>HRA</span><strong>₹${r.hraPaid.toLocaleString('en-IN')}</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Special Allowance</span><strong>₹${r.specialPaid.toLocaleString('en-IN')}</strong></div>
             <div style="display:flex;justify-content:space-between;padding:10px 0;font-size:16px;font-weight:800;color:var(--green)"><span>Net Payable</span><span>₹${r.netSalary.toLocaleString('en-IN')}</span></div>
           </div>
           <div>
             <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Deduction Summary</div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Gross Monthly Salary</span><strong>₹${r.monthlySalary.toLocaleString('en-IN')}</strong></div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Per Day Rate</span><strong>₹${Math.round(r.perDayRate).toLocaleString('en-IN')}</strong></div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa;color:var(--red)"><span>LOP Deduction (${r.lopDays} days)</span><strong>- ₹${r.lopAmount.toLocaleString('en-IN')}</strong></div>
           </div>
         </div>
@@ -5284,7 +5281,7 @@ doc.text('PARTICULARS', colX[0]+4, y+5.3);
   doc.text('PAYABLE AMOUNT', colX[2]+colW[2]-4, y+5.3, { align: 'right' });
   y += 8;
 
-  const rows = [['Basic Salary', r.basic, r.basicPaid], ['House Rent Allowance (HRA)', r.hra, r.hraPaid], ['Special Allowance', r.special, r.specialPaid]];
+  const rows = [['Basic Salary', r.basic, r.basicPaid]];
   rows.forEach((row,i) => {
     const bg = i%2===0 ? [255,255,255] : LIGHT;
     setFill(bg); setStroke(BORDER); doc.setLineWidth(0.2);
