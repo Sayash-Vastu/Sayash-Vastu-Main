@@ -2729,6 +2729,23 @@ const isCEO = currentUser.role === 'ceo';
 }
 
 async function loadEmpDashboard() {
+  // ── Late check-in warning banner (3 allowed/month, after 10:10 AM) ──
+  try {
+    const _now = new Date();
+    const _mStart = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-01`;
+    const { data: _myAtt } = await sb.from('attendance').select('check_in').eq('employee_email', currentUser.email).eq('is_archived', false).gte('date', _mStart);
+    let _lateCount = 0;
+    (_myAtt||[]).forEach(a => { if (a.check_in) { const t = new Date(a.check_in); if (t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 10)) _lateCount++; } });
+    let _lb = document.getElementById('lateWarnBanner');
+    const _dash = document.getElementById('empDashboard');
+    if (!_lb && _dash) { _lb = document.createElement('div'); _lb.id = 'lateWarnBanner'; _dash.insertBefore(_lb, _dash.firstChild); }
+    if (_lb) _lb.innerHTML = (_lateCount > 3)
+      ? `<div style="background:#fff8e6;border:1px solid #f0d98c;color:#8a6d1a;padding:14px 18px;border-radius:10px;margin-bottom:16px;font-size:13px;line-height:1.55">
+           <div style="font-weight:700;margin-bottom:3px">A gentle reminder about punctuality ⏰</div>
+           You've checked in after 10:10 AM <strong>${_lateCount} times</strong> this month (the allowance is 3). We'd really appreciate it if you could arrive on time going forward — it helps the whole team stay in sync. Thank you for your effort! 🙏
+         </div>`
+      : '';
+  } catch(e) { console.error('late banner', e); }
   // Clear CEO stats — employee dashboard nahi dikhne chahiye
   document.getElementById('ceoDashStats').innerHTML = '';
 
@@ -5054,6 +5071,7 @@ const { paidDates, lopDates: quotaExceedDates } = await getLeavePaidMap(employee
   const attByDate = {};
   (attRows || []).forEach(r => { attByDate[r.date] = r; });
   let payableDays = 0, lopDays = 0, weeklyOffDays = 0, presentDays = 0, halfDays = 0, leaveDaysCount = 0;
+  const lopDatesList = [], leaveDatesList = [], halfDatesList = [];
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, month - 1, d);
@@ -5063,10 +5081,10 @@ const { paidDates, lopDates: quotaExceedDates } = await getLeavePaidMap(employee
 
     const att = attByDate[dateStr];
     if (att?.status === 'Present') { presentDays++; payableDays++; }
-else if (att?.status === 'Half Day') { halfDays++; payableDays += 1; }
-else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; }
-    else if (quotaExceedDates.has(dateStr)) { lopDays++; }
-    else { lopDays++; }
+else if (att?.status === 'Half Day') { halfDays++; payableDays += 1; halfDatesList.push(dateStr); }
+else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesList.push(dateStr); }
+    else if (quotaExceedDates.has(dateStr)) { lopDays++; lopDatesList.push(dateStr); }
+    else { lopDays++; lopDatesList.push(dateStr); }
   }
 
   const perDayRate = monthlySalary / daysInMonth;
@@ -5079,7 +5097,7 @@ else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; }
 
   return {
     employee: emp, email: employeeEmail, year, month, daysInMonth,
-    weeklyOffDays, presentDays, halfDays, leaveDaysCount, lopDays,
+    weeklyOffDays, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, leaveDatesList, halfDatesList,
     payableDays, perDayRate, basic, hra, special, monthlySalary,
     basicPaid, hraPaid, specialPaid, netSalary, lopAmount
   };
@@ -5160,6 +5178,8 @@ async function generateSalarySlip() {
             <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Deduction Summary</div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Gross Monthly Salary</span><strong>₹${r.monthlySalary.toLocaleString('en-IN')}</strong></div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa;color:var(--red)"><span>LOP Deduction (${r.lopDays} days)</span><strong>- ₹${r.lopAmount.toLocaleString('en-IN')}</strong></div>
+            ${r.lopDatesList && r.lopDatesList.length ? `<div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 LOP days: ${r.lopDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
+            ${r.leaveDatesList && r.leaveDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Paid Leave (${r.leaveDatesList.length} ${r.leaveDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Leave days: ${r.leaveDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
           </div>
         </div>
       </div>
