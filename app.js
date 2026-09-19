@@ -1759,6 +1759,7 @@ el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
       <div style="display:flex;gap:8px">
         <button class="btn btn-gold btn-sm" id="ppTabPending" onclick="switchPaymentTab('pending')">⏳ Pending</button>
+        <button class="btn btn-outline btn-sm" id="ppTabBills" onclick="switchPaymentTab('bills')">🧾 Bills</button>
         <button class="btn btn-outline btn-sm" id="ppTabCompleted" onclick="switchPaymentTab('completed')">✅ Completed</button>
       </div>
 <button class="btn btn-gold" onclick="openAddPaymentFollowupRecordModal()">➕ Add Follow Up</button>
@@ -1766,9 +1767,10 @@ el.innerHTML = `
     <div id="pendingPaymentsStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px"></div>
     <div id="pendingPaymentsList"></div>
   `;  
-  const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }] = await Promise.all([
-    sbClient.from('clients').select('id, name'),
+  const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }, { data: billing }] = await Promise.all([
+    sbClient.from('clients').select('id, name, phone'),
     sbClient.from('projects').select('*'),
+    sbClient.from('billing').select('*').order('created_at', { ascending: false }),
     sbClient.from('payments').select('*'),
     sbClient.from('followups').select('*').order('next_followup', { ascending: true }),
   ]);
@@ -1804,6 +1806,8 @@ const allPaymentRows = (projects || []).map(p => {
 
   window._pendingPaymentRows = pendingRows;
   window._followupsByClient = followupsByClient;
+  window._billingRows = billing || [];
+  window._clientPhoneMap = {}; (clients||[]).forEach(c => { window._clientPhoneMap[c.id] = c.phone || ''; });
 
   const totalPending = pendingRows.reduce((s, r) => s + r.balance, 0);
   const today = new Date().toISOString().split('T')[0];
@@ -1865,15 +1869,118 @@ function renderPendingPaymentsList() {
 function switchPaymentTab(tab) {
   const pendingBtn = document.getElementById('ppTabPending');
   const completedBtn = document.getElementById('ppTabCompleted');
-  if (tab === 'pending') {
-    pendingBtn.className = 'btn btn-gold btn-sm';
-    completedBtn.className = 'btn btn-outline btn-sm';
-    renderPendingPaymentsList();
-  } else {
-    pendingBtn.className = 'btn btn-outline btn-sm';
-    completedBtn.className = 'btn btn-gold btn-sm';
-    renderCompletedPaymentsList();
+  const billsBtn = document.getElementById('ppTabBills');
+  [pendingBtn, completedBtn, billsBtn].forEach(b => { if (b) b.className = 'btn btn-outline btn-sm'; });
+  if (tab === 'pending') { if(pendingBtn) pendingBtn.className = 'btn btn-gold btn-sm'; renderPendingPaymentsList(); }
+  else if (tab === 'bills') { if(billsBtn) billsBtn.className = 'btn btn-gold btn-sm'; renderBillsList(); }
+  else { if(completedBtn) completedBtn.className = 'btn btn-gold btn-sm'; renderCompletedPaymentsList(); }
+}
+
+// ── BILLING PIPELINE: To Raise (Alisha) -> Raised (Ritika follow-up + WhatsApp) -> Paid ──
+function renderBillsList() {
+  const bills = (window._billingRows || []).filter(b => b.status !== 'Cancelled');
+  const el = document.getElementById('pendingPaymentsList');
+  const toRaise = bills.filter(b => b.status === 'To Raise');
+  const raised  = bills.filter(b => b.status === 'Raised');
+  const paid    = bills.filter(b => b.status === 'Paid');
+  if (!bills.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">🧾</div><div class="empty-title">No bills yet</div><div style="color:var(--muted);font-size:13px;margin-top:6px">Bills appear here when a site visit is punched with \'Bill to be raised\' ticked.</div></div>';
+    return;
   }
+  const section = (title, color, rowsHtml, cols) => `
+    <div style="margin-bottom:22px">
+      <div style="font-size:12px;font-weight:800;color:${color};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${title}</div>
+      <div class="tbl-wrap"><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rowsHtml||`<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:14px">None</td></tr>`}</tbody></table></div>
+    </div>`;
+
+  const toRaiseRows = toRaise.map(b => `<tr>
+      <td><strong>${esc(b.client_name)}</strong></td>
+      <td>${esc(b.project_name)||'-'}</td>
+      <td style="font-size:12px">${b.visit_date ? fmtDate(b.visit_date) : '-'}</td>
+      <td style="font-size:12px;color:var(--muted)">${esc(b.raised_by_name)||'-'}</td>
+      <td><button class="btn btn-gold btn-sm" onclick="openRaiseBillModal('${b.id}')">🧾 Raise Bill</button></td>
+    </tr>`).join('');
+
+  const raisedRows = raised.map(b => {
+    const phone = (window._clientPhoneMap||{})[b.client_id] || '';
+    const digits = String(phone).replace(/\D/g,'');
+    const waNum = digits.length === 10 ? '91'+digits : digits;
+    const msg = encodeURIComponent(`Dear ${b.client_name}, this is a gentle reminder regarding the pending payment for ${b.project_name||'your project'}${b.invoice_no?` (Invoice ${b.invoice_no})`:''}${b.amount?`, amount \u20B9${Number(b.amount).toLocaleString('en-IN')}`:''}. Kindly arrange the payment at your earliest convenience. Thank you. \u2014 Sayash Vastu`);
+    const waBtn = waNum ? `<a href="https://wa.me/${waNum}?text=${msg}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;font-weight:700">💬 WhatsApp</a>` : `<span style="font-size:11px;color:var(--muted)">No phone</span>`;
+    return `<tr>
+      <td><strong>${esc(b.client_name)}</strong></td>
+      <td>${esc(b.project_name)||'-'}</td>
+      <td style="font-weight:700;color:var(--red)">${b.amount?'\u20B9'+Number(b.amount).toLocaleString('en-IN'):'-'}</td>
+      <td style="font-size:12px">${esc(b.invoice_no)||'-'}</td>
+      <td style="font-size:12px">${b.raised_date?fmtDate(b.raised_date):'-'}</td>
+      <td><div style="display:flex;gap:4px">${waBtn}<button class="btn btn-outline btn-sm" onclick="markBillPaid('${b.id}')">✅ Mark Paid</button></div></td>
+    </tr>`;
+  }).join('');
+
+  const paidRows = paid.map(b => `<tr>
+      <td><strong>${esc(b.client_name)}</strong></td>
+      <td>${esc(b.project_name)||'-'}</td>
+      <td style="color:var(--green);font-weight:700">${b.amount?'\u20B9'+Number(b.amount).toLocaleString('en-IN'):'-'}</td>
+      <td style="font-size:12px">${esc(b.invoice_no)||'-'}</td>
+      <td>${b.paid_date?fmtDate(b.paid_date):'-'}</td>
+    </tr>`).join('');
+
+  el.innerHTML =
+    section('🧾 To Raise ('+toRaise.length+')', 'var(--amber)', toRaiseRows, ['Client','Project','Visit Date','Visited By','Action']) +
+    section('📤 Raised — Payment Follow-up ('+raised.length+')', 'var(--red)', raisedRows, ['Client','Project','Amount','Invoice','Raised On','Action']) +
+    section('✅ Paid ('+paid.length+')', 'var(--green)', paidRows, ['Client','Project','Amount','Invoice','Paid On']);
+}
+
+function openRaiseBillModal(billId) {
+  const b = (window._billingRows||[]).find(x => x.id === billId);
+  if (!b) { showToast('Bill not found', 'err'); return; }
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="raiseBillModal">
+      <div class="modal">
+        <div class="modal-title">🧾 Raise Bill — ${esc(b.client_name)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${esc(b.project_name)||''} ${b.visit_date?'· '+fmtDate(b.visit_date):''}</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Amount (\u20B9) *</label><input type="number" id="rb-amount" placeholder="e.g. 25000"></div>
+          <div class="field"><label>Invoice No.</label><input id="rb-invoice" placeholder="e.g. INV-2026-045"></div>
+          <div class="field" style="grid-column:1/-1"><label>Notes</label><textarea id="rb-notes" placeholder="Any details..."></textarea></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('raiseBillModal')">Cancel</button>
+          <button class="btn btn-gold" id="rbSaveBtn" onclick="saveRaiseBill('${b.id}')">📤 Mark Raised & Notify</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+async function saveRaiseBill(billId) {
+  const amount = parseFloat(document.getElementById('rb-amount').value) || null;
+  const invoice = document.getElementById('rb-invoice').value.trim() || null;
+  const notes = document.getElementById('rb-notes').value.trim() || null;
+  if (!amount) { showToast('Amount is required', 'err'); return; }
+  const b = (window._billingRows||[]).find(x => x.id === billId);
+  const btn = document.getElementById('rbSaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  const { error } = await sbClient.from('billing').update({
+    amount, invoice_no: invoice, notes, status: 'Raised',
+    raised_date: new Date().toISOString().split('T')[0],
+    followup_by: 'ritika@sayashvastu.com', updated_at: new Date().toISOString()
+  }).eq('id', billId);
+  if (error) { showToast('❌ ' + error.message, 'err'); if(btn){btn.disabled=false;btn.textContent='📤 Mark Raised & Notify';} return; }
+  await createNotification('ritika@sayashvastu.com', '💰 Bill Raised — Start Payment Follow-up',
+    'Bill of \u20B9' + amount.toLocaleString('en-IN') + ' has been raised for ' + (b?b.client_name:'client') + '. Please begin payment follow-up.', 'Billing', null);
+  closeModal('raiseBillModal');
+  showToast('✅ Bill raised & Ritika notified');
+  loadPendingPayments();
+}
+
+async function markBillPaid(billId) {
+  if (!confirm('Mark this bill as Paid?')) return;
+  const { error } = await sbClient.from('billing').update({
+    status: 'Paid', paid_date: new Date().toISOString().split('T')[0], updated_at: new Date().toISOString()
+  }).eq('id', billId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Marked as Paid');
+  loadPendingPayments();
 }
 
 function renderCompletedPaymentsList() {
