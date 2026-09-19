@@ -1673,11 +1673,13 @@ function openAddVisitEmpGlobal() {
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
 <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
           <div class="field" style="grid-column:1/-1;background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:10px 12px">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin:0;font-weight:600">
-              <input type="checkbox" id="avg-raise-bill" style="width:16px;height:16px;cursor:pointer;accent-color:var(--gold)">
-              <span>🧾 Bill to be raised for this client</span>
-            </label>
-            <div style="font-size:11px;color:var(--muted);margin-top:4px">Tick karne par Alisha ko bill raise karne ki notification jayegi</div>
+            <label style="margin:0;font-weight:600">🧾 Billing Status</label>
+            <select id="avg-billing-status" style="margin-top:6px">
+              <option value="Nil">Nil — No billing for this visit</option>
+              <option value="To Raise">To Raise — Bill needs to be raised</option>
+              <option value="Raised">Raised — Already raised</option>
+            </select>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Selecting "To Raise" notifies Alisha and adds it to the billing queue.</div>
           </div>
           <div class="field" style="grid-column:1/-1">
             <label>🎙️ Voice Notes (Optional)</label>
@@ -2751,6 +2753,7 @@ let trackerPayload = {
         city: city,
         residential_type: restype,
         contact_person: document.getElementById('avg-contact').value.trim() || null,
+        billing_status: (document.getElementById('avg-billing-status') ? document.getElementById('avg-billing-status').value : 'Nil'),
       };
         if (isMaxHealthcare) {
         trackerPayload.coordinator = visitedBy;
@@ -2821,9 +2824,9 @@ if (selectedAssignees.length && !assigneeMatches.length) {
   } else {
     showToast('✅ Saved — duplicates skipped', 'ok');
   }
-  // ── Billing pipeline: "Bill to be raised" ticked -> billing entry + notify Alisha (bell) ──
-  const _raiseBill = document.getElementById('avg-raise-bill');
-  if (_raiseBill && _raiseBill.checked) {
+  // ── Billing pipeline: "To Raise" -> billing entry + notify Alisha (bell) ──
+  const _billStatus = document.getElementById('avg-billing-status') ? document.getElementById('avg-billing-status').value : 'Nil';
+  if (_billStatus === 'To Raise') {
     try {
       const _billProj = projectsToProcess.length === 1 ? projectsToProcess[0] : 'Multiple Projects';
       await sbClient.from('billing').insert({
@@ -2836,7 +2839,7 @@ if (selectedAssignees.length && !assigneeMatches.length) {
         created_by: currentUser.email
       });
       await createNotification('alisha@sayashvastu.com', '🧾 New Bill to Raise',
-        currentUser.name + ' ne ' + clientName + ' ki site visit ki hai \u2014 bill raise karna hai.', 'Billing', null);
+        currentUser.name + ' completed a site visit for ' + clientName + '. Please raise the bill.', 'Billing', null);
     } catch(e) { console.error('billing create failed:', e); }
   }
   closeModal('addVisitGlobalModal');
