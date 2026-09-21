@@ -170,6 +170,63 @@ async function loadPerformancePanel(){
       ${sub?`<div style="font-size:11px;color:#6b7280;margin-top:2px">${sub}</div>`:''}
     </div>`;
 
+  // ── YOUR SCORE hero: shows the employee their own score, broken down ──
+  let hero = '';
+  if (mine) {
+    const outPct = Math.min(100, mine.output * 12);
+    const comp = [
+      { label:'On-time delivery', pts: mine.onTimePct*0.35,                    max:35, tip:'finish tasks on or before their due date.' },
+      { label:'Work output',      pts: outPct*0.35,                            max:35, tip:'deliver more work — tasks, site visits and audits all count.' },
+      { label:'No overdue',       pts: Math.max(0,100-mine.overdue*25)*0.20,   max:20, tip:'clear overdue tasks — each one pulls points down.' },
+      { label:'Attendance',       pts: mine.attPct*0.10,                       max:10, tip:'be present on working days.' },
+    ];
+    // round each contribution, then reconcile so the bars add up to the official score
+    const shown = comp.map(c => Math.round(c.pts));
+    let delta = mine.score - shown.reduce((a,b)=>a+b,0);
+    if (delta !== 0) { const idx = shown.indexOf(Math.max(...shown)); shown[idx] = Math.max(0, Math.min(comp[idx].max, shown[idx]+delta)); }
+    comp.forEach((c,i)=> c.shown = shown[i]);
+
+    const lv = mine.score>=85 ? {t:'Excellent',e:'🌟',c:'#1E8449'}
+             : mine.score>=70 ? {t:'Good',e:'👍',c:'#1E8449'}
+             : mine.score>=50 ? {t:'Fair',e:'🙂',c:'#B7791F'}
+             :                   {t:'Needs work',e:'📈',c:'#C0392B'};
+
+    const noWork = (mine.output===0 && mine.overdue===0 && mine.finished===0);
+    const focus  = comp.slice().sort((a,b)=>(b.max-b.pts)-(a.max-a.pts))[0];
+    const focusMsg = noWork
+      ? 'No work is recorded for you this period yet — completing tasks, visits or audits will build your score.'
+      : `${focus.label} is where you're losing the most points — ${focus.tip}`;
+
+    const bar = c => {
+      const pctFill = Math.round(c.pts / c.max * 100);
+      const col = pctFill>=80 ? '#1E8449' : pctFill>=50 ? '#B7791F' : '#C0392B';
+      return `<div style="display:flex;align-items:center;gap:10px;margin:8px 0">
+        <div style="width:120px;font-size:12px;color:#4b5563;flex-shrink:0">${c.label}</div>
+        <div style="flex:1;height:8px;background:#eceef3;border-radius:5px;overflow:hidden"><div style="width:${pctFill}%;height:100%;background:${col};border-radius:5px"></div></div>
+        <div style="width:52px;text-align:right;font-size:12px;font-weight:700;color:#1b2437">${c.shown}<span style="color:#9aa0aa;font-weight:400">/${c.max}</span></div>
+      </div>`;
+    };
+
+    hero = `<div style="background:linear-gradient(135deg,#f8f9fc,#eef2fb);border:1px solid #e3e8f2;border-radius:12px;padding:15px 16px;margin-bottom:14px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:11px">
+        <div>
+          <div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px">YOUR SCORE</div>
+          <div style="display:flex;align-items:baseline;gap:9px;margin-top:3px">
+            <div style="font-size:36px;font-weight:800;color:${lv.c};line-height:1">${mine.score}</div>
+            <div style="font-size:14px;color:#9aa0aa;font-weight:600">/100</div>
+            <div style="font-size:13.5px;font-weight:700;color:${lv.c}">${lv.e} ${lv.t}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:11px;color:#6b7280">Your rank</div>
+          <div style="font-size:21px;font-weight:700;color:${myRank===1?'#8a6d2f':'#1b2437'}">#${myRank} <span style="font-size:12px;color:#9aa0aa;font-weight:500">of ${rows.length}</span></div>
+        </div>
+      </div>
+      <div style="border-top:1px solid #e3e8f2;padding-top:9px">${comp.map(bar).join('')}</div>
+      <div style="background:#eef4ff;border-radius:8px;padding:9px 12px;font-size:12px;color:#2c5aa0;margin-top:11px;line-height:1.5"><b>🎯 Focus:</b> ${focusMsg}</div>
+    </div>`;
+  }
+
   el.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:13px;flex-wrap:wrap;gap:8px">
       <div style="font-weight:700;font-size:14px;color:var(--navy)">📊 Performance — ${esc(label)}</div>
@@ -193,12 +250,13 @@ async function loadPerformancePanel(){
       </div>
     </div>` : ''}
 
+    ${hero}
     ${mine ? `<div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px;margin:16px 0 8px">YOUR NUMBERS — ${esc(currentUser && currentUser.name || 'You')}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
       ${stat('On-time delivery', mine.onTimePct+'%', mine.finished+' completed', mine.onTimePct>=80?'#1E8449':mine.onTimePct>=60?'#B7791F':'#C0392B')}
       ${stat('Avg turnaround', mine.avgTurn? mine.avgTurn+'d' : '—', 'per task')}
       ${stat('Attendance', mine.attPct+'%', (mine.presentDays + (mine.halfDays?mine.halfDays*0.5:0)) + ' of ' + mine.workingDays + ' working days this period')}
-      ${canSeeTeam ? stat('Your rank', '#'+myRank, 'of '+rows.length, myRank===1?'#8a6d2f':null) : stat('Work delivered', mine.output, mine.finished+' tasks · '+mine.visits+' visits · '+mine.auditsDone+' audits')}
+      ${stat('Work delivered', mine.output, mine.finished+' tasks · '+mine.visits+' visits · '+mine.auditsDone+' audits')}
     </div>
     ${(mine.badges&&mine.badges.length)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${mine.badges.map(b=>`<span style="font-size:11px;background:#fdf6e6;color:#8a6d2f;border:1px solid #e8dcc0;border-radius:20px;padding:3px 10px;font-weight:600">${b.icon} ${b.text}</span>`).join('')}</div>`:''}
     ${mine.overdue ? `<div style="background:#fdeceb;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#8c2f26;font-weight:600;margin-bottom:14px">⚠️ ${mine.overdue} task${mine.overdue>1?'s':''} overdue — clearing ${mine.overdue>1?'them':'it'} lifts your score.</div>` : ''}` : ''}
