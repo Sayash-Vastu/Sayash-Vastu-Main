@@ -2824,23 +2824,25 @@ if (selectedAssignees.length && !assigneeMatches.length) {
   } else {
     showToast('✅ Saved — duplicates skipped', 'ok');
   }
-  // ── Billing pipeline: "To Raise" -> billing entry + notify Alisha (bell) ──
+  // ── Billing pipeline: "To Raise" -> notify Alisha (independent) + billing entry ──
   const _billStatus = document.getElementById('avg-billing-status') ? document.getElementById('avg-billing-status').value : 'Nil';
   if (_billStatus === 'To Raise') {
+    const _billProj = projectsToProcess.length === 1 ? projectsToProcess[0] : 'Multiple Projects';
+    // 1) Notify Alisha first so a billing-table error never blocks the alert
     try {
-      const _billProj = projectsToProcess.length === 1 ? projectsToProcess[0] : 'Multiple Projects';
-      await sbClient.from('billing').insert({
-        client_id: clientId,
-        client_name: clientName,
-        project_name: _billProj,
-        visit_date: visitDates[0] || null,
-        status: 'To Raise',
-        raised_by_name: currentUser.name,
-        created_by: currentUser.email
-      });
       await createNotification('alisha@sayashvastu.com', '🧾 New Bill to Raise',
         currentUser.name + ' completed a site visit for ' + clientName + '. Please raise the bill.', 'Billing', null);
-    } catch(e) { console.error('billing create failed:', e); }
+    } catch(e) { console.error('bill notify failed:', e); }
+    // 2) Add to billing queue (surface any error as a toast during testing)
+    try {
+      const { error: _be } = await sbClient.from('billing').insert({
+        client_id: clientId, client_name: clientName, project_name: _billProj,
+        visit_date: visitDates[0] || null, status: 'To Raise',
+        raised_by_name: currentUser.name, created_by: currentUser.email
+      });
+      if (_be) { console.error('billing insert error:', _be.message); showToast('⚠️ Bill queue error: ' + _be.message, 'warn'); }
+      else { showToast('🧾 Bill sent to Alisha for raising', 'ok'); }
+    } catch(e) { console.error('billing create failed:', e); showToast('⚠️ Bill queue failed', 'warn'); }
   }
   closeModal('addVisitGlobalModal');
   loadClientVisitsAll();
