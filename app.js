@@ -4585,10 +4585,12 @@ const { error } = await sb.from('tasks').insert({
     });
     if (!error) {
       successCount++;
-      await createNotification(emp.email.toLowerCase(), `📋 New task assigned by ${currentUser.name}`, `Project: ${project} — ${detail.substring(0,60)}`, 'task', 'tasks');
-      await sendEmail(emp.email, emp.name, '📋 New Task Assigned — Sayash Vastu',
-        `You have been assigned a new task.\n\nProject: ${project}\nTask: ${detail}\nStart: ${start}\nEnd: ${end}${atFileUrl?'\nFile: '+atFileName:''}`,
-        'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
+      if (emp.email.toLowerCase() !== currentUser.email.toLowerCase()) {   // skip self-assignment: no notification/email to yourself
+        await createNotification(emp.email.toLowerCase(), `📋 New task assigned by ${currentUser.name}`, `Project: ${project} — ${detail.substring(0,60)}`, 'task', 'tasks');
+        await sendEmail(emp.email, emp.name, '📋 New Task Assigned — Sayash Vastu',
+          `You have been assigned a new task.\n\nProject: ${project}\nTask: ${detail}\nStart: ${start}\nEnd: ${end}${atFileUrl?'\nFile: '+atFileName:''}`,
+          'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
+      }
     }
   }
   btn.disabled = false; btn.textContent = '➕ Assign Task';
@@ -5042,8 +5044,8 @@ const { data } = await sb.from('employees').select('*').order('employee_code',{a
 }
 
 async function permanentlyDeleteEmployee(id, name, email) {
-  if (!confirm(`⚠️ PERMANENTLY DELETE ${name}?\n\nYeh action undo nahi ho sakti! Sab tasks, attendance, leaves bhi delete ho jayenge.\n\nConfirm karo?`)) return;
-  if (!confirm(`Final confirmation: ${name} ko DB se hamesha ke liye delete karna hai?`)) return;
+  if (!confirm(`⚠️ PERMANENTLY DELETE ${name}?\n\nThis action cannot be undone. All tasks, attendance and leaves will also be deleted.\n\nAre you sure?`)) return;
+  if (!confirm(`Final confirmation: permanently delete ${name} from the database?`)) return;
   
   await sb.from('tasks').delete().eq('assigned_to_email', email);
   await sb.from('attendance').delete().eq('employee_email', email);
