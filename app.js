@@ -1981,7 +1981,7 @@ async function saveRaiseBill(billId) {
   // 3) Notify the person who logged the visit (e.g. Harshita) that the bill is raised
   if (b && b.created_by) {
     await createNotification(b.created_by, '🧾 Bill Raised',
-      'The bill for ' + (b.client_name || 'the client') + ' has been raised' + (amount ? ' (\u20B9' + amount.toLocaleString('en-IN') + ')' : '') + '. Payment follow-up is now handled by the accounts team.', 'Billing', null);
+      'The bill for ' + (b.client_name || 'the client') + ' has been raised' + (amount ? ' (\u20B9' + amount.toLocaleString('en-IN') + ')' : '') + '. Payment follow-up is now handled by Ritika.', 'Billing', null);
   }
   closeModal('raiseBillModal');
   showToast('✅ Bill raised — tracker updated & team notified');
