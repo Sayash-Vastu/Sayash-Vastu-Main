@@ -941,7 +941,7 @@ async function doLogin() {
   btn.disabled = true; btn.innerHTML = '<span class="spin"></span>Signing in...';
   errEl.style.display = 'none';
   try {
-const { data, error } = await sb.from('employees').select('*').eq('email', email.toLowerCase()).eq('password_hash', pass).eq('is_active', true).single();
+const { data, error } = await sb.rpc('verify_login', { p_email: email.toLowerCase(), p_password: pass });
     if (error || !data) {
       showLoginError('Invalid email or password. Please try again.');
       btn.disabled = false; btn.textContent = 'Sign In to Portal'; return;
@@ -5075,9 +5075,10 @@ async function addEmployee() {
   const joining = document.getElementById('ae-joining').value;
   const photoFile = document.getElementById('ae-photo').files[0];
   
+  const { data: hashedPass } = await sb.rpc('hash_password', { p_password: pass });
   const { data: newEmp, error } = await sb.from('employees').insert({
     name, email: email.toLowerCase(), phone, employee_code: code,
-    department: dept, designation: desig, role, password_hash: pass,
+    department: dept, designation: desig, role, password_hash: hashedPass || pass,
     date_of_birth: dob || null, joining_date: joining || null,
     weekly_off_pattern: weekOff
   }).select().single();
@@ -6005,7 +6006,8 @@ async function savePassword() {
   const msgEl = document.getElementById('passMsg');
   if (!newPass) { msgEl.textContent = '⚠️ Enter a password'; msgEl.style.color = 'var(--red)'; return; }
   if (newPass.length < 6) { msgEl.textContent = '⚠️ Min 6 characters'; msgEl.style.color = 'var(--red)'; return; }
-  const { error } = await sb.from('employees').update({ password_hash: newPass }).eq('id', currentPassEmpId);
+  const { data: hashedPass } = await sb.rpc('hash_password', { p_password: newPass });
+  const { error } = await sb.from('employees').update({ password_hash: hashedPass || newPass }).eq('id', currentPassEmpId);
   if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
   showToast('✅ Password updated!', 'ok');
   closeModal('passModal');
@@ -7615,7 +7617,8 @@ async function changeOwnPassword() {
   if (newPass.length < 6) { msgEl.textContent = '⚠️ Min 6 characters'; msgEl.style.color = 'var(--red)'; return; }
   if (newPass !== confirmPass) { msgEl.textContent = '❌ Passwords do not match'; msgEl.style.color = 'var(--red)'; return; }
 
-  const { error } = await sb.from('employees').update({ password_hash: newPass }).eq('email', currentUser.email);
+  const { data: hashedPass } = await sb.rpc('hash_password', { p_password: newPass });
+  const { error } = await sb.from('employees').update({ password_hash: hashedPass || newPass }).eq('email', currentUser.email);
   if (error) { msgEl.textContent = '❌ '+error.message; msgEl.style.color = 'var(--red)'; return; }
 
   msgEl.textContent = '✅ Password updated!'; msgEl.style.color = 'var(--green)';
