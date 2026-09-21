@@ -1900,7 +1900,7 @@ function renderBillsList() {
       <td>${esc(b.project_name)||'-'}</td>
       <td style="font-size:12px">${b.visit_date ? fmtDate(b.visit_date) : '-'}</td>
       <td style="font-size:12px;color:var(--muted)">${esc(b.raised_by_name)||'-'}</td>
-      <td><button class="btn btn-gold btn-sm" onclick="openRaiseBillModal('${b.id}')">🧾 Raise Bill</button></td>
+      <td><div style="display:flex;gap:4px"><button class="btn btn-gold btn-sm" onclick="openRaiseBillModal('${b.id}')">🧾 Raise Bill</button><button class="btn btn-sm" onclick="deleteBill('${b.id}')" title="Delete" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></div></td>
     </tr>`).join('');
 
   const raisedRows = raised.map(b => {
@@ -1915,7 +1915,7 @@ function renderBillsList() {
       <td style="font-weight:700;color:var(--red)">${b.amount?'\u20B9'+Number(b.amount).toLocaleString('en-IN'):'-'}</td>
       <td style="font-size:12px">${esc(b.invoice_no)||'-'}</td>
       <td style="font-size:12px">${b.raised_date?fmtDate(b.raised_date):'-'}</td>
-      <td><div style="display:flex;gap:4px">${waBtn}<button class="btn btn-outline btn-sm" onclick="markBillPaid('${b.id}')">✅ Mark Paid</button></div></td>
+      <td><div style="display:flex;gap:4px">${waBtn}<button class="btn btn-outline btn-sm" onclick="markBillPaid('${b.id}')">✅ Mark Paid</button><button class="btn btn-sm" onclick="deleteBill('${b.id}')" title="Delete" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></div></td>
     </tr>`;
   }).join('');
 
@@ -1985,6 +1985,14 @@ async function saveRaiseBill(billId) {
   }
   closeModal('raiseBillModal');
   showToast('✅ Bill raised — tracker updated & team notified');
+  loadPendingPayments();
+}
+
+async function deleteBill(billId) {
+  if (!confirm('Delete this bill entry? This cannot be undone.')) return;
+  const { error } = await sbClient.from('billing').delete().eq('id', billId);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('🗑️ Bill deleted');
   loadPendingPayments();
 }
 
