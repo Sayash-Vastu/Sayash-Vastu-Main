@@ -1665,8 +1665,10 @@ function openAddVisitEmpGlobal() {
           </div>
 <div class="field" style="grid-column:1/-1"><label>Family Details (Optional)</label>
             <input id="avg-family" placeholder="e.g. Family of 4, joint family with 2 sons"></div>
-          <div class="field" style="grid-column:1/-1"><label>Contact Person</label>
-            <input id="avg-contact" placeholder="e.g. Mr. Sharma - 9876543210"></div>
+          <div class="field"><label>Contact Person</label>
+            <input id="avg-contact" placeholder="e.g. Mr. Sharma"></div>
+          <div class="field"><label>Contact Phone (for follow-up)</label>
+            <input id="avg-contact-phone" placeholder="e.g. 9876543210"></div>
           <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address or Google Maps link"></div>
           <div class="field" style="grid-column:1/-1"><label>Reference</label><input id="avg-reference" placeholder="e.g. Referred by Mr. Verma / Ref #123"></div>
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
@@ -1904,7 +1906,7 @@ function renderBillsList() {
     </tr>`).join('');
 
   const raisedRows = raised.map(b => {
-    const phone = (window._clientPhoneMap||{})[b.client_id] || '';
+    const phone = b.contact_phone || (window._clientPhoneMap||{})[b.client_id] || '';
     const digits = String(phone).replace(/\D/g,'');
     const waNum = digits.length === 10 ? '91'+digits : digits;
     const msg = encodeURIComponent(`Dear ${b.client_name}, this is a gentle reminder regarding the pending payment for ${b.project_name||'your project'}${b.invoice_no?` (Invoice ${b.invoice_no})`:''}${b.amount?`, amount \u20B9${Number(b.amount).toLocaleString('en-IN')}`:''}. Kindly arrange the payment at your earliest convenience. Thank you. \u2014 Sayash Vastu`);
@@ -2762,6 +2764,7 @@ remarks: document.getElementById('avg-remarks').value.trim(),
         residential_type: restype,
         family_details: familyDetails || null,
         contact_person: document.getElementById('avg-contact').value.trim() || null,
+        contact_phone: (document.getElementById('avg-contact-phone') ? document.getElementById('avg-contact-phone').value.trim() : '') || null,
       });
         if (error) { allErrors.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ': ' + error.message); continue; }
 let trackerPayload = {
@@ -2774,6 +2777,7 @@ let trackerPayload = {
         city: city,
         residential_type: restype,
         contact_person: document.getElementById('avg-contact').value.trim() || null,
+        contact_phone: (document.getElementById('avg-contact-phone') ? document.getElementById('avg-contact-phone').value.trim() : '') || null,
         billing_status: (document.getElementById('avg-billing-status') ? document.getElementById('avg-billing-status').value : 'Nil'),
       };
         if (isMaxHealthcare) {
@@ -2859,6 +2863,7 @@ if (selectedAssignees.length && !assigneeMatches.length) {
       const { error: _be } = await sbClient.from('billing').insert({
         client_id: clientId, client_name: clientName, project_name: _billProj,
         visit_date: visitDates[0] || null, status: 'To Raise',
+        contact_phone: (document.getElementById('avg-contact-phone') ? document.getElementById('avg-contact-phone').value.trim() : '') || null,
         raised_by_name: currentUser.name, created_by: currentUser.email
       });
       if (_be) { console.error('billing insert error:', _be.message); showToast('⚠️ Bill queue error: ' + _be.message, 'warn'); }
