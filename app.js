@@ -360,7 +360,7 @@ const typeIcons = {
           <div style="font-size:20px;flex-shrink:0">${typeIcons[n.type]||'🔔'}</div>
           <div style="flex:1">
             <div class="notif-item-title">${esc(n.title)}</div>
-            <div class="notif-item-sub">${esc((n.message||'').substring(0,80))}${(n.message||'').length>80?'...':''}</div>
+            <div class="notif-item-sub" style="white-space:pre-line;word-break:break-word">${esc(n.message||'')}</div>
             <div class="notif-item-time">${new Date(n.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
           </div>
           <div class="notif-dot-badge" style="margin-top:6px;flex-shrink:0"></div>
@@ -2830,8 +2830,8 @@ if (selectedAssignees.length && !assigneeMatches.length) {
     const _billProj = projectsToProcess.length === 1 ? projectsToProcess[0] : 'Multiple Projects';
     // 1) Notify Alisha first so a billing-table error never blocks the alert
     try {
-      await createNotification('alisha@sayashvastu.com', '🧾 New Bill to Raise',
-        currentUser.name + ' completed a site visit for ' + clientName + '. Please raise the bill.', 'Billing', null);
+      await createNotification('alisha@sayashvastu.com', '🧾 Bill to be Raised',
+        'Site visit completed for ' + clientName + (_billProj && _billProj !== 'Multiple Projects' ? ' — ' + _billProj : '') + '. A bill needs to be raised.\nCompleted by: ' + currentUser.name, 'Billing', null);
     } catch(e) { console.error('bill notify failed:', e); }
     // 2) Add to billing queue (surface any error as a toast during testing)
     try {
