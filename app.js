@@ -1772,9 +1772,9 @@ el.innerHTML = `
   const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }, { data: billing }] = await Promise.all([
     sbClient.from('clients').select('id, name, phone'),
     sbClient.from('projects').select('*'),
-    sbClient.from('billing').select('*').order('created_at', { ascending: false }),
     sbClient.from('payments').select('*'),
     sbClient.from('followups').select('*').order('next_followup', { ascending: true }),
+    sbClient.from('billing').select('*').order('created_at', { ascending: false }),
   ]);
 
   const clientMap = {};
