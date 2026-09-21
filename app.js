@@ -1968,10 +1968,23 @@ async function saveRaiseBill(billId) {
     followup_by: 'ritika@sayashvastu.com', updated_at: new Date().toISOString()
   }).eq('id', billId);
   if (error) { showToast('❌ ' + error.message, 'err'); if(btn){btn.disabled=false;btn.textContent='📤 Mark Raised & Notify';} return; }
+  // 1) Sync Project Tracker Billing column -> "Raised"
+  try {
+    let _tq = sbClient.from('project_records').update({ billing_status: 'Raised' })
+      .eq('client_id', b.client_id).eq('billing_status', 'To Raise');
+    if (b && b.visit_date) _tq = _tq.eq('site_visit_date', b.visit_date);
+    await _tq;
+  } catch(e) { console.error('tracker billing sync failed:', e); }
+  // 2) Notify Ritika to start payment follow-up
   await createNotification('ritika@sayashvastu.com', '💰 Bill Raised — Start Payment Follow-up',
     'Bill of \u20B9' + amount.toLocaleString('en-IN') + ' has been raised for ' + (b?b.client_name:'client') + '. Please begin payment follow-up.', 'Billing', null);
+  // 3) Notify the person who logged the visit (e.g. Harshita) that the bill is raised
+  if (b && b.created_by) {
+    await createNotification(b.created_by, '🧾 Bill Raised',
+      'The bill for ' + (b.client_name || 'the client') + ' has been raised' + (amount ? ' (\u20B9' + amount.toLocaleString('en-IN') + ')' : '') + '. Payment follow-up is now handled by the accounts team.', 'Billing', null);
+  }
   closeModal('raiseBillModal');
-  showToast('✅ Bill raised & Ritika notified');
+  showToast('✅ Bill raised — tracker updated & team notified');
   loadPendingPayments();
 }
 
