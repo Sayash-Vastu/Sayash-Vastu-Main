@@ -223,6 +223,7 @@ async function loadPerformancePanel(){
         </div>
       </div>
       <div style="border-top:1px solid #e3e8f2;padding-top:9px">${comp.map(bar).join('')}</div>
+      <div style="font-size:11.5px;color:#6b7280;margin-top:9px;padding-top:9px;border-top:1px dashed #e3e8f2">Avg turnaround <b style="color:#1b2437">${mine.avgTurn? mine.avgTurn+'d':'—'}</b> per task · Delivered <b style="color:#1b2437">${mine.output}</b> (${mine.finished} tasks · ${mine.visits} visits · ${mine.auditsDone} audits)</div>
       <div style="background:#eef4ff;border-radius:8px;padding:9px 12px;font-size:12px;color:#2c5aa0;margin-top:11px;line-height:1.5"><b>🎯 Focus:</b> ${focusMsg}</div>
     </div>`;
   }
@@ -251,14 +252,7 @@ async function loadPerformancePanel(){
     </div>` : ''}
 
     ${hero}
-    ${mine ? `<div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px;margin:16px 0 8px">YOUR NUMBERS — ${esc(currentUser && currentUser.name || 'You')}</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px">
-      ${stat('On-time delivery', mine.onTimePct+'%', mine.finished+' completed', mine.onTimePct>=80?'#1E8449':mine.onTimePct>=60?'#B7791F':'#C0392B')}
-      ${stat('Avg turnaround', mine.avgTurn? mine.avgTurn+'d' : '—', 'per task')}
-      ${stat('Attendance', mine.attPct+'%', (mine.presentDays + (mine.halfDays?mine.halfDays*0.5:0)) + ' of ' + mine.workingDays + ' working days this period')}
-      ${stat('Work delivered', mine.output, mine.finished+' tasks · '+mine.visits+' visits · '+mine.auditsDone+' audits')}
-    </div>
-    ${(mine.badges&&mine.badges.length)?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${mine.badges.map(b=>`<span style="font-size:11px;background:#fdf6e6;color:#8a6d2f;border:1px solid #e8dcc0;border-radius:20px;padding:3px 10px;font-weight:600">${b.icon} ${b.text}</span>`).join('')}</div>`:''}
+    ${mine ? `${(mine.badges&&mine.badges.length)?`<div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px;margin:2px 0 7px">BADGES EARNED</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">${mine.badges.map(b=>`<span style="font-size:11px;background:#fdf6e6;color:#8a6d2f;border:1px solid #e8dcc0;border-radius:20px;padding:3px 10px;font-weight:600">${b.icon} ${b.text}</span>`).join('')}</div>`:''}
     ${mine.overdue ? `<div style="background:#fdeceb;border-radius:8px;padding:10px 12px;font-size:12.5px;color:#8c2f26;font-weight:600;margin-bottom:14px">⚠️ ${mine.overdue} task${mine.overdue>1?'s':''} overdue — clearing ${mine.overdue>1?'them':'it'} lifts your score.</div>` : ''}` : ''}
 
     ${canSeeTeam ? `<div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px;margin-bottom:7px">TEAM</div>` : ''}
