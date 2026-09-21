@@ -8139,7 +8139,8 @@ const isCEO = currentUser.role === 'ceo';
   if (isCEO) {
     document.getElementById('allPerfSection').style.display = 'block';
     document.getElementById('myPerfCard').style.display = 'none';
-const { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
+let { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
+    emps = (emps || []).filter(e => !['ceo','hr'].includes(String(e.role||'').toLowerCase()));   // hide CEO & HR from team report
     const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
 const { data: allAtt } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
     const { data: allVisits } = await sbClient.from('site_visits').select('visited_by');
