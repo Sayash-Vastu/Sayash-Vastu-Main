@@ -1893,68 +1893,87 @@ function switchPaymentTab(tab) {
 function renderBillsList() {
   const bills = (window._billingRows || []).filter(b => b.status !== 'Cancelled');
   const el = document.getElementById('pendingPaymentsList');
-  const toRaise = bills.filter(b => b.status === 'To Raise');
-  const raised  = bills.filter(b => b.status === 'Raised');
-  const paid    = bills.filter(b => b.status === 'Paid');
   if (!bills.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">🧾</div><div class="empty-title">No bills yet</div><div style="color:var(--muted);font-size:13px;margin-top:6px">Bills appear here when a site visit is punched with \'Bill to be raised\' ticked.</div></div>';
     return;
   }
-  const section = (title, color, rowsHtml, cols) => `
-    <div style="margin-bottom:22px">
-      <div style="font-size:12px;font-weight:800;color:${color};text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">${title}</div>
-      <div class="tbl-wrap"><table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>${rowsHtml||`<tr><td colspan="${cols.length}" style="text-align:center;color:var(--muted);padding:14px">None</td></tr>`}</tbody></table></div>
-    </div>`;
-
-  const toRaiseRows = toRaise.map(b => `<tr>
-      <td><strong>${esc(b.client_name)}</strong></td>
-      <td>${esc(b.project_name)||'-'}</td>
-      <td style="font-size:12px">${b.visit_date ? fmtDate(b.visit_date) : '-'}</td>
-      <td style="font-size:12px;color:var(--muted)">${esc(b.raised_by_name)||'-'}</td>
-      <td><div style="display:flex;gap:4px"><button class="btn btn-gold btn-sm" onclick="openRaiseBillModal('${b.id}')">🧾 Raise Bill</button><button class="btn btn-sm" onclick="deleteBill('${b.id}')" title="Delete" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></div></td>
-    </tr>`).join('');
-
   const today = new Date().toISOString().slice(0,10);
   const outcomeColors = { 'Paid':'#1E8449','Promised to Pay':'#B7791F','Partial Received':'#B7791F','No Response':'#C0392B','Disputed':'#C0392B' };
-  const raisedRows = raised.map(b => {
-    const phone = b.contact_phone || (window._clientPhoneMap||{})[b.client_id] || '';
-    const digits = String(phone).replace(/\D/g,'');
-    const waNum = digits.length === 10 ? '91'+digits : digits;
-    const msg = encodeURIComponent(`Dear ${b.client_name}, this is a gentle reminder regarding the pending payment for ${b.project_name||'your project'}${b.invoice_no?` (Invoice ${b.invoice_no})`:''}${b.amount?`, amount ₹${Number(b.amount).toLocaleString('en-IN')}`:''}. Kindly arrange the payment at your earliest convenience. Thank you. — Sayash Vastu`);
-    const waBtn = waNum ? `<a href="https://wa.me/${waNum}?text=${msg}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;font-weight:700" title="WhatsApp reminder">💬</a>` : '';
+  const statusOrder = { 'To Raise':0, 'Raised':1, 'Paid':2 };
+  const so = st => (statusOrder[st] === undefined ? 9 : statusOrder[st]);
+  const statusBadge = (st) => {
+    const map = { 'To Raise':['#8a6d2f','#fdf6e6','🧾 To Raise'], 'Raised':['#C0392B','#fdeceb','📤 Raised'], 'Paid':['#1E8449','#eafaf1','✅ Paid'] };
+    const m = map[st] || ['#6b7280','#f4f6fb',st];
+    return `<span style="font-size:11px;background:${m[1]};color:${m[0]};border-radius:10px;padding:2px 9px;font-weight:700;white-space:nowrap">${m[2]}</span>`;
+  };
+  const del = (id) => `<button class="btn btn-sm" onclick="deleteBill('${id}')" title="Delete" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>`;
+  const sorted = bills.slice().sort((a,b) => so(a.status) - so(b.status));
+
+  const rowsHtml = sorted.map(b => {
     const logs = (window._payFollowupsByBill||{})[b.id] || [];
     const count = logs.length;
     const last = logs[0] || null;
     const next = last && last.next_followup ? last.next_followup : null;
-    const isOverdue = next && next < today;
+    const isOverdue = next && next < today && b.status !== 'Paid';
     const lastBadge = last && last.outcome ? `<span style="font-size:10px;background:#f4f6fb;color:${outcomeColors[last.outcome]||'#6b7280'};border:1px solid #e2e5ec;border-radius:10px;padding:1px 7px;font-weight:600;white-space:nowrap">${esc(last.outcome)}</span>` : '';
-    const fuCell = count
-      ? `<div style="font-size:12px"><b>${count}×</b> followed up</div>${last?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${fmtDate(last.followup_date)}${last.client_response?` — “${esc(last.client_response.substring(0,42))}${last.client_response.length>42?'…':''}”`:''}</div>`:''}`
-      : `<span style="font-size:11px;color:var(--amber);font-weight:600">No follow-up yet</span>`;
-    const nextCell = next
-      ? `<span style="font-size:12px;${isOverdue?'color:var(--red);font-weight:700':''}">${fmtDate(next)}${isOverdue?' ⚠️':''}</span>`
-      : `<span style="color:var(--muted)">—</span>`;
+
+    let sub;
+    if (b.status === 'To Raise') {
+      sub = `${esc(b.project_name)||''}${b.visit_date?' · '+fmtDate(b.visit_date):''}${b.raised_by_name?' · by '+esc(b.raised_by_name):''}`;
+    } else {
+      sub = `${esc(b.project_name)||''}${b.invoice_no?' · '+esc(b.invoice_no):''}${b.status==='Paid'&&b.paid_date?' · paid '+fmtDate(b.paid_date):(b.raised_date?' · '+fmtDate(b.raised_date):'')}`;
+    }
+
+    const amtColor = b.status==='Paid' ? 'var(--green)' : b.status==='Raised' ? 'var(--red)' : 'var(--muted)';
+    const amtHtml = b.amount ? `<span style="font-weight:700;color:${amtColor}">₹${Number(b.amount).toLocaleString('en-IN')}</span>` : '<span style="color:var(--muted)">—</span>';
+
+    let fuCell, nextCell;
+    if (b.status === 'Raised') {
+      fuCell = count
+        ? `<div style="font-size:12px"><b>${count}×</b> followed up</div>${last?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${fmtDate(last.followup_date)}${last.client_response?` — “${esc(last.client_response.substring(0,38))}${last.client_response.length>38?'…':''}”`:''}</div>`:''}`
+        : `<span style="font-size:11px;color:var(--amber);font-weight:600">No follow-up yet</span>`;
+      nextCell = next ? `<span style="font-size:12px;${isOverdue?'color:var(--red);font-weight:700':''}">${fmtDate(next)}${isOverdue?' ⚠️':''}</span>` : '<span style="color:var(--muted)">—</span>';
+    } else if (b.status === 'Paid') {
+      fuCell = count ? `<span style="font-size:11px;color:var(--muted)">${count}× done</span>` : '<span style="color:var(--muted)">—</span>';
+      nextCell = '<span style="color:var(--muted)">—</span>';
+    } else {
+      fuCell = '<span style="color:var(--muted)">—</span>';
+      nextCell = '<span style="color:var(--muted)">—</span>';
+    }
+
+    let actions;
+    if (b.status === 'To Raise') {
+      actions = `<button class="btn btn-gold btn-sm" onclick="openRaiseBillModal('${b.id}')">🧾 Raise Bill</button>${del(b.id)}`;
+    } else if (b.status === 'Raised') {
+      const phone = b.contact_phone || (window._clientPhoneMap||{})[b.client_id] || '';
+      const digits = String(phone).replace(/\D/g,'');
+      const waNum = digits.length === 10 ? '91'+digits : digits;
+      const msg = encodeURIComponent(`Dear ${b.client_name}, this is a gentle reminder regarding the pending payment for ${b.project_name||'your project'}${b.invoice_no?` (Invoice ${b.invoice_no})`:''}${b.amount?`, amount ₹${Number(b.amount).toLocaleString('en-IN')}`:''}. Kindly arrange the payment at your earliest convenience. Thank you. — Sayash Vastu`);
+      const waBtn = waNum ? `<a href="https://wa.me/${waNum}?text=${msg}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;font-weight:700" title="WhatsApp reminder">💬</a>` : '';
+      actions = `${waBtn}<button class="btn btn-gold btn-sm" onclick="openLogFollowupModal('${b.id}')" title="Log a follow-up">➕ Log</button><button class="btn btn-outline btn-sm" onclick="openFollowupHistory('${b.id}')" title="Follow-up history">📜</button><button class="btn btn-outline btn-sm" onclick="markBillPaid('${b.id}')" title="Mark Paid">✅</button>${del(b.id)}`;
+    } else {
+      actions = `${count?`<button class="btn btn-outline btn-sm" onclick="openFollowupHistory('${b.id}')" title="Follow-up history">📜</button>`:''}${del(b.id)}`;
+    }
+
     return `<tr>
-      <td><strong>${esc(b.client_name)}</strong><div style="font-size:11px;color:var(--muted)">${esc(b.project_name)||''}${b.invoice_no?' · '+esc(b.invoice_no):''}${b.raised_date?' · '+fmtDate(b.raised_date):''}</div></td>
-      <td style="font-weight:700;color:var(--red);white-space:nowrap">${b.amount?'₹'+Number(b.amount).toLocaleString('en-IN'):'-'}${lastBadge?'<br>'+lastBadge:''}</td>
+      <td><strong>${esc(b.client_name)}</strong><div style="font-size:11px;color:var(--muted)">${sub}</div></td>
+      <td style="white-space:nowrap">${amtHtml}${lastBadge?'<br>'+lastBadge:''}</td>
+      <td>${statusBadge(b.status)}</td>
       <td>${fuCell}</td>
       <td>${nextCell}</td>
-      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${waBtn}<button class="btn btn-gold btn-sm" onclick="openLogFollowupModal('${b.id}')" title="Log a follow-up">➕ Log</button><button class="btn btn-outline btn-sm" onclick="openFollowupHistory('${b.id}')" title="Follow-up history">📜</button><button class="btn btn-outline btn-sm" onclick="markBillPaid('${b.id}')" title="Mark Paid">✅</button><button class="btn btn-sm" onclick="deleteBill('${b.id}')" title="Delete" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></div></td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${actions}</div></td>
     </tr>`;
   }).join('');
 
-  const paidRows = paid.map(b => `<tr>
-      <td><strong>${esc(b.client_name)}</strong></td>
-      <td>${esc(b.project_name)||'-'}</td>
-      <td style="color:var(--green);font-weight:700">${b.amount?'\u20B9'+Number(b.amount).toLocaleString('en-IN'):'-'}</td>
-      <td style="font-size:12px">${esc(b.invoice_no)||'-'}</td>
-      <td>${b.paid_date?fmtDate(b.paid_date):'-'}</td>
-    </tr>`).join('');
-
-  el.innerHTML =
-    section('🧾 To Raise ('+toRaise.length+')', 'var(--amber)', toRaiseRows, ['Client','Project','Visit Date','Visited By','Action']) +
-    section('📤 Raised — Payment Follow-up ('+raised.length+')', 'var(--red)', raisedRows, ['Client / Bill','Amount','Follow-ups','Next Follow-up','Action']) +
-    section('✅ Paid ('+paid.length+')', 'var(--green)', paidRows, ['Client','Project','Amount','Invoice','Paid On']);
+  const cTR = bills.filter(b=>b.status==='To Raise').length;
+  const cRA = bills.filter(b=>b.status==='Raised').length;
+  const cPD = bills.filter(b=>b.status==='Paid').length;
+  el.innerHTML = `
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">🧾 ${cTR} to raise · 📤 ${cRA} following up · ✅ ${cPD} paid</div>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>Client / Bill</th><th>Amount</th><th>Status</th><th>Follow-ups</th><th>Next Follow-up</th><th>Action</th></tr></thead>
+      <tbody>${rowsHtml}</tbody>
+    </table></div>`;
 }
 
 function openRaiseBillModal(billId) {
