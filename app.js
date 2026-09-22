@@ -1771,12 +1771,13 @@ el.innerHTML = `
     <div id="pendingPaymentsStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px"></div>
     <div id="pendingPaymentsList"></div>
   `;  
-  const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }, { data: billing }] = await Promise.all([
+  const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }, { data: billing }, { data: payFollowups }] = await Promise.all([
     sbClient.from('clients').select('id, name, phone'),
     sbClient.from('projects').select('*'),
     sbClient.from('payments').select('*'),
     sbClient.from('followups').select('*').order('next_followup', { ascending: true }),
     sbClient.from('billing').select('*').order('created_at', { ascending: false }),
+    sbClient.from('payment_followups').select('*').order('followup_date', { ascending: false }),
   ]);
 
   const clientMap = {};
@@ -1811,6 +1812,14 @@ const allPaymentRows = (projects || []).map(p => {
   window._pendingPaymentRows = pendingRows;
   window._followupsByClient = followupsByClient;
   window._billingRows = billing || [];
+
+  // group payment follow-up logs by bill (already ordered latest-first)
+  const pfByBill = {};
+  (payFollowups || []).forEach(f => {
+    if (!pfByBill[f.billing_id]) pfByBill[f.billing_id] = [];
+    pfByBill[f.billing_id].push(f);
+  });
+  window._payFollowupsByBill = pfByBill;
   window._clientPhoneMap = {}; (clients||[]).forEach(c => { window._clientPhoneMap[c.id] = c.phone || ''; });
 
   const totalPending = pendingRows.reduce((s, r) => s + r.balance, 0);
@@ -1905,19 +1914,32 @@ function renderBillsList() {
       <td><div style="display:flex;gap:4px"><button class="btn btn-gold btn-sm" onclick="openRaiseBillModal('${b.id}')">🧾 Raise Bill</button><button class="btn btn-sm" onclick="deleteBill('${b.id}')" title="Delete" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></div></td>
     </tr>`).join('');
 
+  const today = new Date().toISOString().slice(0,10);
+  const outcomeColors = { 'Paid':'#1E8449','Promised to Pay':'#B7791F','Partial Received':'#B7791F','No Response':'#C0392B','Disputed':'#C0392B' };
   const raisedRows = raised.map(b => {
     const phone = b.contact_phone || (window._clientPhoneMap||{})[b.client_id] || '';
     const digits = String(phone).replace(/\D/g,'');
     const waNum = digits.length === 10 ? '91'+digits : digits;
-    const msg = encodeURIComponent(`Dear ${b.client_name}, this is a gentle reminder regarding the pending payment for ${b.project_name||'your project'}${b.invoice_no?` (Invoice ${b.invoice_no})`:''}${b.amount?`, amount \u20B9${Number(b.amount).toLocaleString('en-IN')}`:''}. Kindly arrange the payment at your earliest convenience. Thank you. \u2014 Sayash Vastu`);
-    const waBtn = waNum ? `<a href="https://wa.me/${waNum}?text=${msg}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;font-weight:700">💬 WhatsApp</a>` : `<span style="font-size:11px;color:var(--muted)">No phone</span>`;
+    const msg = encodeURIComponent(`Dear ${b.client_name}, this is a gentle reminder regarding the pending payment for ${b.project_name||'your project'}${b.invoice_no?` (Invoice ${b.invoice_no})`:''}${b.amount?`, amount ₹${Number(b.amount).toLocaleString('en-IN')}`:''}. Kindly arrange the payment at your earliest convenience. Thank you. — Sayash Vastu`);
+    const waBtn = waNum ? `<a href="https://wa.me/${waNum}?text=${msg}" target="_blank" class="btn btn-sm" style="background:#25D366;color:#fff;font-weight:700" title="WhatsApp reminder">💬</a>` : '';
+    const logs = (window._payFollowupsByBill||{})[b.id] || [];
+    const count = logs.length;
+    const last = logs[0] || null;
+    const next = last && last.next_followup ? last.next_followup : null;
+    const isOverdue = next && next < today;
+    const lastBadge = last && last.outcome ? `<span style="font-size:10px;background:#f4f6fb;color:${outcomeColors[last.outcome]||'#6b7280'};border:1px solid #e2e5ec;border-radius:10px;padding:1px 7px;font-weight:600;white-space:nowrap">${esc(last.outcome)}</span>` : '';
+    const fuCell = count
+      ? `<div style="font-size:12px"><b>${count}×</b> followed up</div>${last?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${fmtDate(last.followup_date)}${last.client_response?` — “${esc(last.client_response.substring(0,42))}${last.client_response.length>42?'…':''}”`:''}</div>`:''}`
+      : `<span style="font-size:11px;color:var(--amber);font-weight:600">No follow-up yet</span>`;
+    const nextCell = next
+      ? `<span style="font-size:12px;${isOverdue?'color:var(--red);font-weight:700':''}">${fmtDate(next)}${isOverdue?' ⚠️':''}</span>`
+      : `<span style="color:var(--muted)">—</span>`;
     return `<tr>
-      <td><strong>${esc(b.client_name)}</strong></td>
-      <td>${esc(b.project_name)||'-'}</td>
-      <td style="font-weight:700;color:var(--red)">${b.amount?'\u20B9'+Number(b.amount).toLocaleString('en-IN'):'-'}</td>
-      <td style="font-size:12px">${esc(b.invoice_no)||'-'}</td>
-      <td style="font-size:12px">${b.raised_date?fmtDate(b.raised_date):'-'}</td>
-      <td><div style="display:flex;gap:4px">${waBtn}<button class="btn btn-outline btn-sm" onclick="markBillPaid('${b.id}')">✅ Mark Paid</button><button class="btn btn-sm" onclick="deleteBill('${b.id}')" title="Delete" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></div></td>
+      <td><strong>${esc(b.client_name)}</strong><div style="font-size:11px;color:var(--muted)">${esc(b.project_name)||''}${b.invoice_no?' · '+esc(b.invoice_no):''}${b.raised_date?' · '+fmtDate(b.raised_date):''}</div></td>
+      <td style="font-weight:700;color:var(--red);white-space:nowrap">${b.amount?'₹'+Number(b.amount).toLocaleString('en-IN'):'-'}${lastBadge?'<br>'+lastBadge:''}</td>
+      <td>${fuCell}</td>
+      <td>${nextCell}</td>
+      <td><div style="display:flex;gap:4px;flex-wrap:wrap">${waBtn}<button class="btn btn-gold btn-sm" onclick="openLogFollowupModal('${b.id}')" title="Log a follow-up">➕ Log</button><button class="btn btn-outline btn-sm" onclick="openFollowupHistory('${b.id}')" title="Follow-up history">📜</button><button class="btn btn-outline btn-sm" onclick="markBillPaid('${b.id}')" title="Mark Paid">✅</button><button class="btn btn-sm" onclick="deleteBill('${b.id}')" title="Delete" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></div></td>
     </tr>`;
   }).join('');
 
@@ -1931,7 +1953,7 @@ function renderBillsList() {
 
   el.innerHTML =
     section('🧾 To Raise ('+toRaise.length+')', 'var(--amber)', toRaiseRows, ['Client','Project','Visit Date','Visited By','Action']) +
-    section('📤 Raised — Payment Follow-up ('+raised.length+')', 'var(--red)', raisedRows, ['Client','Project','Amount','Invoice','Raised On','Action']) +
+    section('📤 Raised — Payment Follow-up ('+raised.length+')', 'var(--red)', raisedRows, ['Client / Bill','Amount','Follow-ups','Next Follow-up','Action']) +
     section('✅ Paid ('+paid.length+')', 'var(--green)', paidRows, ['Client','Project','Amount','Invoice','Paid On']);
 }
 
@@ -2006,6 +2028,95 @@ async function markBillPaid(billId) {
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Marked as Paid');
   loadPendingPayments();
+}
+
+// ── Payment follow-up: log an attempt + view history ──
+function openLogFollowupModal(billId) {
+  const b = (window._billingRows||[]).find(x => x.id === billId);
+  if (!b) { showToast('Bill not found', 'err'); return; }
+  const t = new Date().toISOString().slice(0,10);
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="logFuModal">
+      <div class="modal">
+        <div class="modal-title">➕ Log Follow-up — ${esc(b.client_name)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${esc(b.project_name)||''}${b.invoice_no?' · '+esc(b.invoice_no):''}${b.amount?' · ₹'+Number(b.amount).toLocaleString('en-IN'):''}</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Follow-up date</label><input type="date" id="lfu-date" value="${t}"></div>
+          <div class="field"><label>Method</label><select id="lfu-method"><option>Call</option><option>WhatsApp</option><option>Email</option><option>In-person</option></select></div>
+          <div class="field" style="grid-column:1/-1"><label>What did the client say?</label><textarea id="lfu-response" placeholder="e.g. Will pay by 25th, cheque ready..."></textarea></div>
+          <div class="field"><label>Outcome</label><select id="lfu-outcome" onchange="document.getElementById('lfu-amtwrap').style.display=this.value==='Partial Received'?'block':'none'">
+            <option value="">— Select —</option>
+            <option>Promised to Pay</option>
+            <option>No Response</option>
+            <option>Disputed</option>
+            <option>Partial Received</option>
+            <option>Paid</option>
+          </select></div>
+          <div class="field"><label>Promised date (optional)</label><input type="date" id="lfu-promised"></div>
+          <div class="field" id="lfu-amtwrap" style="display:none"><label>Amount received (₹)</label><input type="number" id="lfu-amount" placeholder="e.g. 5000"></div>
+          <div class="field"><label>Next follow-up date</label><input type="date" id="lfu-next"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('logFuModal')">Cancel</button>
+          <button class="btn btn-gold" id="lfuSaveBtn" onclick="saveLogFollowup('${b.id}')">💾 Save Follow-up</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+async function saveLogFollowup(billId) {
+  const b = (window._billingRows||[]).find(x => x.id === billId);
+  const btn = document.getElementById('lfuSaveBtn');
+  const outcome = document.getElementById('lfu-outcome').value;
+  const amtEl = document.getElementById('lfu-amount');
+  const payload = {
+    billing_id: billId,
+    client_id: b ? b.client_id : null,
+    followup_date: document.getElementById('lfu-date').value || new Date().toISOString().slice(0,10),
+    method: document.getElementById('lfu-method').value,
+    client_response: document.getElementById('lfu-response').value.trim() || null,
+    outcome: outcome || null,
+    amount_received: (amtEl && amtEl.value) ? Number(amtEl.value) : null,
+    promised_date: document.getElementById('lfu-promised').value || null,
+    next_followup: document.getElementById('lfu-next').value || null,
+    created_by: currentUser.email,
+    created_by_name: currentUser.name,
+  };
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  const { error } = await sbClient.from('payment_followups').insert(payload);
+  if (error) { showToast('❌ ' + error.message, 'err'); if (btn) { btn.disabled=false; btn.textContent='💾 Save Follow-up'; } return; }
+  if (outcome === 'Paid') {
+    await sbClient.from('billing').update({ status: 'Paid', paid_date: payload.followup_date, updated_at: new Date().toISOString() }).eq('id', billId);
+    showToast('✅ Follow-up logged & bill marked Paid');
+  } else {
+    showToast('✅ Follow-up logged');
+  }
+  closeModal('logFuModal');
+  loadPendingPayments();
+}
+
+function openFollowupHistory(billId) {
+  const b = (window._billingRows||[]).find(x => x.id === billId);
+  const logs = (window._payFollowupsByBill||{})[billId] || [];
+  const oc = { 'Paid':'#1E8449','Promised to Pay':'#B7791F','Partial Received':'#B7791F','No Response':'#C0392B','Disputed':'#C0392B' };
+  const rows = logs.length ? logs.map(f => `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="font-size:12px;font-weight:700">${fmtDate(f.followup_date)} · ${esc(f.method||'—')}</div>
+        ${f.outcome?`<span style="font-size:10px;background:#f4f6fb;color:${oc[f.outcome]||'#6b7280'};border:1px solid #e2e5ec;border-radius:10px;padding:1px 8px;font-weight:600">${esc(f.outcome)}</span>`:''}
+      </div>
+      ${f.client_response?`<div style="font-size:12px;margin-top:5px">“${esc(f.client_response)}”</div>`:''}
+      <div style="font-size:11px;color:var(--muted);margin-top:5px">${f.amount_received?`Received ₹${Number(f.amount_received).toLocaleString('en-IN')} · `:''}${f.promised_date?`Promised ${fmtDate(f.promised_date)} · `:''}${f.next_followup?`Next: ${fmtDate(f.next_followup)} · `:''}by ${esc(f.created_by_name||'—')}</div>
+    </div>`).join('') : '<div style="text-align:center;color:var(--muted);padding:20px">No follow-ups logged yet.</div>';
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="fuHistModal">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-title">📜 Follow-up History — ${esc(b?b.client_name:'')}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:12px">${logs.length} follow-up${logs.length!==1?'s':''} recorded</div>
+        <div style="max-height:400px;overflow-y:auto">${rows}</div>
+        <div class="modal-actions"><button class="btn btn-gold" onclick="closeModal('fuHistModal')">Close</button></div>
+      </div>
+    </div>`);
 }
 
 function renderCompletedPaymentsList() {
