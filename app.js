@@ -4662,6 +4662,7 @@ if (!detail||!start||!end) {
 
   const assignedEmails = new Set();
   let successCount = 0;
+  let lastErr = null;
 
     const projectDisplayName = project || clientName || 'Task';
 for (const emp of empsToAssign) {
@@ -4713,6 +4714,7 @@ const { error } = await sb.from('tasks').insert({
       linked_record_id: linkedRecordId,
       linked_client_id: clientId || null,
     });
+    if (error) { lastErr = error; console.error('Task insert failed:', error); }
     if (!error) {
       successCount++;
       if (emp.email.toLowerCase() !== currentUser.email.toLowerCase()) {   // skip self-assignment: no notification/email to yourself
@@ -4729,9 +4731,10 @@ const { error } = await sb.from('tasks').insert({
     msg.textContent=`✅ Task assigned to ${empsToAssign.map(e=>e.name).join(', ')}!`; 
     msg.style.color='var(--green)';
     showToast(`✅ Task assigned to ${successCount} employee(s)!`, 'ok');
-  } else { 
-    msg.textContent='❌ Assignment failed'; 
-    msg.style.color='var(--red)'; 
+  } else {
+    msg.textContent='❌ Assignment failed' + (lastErr ? ': ' + lastErr.message : '');
+    msg.style.color='var(--red)';
+    if (lastErr) showToast('❌ ' + lastErr.message, 'err');
   }
 
   window._selectedAssignEmps = [];
