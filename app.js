@@ -5898,11 +5898,9 @@ tbody.innerHTML=emps.map(e=>{
       <td style="font-weight:700">${empWorkingDays}</td>
     <td style="font-weight:700;color:var(--navy)">${totalHrs.toFixed(1)}h</td>
       <td style="font-size:11px">
-        ${c.late > 0 ? `<span class="badge b-red" style="margin:1px">Late: ${c.lateDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.absent > 0 ? `<span class="badge b-red" style="margin:1px;opacity:.85">Absent: ${c.absentDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.half > 0 ? `<span class="badge b-amber" style="margin:1px">Half Day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.leave > 0 ? `<span class="badge b-blue" style="margin:1px">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.half === 0 && c.leave === 0 && c.late === 0 && c.absent === 0 ? '—' : ''}
+        ${c.half > 0 ? `<span class="badge b-amber">Half Day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.leave > 0 ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.half === 0 && c.leave === 0 ? '—' : ''}
       </td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
