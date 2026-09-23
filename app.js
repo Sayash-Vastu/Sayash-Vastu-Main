@@ -5815,7 +5815,7 @@ const { data: emps } = await sb.from('employees').select('name,email,weekly_off_
     (attData||[]).filter(a=>a.employee_email===e.email).forEach(a => { attMapR[a.date] = a; });
     const empLeavesR = (leaveDataReport||[]).filter(l=>l.employee_email===e.email);
 let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 0;
-    const halfDatesR = [], leaveDatesR = [];
+    const halfDatesR = [], leaveDatesR = [], lateDatesR = [], absentDatesR = [];
     const dIter = new Date(yr, mo-1, 1);
     while (dIter.getMonth() === mo-1) {
       const dsIter = dIter.getFullYear() + '-' + String(dIter.getMonth()+1).padStart(2,'0') + '-' + String(dIter.getDate()).padStart(2,'0');
@@ -5830,17 +5830,17 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       } else if (attRec) {
         if (attRec.status === 'Present') presentR++;
         else if (attRec.status === 'Half Day') { halfR++; halfDatesR.push(dsIter); }
-        else if (attRec.status === 'Absent') absentR++;
+        else if (attRec.status === 'Absent') { absentR++; absentDatesR.push(dsIter); }
         if (attRec.check_in) {
           const t = new Date(attRec.check_in);
-          if (t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>10)) lateR++;
+          if (t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>10)) { lateR++; lateDatesR.push(dsIter); }
         }
       } else if (!isOffIter && !isHolidayIter && !isFutureIter) {
-        absentR++;
+        absentR++; absentDatesR.push(dsIter);
       }
       dIter.setDate(dIter.getDate()+1);
     }
-    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, workingDays: workingDaysR, halfDates: halfDatesR, leaveDates: leaveDatesR };
+    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, workingDays: workingDaysR, halfDates: halfDatesR, leaveDates: leaveDatesR, lateDates: lateDatesR, absentDates: absentDatesR };
   });
 
   const totalPresent = Object.values(empCalc).reduce((s,v)=>s+v.present,0);
@@ -5883,7 +5883,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
   }
 
 tbody.innerHTML=emps.map(e=>{
-    const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,halfDates:[],leaveDates:[]};
+    const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,halfDates:[],leaveDates:[],lateDates:[],absentDates:[]};
     const empWorkingDays = c.workingDays || totalDays;
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const empAtt=(attData||[]).filter(a=>a.employee_email===e.email);
@@ -5898,9 +5898,11 @@ tbody.innerHTML=emps.map(e=>{
       <td style="font-weight:700">${empWorkingDays}</td>
     <td style="font-weight:700;color:var(--navy)">${totalHrs.toFixed(1)}h</td>
       <td style="font-size:11px">
-        ${c.half > 0 ? `<span class="badge b-amber">Half Day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.leave > 0 ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.half === 0 && c.leave === 0 ? '—' : ''}
+        ${c.late > 0 ? `<span class="badge b-red" style="margin:1px">Late: ${c.lateDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.absent > 0 ? `<span class="badge b-red" style="margin:1px;opacity:.85">Absent: ${c.absentDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.half > 0 ? `<span class="badge b-amber" style="margin:1px">Half Day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.leave > 0 ? `<span class="badge b-blue" style="margin:1px">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.half === 0 && c.leave === 0 && c.late === 0 && c.absent === 0 ? '—' : ''}
       </td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
@@ -5910,7 +5912,10 @@ tbody.innerHTML=emps.map(e=>{
           <span style="font-size:12px;font-weight:700;color:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}">${pct}%</span>
         </div>
       </td>
-      <td><button class="btn btn-sm" onclick="deleteEmpAttendance('${e.email}','${monthVal}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" title="Download ${esc(e.name)}'s attendance PDF" onclick="exportMyAttPDF({email:'${e.email}'}, '${monthVal}')" style="background:#eef4ff;color:var(--navy);border-color:var(--border)">📄</button>
+        <button class="btn btn-sm" onclick="deleteEmpAttendance('${e.email}','${monthVal}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-left:4px">🗑️</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -7338,12 +7343,14 @@ const denom = totalDays - weekOff;   // full-month working days (grows to 100% b
   const tbody = document.getElementById('attBody');
   tbody.innerHTML = rowsHtml.join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No data</td></tr>';
 }
-async function exportMyAttPDF() {
+async function exportMyAttPDF(empObj, monthValArg) {
+  const _emp = empObj || currentUser;
+  const _email = _emp.email;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210; const H = 297;
 
-  const monthVal = document.getElementById('att-my-month').value;
+  const monthVal = monthValArg || document.getElementById('att-my-month')?.value;
   if (!monthVal) { showToast('⚠️ Please select a month', 'err'); return; }
   const [yr, mo] = monthVal.split('-').map(Number);
   const monthName = new Date(yr, mo - 1, 1).toLocaleString('en', { month: 'long' });
@@ -7354,15 +7361,16 @@ async function exportMyAttPDF() {
 
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-const { data: empPatternPdf } = await sb.from('employees').select('weekly_off_pattern').eq('email', currentUser.email).single();
+const { data: empPatternPdf } = await sb.from('employees').select('*').eq('email', _email).single();
   const patternPdf = empPatternPdf?.weekly_off_pattern || 'sunday_only';
+  const _empInfo = empPatternPdf || _emp;
   const { data: attData } = await sb.from('attendance')
-    .select('*').eq('employee_email', currentUser.email)
+    .select('*').eq('employee_email', _email)
     .eq('is_archived', false).gte('date', start).lte('date', end)
     .order('date', { ascending: true });
-  
+
   const { data: leaveDataMyPdf } = await sb.from('leaves').select('*')
-    .eq('employee_email', currentUser.email)
+    .eq('employee_email', _email)
     .eq('status', 'Approved')
     .lte('from_date', end).gte('to_date', start);
 
@@ -7462,7 +7470,7 @@ const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/publ
   setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
   doc.roundedRect(12, y, W-24, boxH, 2, 2, 'FD');
   setFill(NAVY); doc.rect(12, y, 1.5, boxH, 'F');
-  const leftInfo = [['Employee Code', currentUser.employee_code||'—'],['Employee Name', currentUser.name||'—'],['Designation', currentUser.designation||'—'],['Department', currentUser.department||'—']];
+  const leftInfo = [['Employee Code', _empInfo.employee_code||'—'],['Employee Name', _empInfo.name||'—'],['Designation', _empInfo.designation||'—'],['Department', _empInfo.department||'—']];
   const rightInfo = [['Report Period', monthName+' '+yr],['Total Days in Month', String(totalDays)],['Present Days', String(present)],['Absent Days', String(absent)]];
   const rowH = 9; const sy = y + 8;
   leftInfo.forEach(([lbl,val],i) => {
@@ -7597,7 +7605,7 @@ const sumClrs = [GREEN, AMBER, RED, PURPLE, RED, GREEN];
   doc.setFontSize(7.5); doc.setFont('helvetica','normal'); setFont(MUTED);
   doc.text('Sayash Vastu — Management', rsx, y + 17.5, { align: 'center' });
 
-  doc.save(`SayashVastu_Attendance_${currentUser.name.replace(/ /g,'_')}_${monthName}_${yr}.pdf`);
+  doc.save(`SayashVastu_Attendance_${(_empInfo.name||'Employee').replace(/ /g,'_')}_${monthName}_${yr}.pdf`);
   showToast('✅ Attendance PDF exported!', 'ok');
 }
 // ═══════════════════════════════════════════
