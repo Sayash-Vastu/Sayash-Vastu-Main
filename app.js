@@ -4435,6 +4435,18 @@ if (newTaskDetail) updates.task_detail = newTaskDetail;
   const { error } = await sb.from('tasks').update(updates).eq('id', currentTaskRow.id);
   if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
 
+  // Notify the assigner when the assignee marks the task Completed (skip if assigner = self)
+  if (status === 'Completed' && currentTaskRow.assigned_by_email
+      && currentTaskRow.assigned_by_email.toLowerCase() !== currentUser.email.toLowerCase()) {
+    await createNotification(
+      currentTaskRow.assigned_by_email,
+      `✅ Task completed by ${currentUser.name}`,
+      `${currentUser.name} completed the task you assigned: ${currentTaskRow.project} — ${(currentTaskRow.task_detail || '').substring(0, 50)}`,
+      'task',
+      'tasks'
+    );
+  }
+
   // If this task is linked to a Client CRM project tracker record, sync its status
   if (currentTaskRow.linked_record_id) {
     let newTrackerStatus = null;
