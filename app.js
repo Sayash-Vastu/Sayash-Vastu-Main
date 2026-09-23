@@ -738,7 +738,7 @@ const isWeekend = dateObj.getDay() === 0;
         const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
-const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>30); })();
+const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>10); })();
         dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
       } else if (onLeave) {
         dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
@@ -5833,7 +5833,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
         else if (attRec.status === 'Absent') absentR++;
         if (attRec.check_in) {
           const t = new Date(attRec.check_in);
-          if (t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>30)) lateR++;
+          if (t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>10)) lateR++;
         }
       } else if (!isOffIter && !isHolidayIter && !isFutureIter) {
         absentR++;
@@ -7392,7 +7392,7 @@ const isWeekend = isWeeklyOff(dateObj, patternPdf);
       const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
-const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>30); })();
+const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>10); })();
       dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
     } else if (onLeave) {
       dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
