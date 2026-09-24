@@ -10843,15 +10843,45 @@ async function loadOfficeExpenses() {
         <option value="pickmonth">📅 By Month</option>
       </select>
       <input type="month" id="oexpMonth" title="Pick a month to filter" onchange="document.getElementById('oexpPeriod').value='pickmonth';renderOfficeExpenses()" style="padding:8px 12px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
-      <input id="oexpSearch" placeholder="🔍 Search…" oninput="renderOfficeExpenses()" style="flex:1;min-width:160px;padding:9px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+      <select id="oexpCategory" onchange="renderOfficeExpenses()" style="padding:9px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff"><option value="">All Categories</option></select>
+      <input id="oexpSearch" placeholder="🔍 Search…" oninput="renderOfficeExpenses()" style="flex:1;min-width:140px;padding:9px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+      <button class="btn btn-outline" onclick="exportOfficeExpensesCSV()">📥 Export</button>
       <button class="btn btn-gold" onclick="openAddOfficeExpense()">➕ Add Expense</button>
     </div>
-    <div id="oexpStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px"></div>
+    <div id="oexpStats" style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px"></div>
+    <div style="display:grid;grid-template-columns:3fr 2fr;gap:16px;margin-bottom:16px">
+      <div class="panel"><div class="panel-head"><div class="panel-title">📈 Last 6 Months</div></div><div class="panel-body"><div style="position:relative;height:180px"><canvas id="oexpTrendChart"></canvas></div></div></div>
+      <div class="panel"><div class="panel-head"><div class="panel-title">🗂️ By Category</div></div><div class="panel-body" id="oexpBreakdown" style="max-height:210px;overflow:auto"></div></div>
+    </div>
     <div id="oexpList"></div>
   `;
   const { data } = await sb.from('office_expenses').select('*').eq('is_archived', false).order('expense_date', { ascending: false });
   window._officeExp = data || [];
+  const catSel = document.getElementById('oexpCategory');
+  if (catSel) { const cats = [...new Set((data||[]).map(e=>e.category).filter(Boolean))].sort(); catSel.innerHTML = '<option value="">All Categories</option>' + cats.map(c=>`<option>${esc(c)}</option>`).join(''); }
+  renderOexpTrend();
   renderOfficeExpenses();
+}
+
+function renderOexpTrend() {
+  const cv = document.getElementById('oexpTrendChart');
+  if (!cv || typeof Chart === 'undefined') return;
+  const all = window._officeExp || [];
+  const now = new Date(); const labels=[]; const vals=[];
+  for (let i=5;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1); labels.push(d.toLocaleString('en',{month:'short'})); vals.push( all.filter(e=>{const x=new Date(e.expense_date); return x.getFullYear()===d.getFullYear() && x.getMonth()===d.getMonth();}).reduce((s,e)=>s+(parseFloat(e.amount)||0),0) ); }
+  try { if (window._oexpChart) window._oexpChart.destroy(); } catch(e){}
+  window._oexpChart = new Chart(cv, { type:'bar', data:{ labels, datasets:[{ label:'Spend', data:vals, backgroundColor:'#0b1629', borderRadius:5 }] }, options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{ x:{ticks:{color:'#6b7280',font:{size:11}},grid:{display:false}}, y:{beginAtZero:true,ticks:{color:'#6b7280',font:{size:11},callback:v=>'₹'+v},grid:{color:'rgba(0,0,0,0.06)'}} } } });
+}
+
+function exportOfficeExpensesCSV() {
+  const list = window._oexpFiltered || [];
+  if (!list.length) { showToast('⚠️ Nothing to export', 'warn'); return; }
+  const csvQ = v => `"${(v==null?'':String(v)).replace(/"/g,'""')}"`;
+  const header = ['Date','Category','Description','Amount','Mode','By'];
+  const rows = list.map(e => [e.expense_date, e.category, e.description, e.amount, e.payment_mode, e.created_by_name].map(csvQ).join(','));
+  const csv = [header.join(','), ...rows].join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='office_expenses_'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); a.remove();
 }
 
 function _oexpInPeriod(dateStr) {
@@ -10867,19 +10897,40 @@ function _oexpInPeriod(dateStr) {
 
 function renderOfficeExpenses() {
   const q = (document.getElementById('oexpSearch')?.value || '').toLowerCase().trim();
+  const catF = document.getElementById('oexpCategory')?.value || '';
   const all = window._officeExp || [];
   let list = all.filter(e => _oexpInPeriod(e.expense_date));
+  if (catF) list = list.filter(e => (e.category||'') === catF);
   if (q) list = list.filter(e => `${e.category||''} ${e.description||''} ${e.created_by_name||''} ${e.payment_mode||''}`.toLowerCase().includes(q));
+  window._oexpFiltered = list;
 
   const now = new Date();
-  const monthTotal = all.filter(e => { const d=new Date(e.expense_date); return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth(); }).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const sumIf = fn => all.filter(fn).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const monthTotal = sumIf(e => { const d=new Date(e.expense_date); return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth(); });
+  const lm = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  const lastMonthTotal = sumIf(e => { const d=new Date(e.expense_date); return d.getFullYear()===lm.getFullYear() && d.getMonth()===lm.getMonth(); });
   const qStart = Math.floor(now.getMonth()/3)*3;
-  const qtrTotal = all.filter(e => { const d=new Date(e.expense_date); return d.getFullYear()===now.getFullYear() && d.getMonth()>=qStart && d.getMonth()<qStart+3; }).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
-  const yearTotal = all.filter(e => new Date(e.expense_date).getFullYear()===now.getFullYear()).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const qtrTotal = sumIf(e => { const d=new Date(e.expense_date); return d.getFullYear()===now.getFullYear() && d.getMonth()>=qStart && d.getMonth()<qStart+3; });
+  const yearTotal = sumIf(e => new Date(e.expense_date).getFullYear()===now.getFullYear());
+  const avgDay = now.getDate()>0 ? Math.round(monthTotal/now.getDate()) : 0;
 
-  const _stat = (lbl,val,cls) => `<div class="stat-card ${cls}" style="padding:16px 18px"><div class="stat-num" style="font-size:20px">₹${val.toLocaleString('en-IN')}</div><div class="stat-lbl">${lbl}</div></div>`;
+  let cmp = '';
+  if (lastMonthTotal > 0) { const diff = Math.round((monthTotal-lastMonthTotal)/lastMonthTotal*100); const up = diff>=0; cmp = `<div style="font-size:11px;margin-top:5px;color:${up?'var(--red)':'var(--green)'}">${up?'↑':'↓'} ${Math.abs(diff)}% vs last month</div>`; }
+  else if (monthTotal > 0) { cmp = `<div style="font-size:11px;margin-top:5px;color:var(--muted)">First month tracked</div>`; }
+
   const statsEl = document.getElementById('oexpStats');
-  if (statsEl) statsEl.innerHTML = _stat('This Month', monthTotal, 'sc-blue') + _stat('This Quarter', qtrTotal, 'sc-green') + _stat('This Year', yearTotal, 'sc-navy');
+  if (statsEl) statsEl.innerHTML = `
+    <div class="stat-card sc-blue" style="padding:16px 18px"><div class="stat-num" style="font-size:20px">₹${monthTotal.toLocaleString('en-IN')}</div><div class="stat-lbl">This Month</div>${cmp}</div>
+    <div class="stat-card sc-green" style="padding:16px 18px"><div class="stat-num" style="font-size:20px">₹${qtrTotal.toLocaleString('en-IN')}</div><div class="stat-lbl">This Quarter</div></div>
+    <div class="stat-card sc-navy" style="padding:16px 18px"><div class="stat-num" style="font-size:20px">₹${yearTotal.toLocaleString('en-IN')}</div><div class="stat-lbl">This Year</div></div>
+    <div class="stat-card sc-gold" style="padding:16px 18px"><div class="stat-num" style="font-size:20px">₹${avgDay.toLocaleString('en-IN')}</div><div class="stat-lbl">Avg / Day (month)</div></div>`;
+
+  // Category breakdown for the selected period
+  const byCat = {}; list.forEach(e => { const c = e.category || 'Other'; byCat[c] = (byCat[c]||0) + (parseFloat(e.amount)||0); });
+  const cats = Object.entries(byCat).sort((a,b)=>b[1]-a[1]);
+  const selTotal = cats.reduce((s,c)=>s+c[1],0);
+  const bdEl = document.getElementById('oexpBreakdown');
+  if (bdEl) bdEl.innerHTML = cats.length ? cats.map(([c,v]) => { const pct = selTotal>0?Math.round(v/selTotal*100):0; return `<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:var(--navy);font-weight:600">${esc(c)}</span><span style="color:var(--muted)">₹${v.toLocaleString('en-IN')} · ${pct}%</span></div><div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:var(--navy)"></div></div></div>`; }).join('') : '<div style="text-align:center;color:var(--muted);font-size:12px;padding:20px">No data for this period</div>';
 
   const listEl = document.getElementById('oexpList');
   if (!listEl) return;
