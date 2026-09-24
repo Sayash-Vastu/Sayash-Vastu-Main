@@ -1891,7 +1891,9 @@ function switchPaymentTab(tab) {
 
 // ── BILLING PIPELINE: To Raise (Alisha) -> Raised (Ritika follow-up + WhatsApp) -> Paid ──
 function renderBillsList() {
-  const bills = (window._billingRows || []).filter(b => b.status !== 'Cancelled');
+  const _isRitika = ((currentUser && currentUser.email) || '').toLowerCase() === 'ritika@sayashvastu.com';
+  let bills = (window._billingRows || []).filter(b => b.status !== 'Cancelled');
+  if (_isRitika) bills = bills.filter(b => b.status !== 'To Raise');  // Ritika follows up on raised bills only
   const el = document.getElementById('pendingPaymentsList');
   if (!bills.length) {
     el.innerHTML = '<div class="empty-state"><div class="empty-icon">🧾</div><div class="empty-title">No bills yet</div><div style="color:var(--muted);font-size:13px;margin-top:6px">Bills appear here when a site visit is punched with \'Bill to be raised\' ticked.</div></div>';
@@ -1969,7 +1971,7 @@ function renderBillsList() {
   const cRA = bills.filter(b=>b.status==='Raised').length;
   const cPD = bills.filter(b=>b.status==='Paid').length;
   el.innerHTML = `
-    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">🧾 ${cTR} to raise · 📤 ${cRA} following up · ✅ ${cPD} paid</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">${_isRitika ? '' : '🧾 ' + cTR + ' to raise · '}📤 ${cRA} following up · ✅ ${cPD} paid</div>
     <div class="tbl-wrap"><table>
       <thead><tr><th>Client / Bill</th><th>Amount</th><th>Status</th><th>Follow-ups</th><th>Next Follow-up</th><th>Action</th></tr></thead>
       <tbody>${rowsHtml}</tbody>
