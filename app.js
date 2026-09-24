@@ -1410,7 +1410,7 @@ async function openEditSiteVisit(visitId) {
           <div class="field"><label>Visit Date</label><input type="date" id="ev-date" value="${v.visit_date || ''}"></div>
           <div class="field"><label>Type</label>
             <select id="ev-type">
-              ${['Site Visit','Head Office','Telephonic','Mail'].map(t => `<option ${v.visit_type===t?'selected':''}>${t}</option>`).join('')}
+              ${(() => { const opts = ['Site Visit','Head Office','Telephonic','Mail / Zoom']; if (v.visit_type && !opts.includes(v.visit_type)) opts.push(v.visit_type); return opts.map(t => `<option ${v.visit_type===t?'selected':''}>${t}</option>`).join(''); })()}
             </select>
           </div>
           <div class="field"><label>Visited By</label><input id="ev-by" value="${esc(v.visited_by || '')}" placeholder="Comma separated names"></div>
@@ -1646,7 +1646,7 @@ function openAddVisitEmpGlobal() {
               <option>Site Visit</option>
               <option>Head Office</option>
               <option>Telephonic</option>
-              <option>Mail</option>
+              <option>Mail / Zoom</option>
             </select>
           </div>
 <div class="field"><label>City *</label>
@@ -2928,7 +2928,7 @@ let trackerPayload = {
         trackerPayload.visited_by = visitedBy;
         trackerPayload.recommendation = discussion || null;
         trackerPayload.site_visit_date = visitDate;
-trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : visitType === 'Mail' ? 'Mail Consultation' : visitType === 'Telephonic' ? 'Telephonic' : (visitType || 'Other');
+trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitType === 'Head Office' ? 'Head Office' : (visitType === 'Mail' || visitType === 'Mail / Zoom') ? 'Mail Consultation' : visitType === 'Telephonic' ? 'Telephonic' : (visitType || 'Other');
           trackerPayload.location_link = location || null;
         trackerPayload.comments = suggestions || null;
       }
