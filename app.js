@@ -2021,6 +2021,24 @@ async function saveRaiseBill(billId) {
   // 2) Notify Ritika to start payment follow-up
   await createNotification('ritika@sayashvastu.com', '💰 Bill Raised — Start Payment Follow-up',
     'Bill of \u20B9' + amount.toLocaleString('en-IN') + ' has been raised for ' + (b?b.client_name:'client') + '. Please begin payment follow-up.', 'Billing', null);
+  // 2b) Create a payment follow-up TASK for Ritika so it shows in her My Tasks (due after 1 week)
+  try {
+    const _fu = new Date(); _fu.setDate(_fu.getDate() + 7);
+    const _cli = (b && b.client_name) ? b.client_name : 'Client';
+    await sb.from('tasks').insert({
+      project: _cli,
+      task_detail: 'Payment follow-up — ' + _cli + ' (Bill ₹' + amount.toLocaleString('en-IN') + ' raised on ' + new Date().toLocaleDateString('en-IN') + ')',
+      assigned_to_email: 'ritika@sayashvastu.com',
+      assigned_to_name: 'Ritika Upadhyay',
+      assigned_by_email: currentUser.email,
+      assigned_by_name: currentUser.name,
+      start_date: new Date().toISOString().split('T')[0],
+      end_date: _fu.toISOString().split('T')[0],
+      work_status: 'Not Started',
+      ceo_approval: 'Pending',
+      linked_client_id: b ? b.client_id : null,
+    });
+  } catch(e) { console.error('payment follow-up task create failed:', e); }
   // 3) Notify the person who logged the visit (e.g. Harshita) that the bill is raised
   if (b && b.created_by) {
     await createNotification(b.created_by, '🧾 Bill Raised',
