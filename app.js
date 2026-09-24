@@ -9635,7 +9635,7 @@ function closeModal(id) {
   if (el) {
     el.classList.remove('open');
     // Dynamically added modals remove karo
-if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal','addPaymentFollowupRecordModal','postQuoteModal','editLeadModal','addLeadModal','auditGalleryModal','addOfficeExpModal'].includes(id)) {
+if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal','addPaymentFollowupRecordModal','postQuoteModal','editLeadModal','addLeadModal','auditGalleryModal','addOfficeExpModal','editOfficeExpModal'].includes(id)) {
     el.remove();
     }
   }
@@ -10901,7 +10901,10 @@ function renderOfficeExpenses() {
           <td style="padding:9px 14px;font-weight:700;color:var(--navy);white-space:nowrap">₹${(parseFloat(e.amount)||0).toLocaleString('en-IN')}</td>
           <td style="padding:9px 14px;font-size:12px">${esc(e.payment_mode)||'—'}</td>
           <td style="padding:9px 14px;font-size:12px">${esc(e.created_by_name)||'—'}</td>
-          <td style="padding:9px 14px"><button class="btn btn-sm" onclick="deleteOfficeExpense('${e.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+          <td style="padding:9px 14px;white-space:nowrap">
+            <button class="btn btn-sm btn-outline" onclick="openEditOfficeExpense('${e.id}')" style="font-size:11px">✏️</button>
+            <button class="btn btn-sm" onclick="deleteOfficeExpense('${e.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-left:4px">🗑️</button>
+          </td>
         </tr>`).join('')}
       </tbody>
     </table></div></div>`;
@@ -10949,6 +10952,49 @@ async function saveOfficeExpense() {
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Expense added!', 'ok');
   closeModal('addOfficeExpModal');
+  loadOfficeExpenses();
+}
+
+function openEditOfficeExpense(id) {
+  const e = (window._officeExp || []).find(x => x.id === id);
+  if (!e) { showToast('⚠️ Entry not found', 'warn'); return; }
+  const v = s => (s == null ? '' : String(s).replace(/"/g,'&quot;'));
+  const modes = ['Cash','UPI','Card','Bank Transfer','Other'];
+  const catOpts = OFFICE_EXP_CATEGORIES.map(c=>`<option ${c===e.category?'selected':''}>${c}</option>`).join('') + (OFFICE_EXP_CATEGORIES.includes(e.category)?'':`<option selected>${esc(e.category)||''}</option>`);
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="editOfficeExpModal">
+      <div class="modal">
+        <div class="modal-title">✏️ Edit Office Expense</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Date *</label><input type="date" id="eoe-date" value="${e.expense_date || ''}"></div>
+          <div class="field"><label>Amount (₹) *</label><input type="number" id="eoe-amount" value="${e.amount != null ? e.amount : ''}"></div>
+          <div class="field"><label>Category</label><select id="eoe-category">${catOpts}</select></div>
+          <div class="field"><label>Payment Mode</label><select id="eoe-mode">${modes.map(m=>`<option ${m===e.payment_mode?'selected':''}>${m}</option>`).join('')}</select></div>
+          <div class="field" style="grid-column:1/-1"><label>Description</label><input id="eoe-desc" value="${v(e.description)}"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('editOfficeExpModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveEditOfficeExpense('${id}')">💾 Save</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+async function saveEditOfficeExpense(id) {
+  const date = document.getElementById('eoe-date').value;
+  const amount = parseFloat(document.getElementById('eoe-amount').value);
+  if (!date) { showToast('⚠️ Date required', 'warn'); return; }
+  if (!amount || amount <= 0) { showToast('⚠️ Valid amount required', 'warn'); return; }
+  const { error } = await sb.from('office_expenses').update({
+    expense_date: date,
+    amount: amount,
+    category: document.getElementById('eoe-category').value,
+    payment_mode: document.getElementById('eoe-mode').value,
+    description: document.getElementById('eoe-desc').value.trim() || null,
+  }).eq('id', id);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Expense updated!', 'ok');
+  closeModal('editOfficeExpModal');
   loadOfficeExpenses();
 }
 
