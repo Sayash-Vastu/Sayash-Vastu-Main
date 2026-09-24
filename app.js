@@ -9635,7 +9635,7 @@ function closeModal(id) {
   if (el) {
     el.classList.remove('open');
     // Dynamically added modals remove karo
-if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal','addPaymentFollowupRecordModal','postQuoteModal','editLeadModal','addLeadModal','auditGalleryModal'].includes(id)) {
+if (['addClientEmpModal','editClientEmpModal','addProjEmpModal','addVisitEmpModal','addVisitGlobalModal','addPendingPaymentModal','editPendingPaymentModal','paymentHistoryModal','addPaymentFollowupRecordModal','postQuoteModal','editLeadModal','addLeadModal','auditGalleryModal','addOfficeExpModal'].includes(id)) {
     el.remove();
     }
   }
@@ -10874,15 +10874,15 @@ function renderOfficeExpenses() {
   let list = all.filter(e => _oexpInPeriod(e.expense_date));
   if (q) list = list.filter(e => `${e.category||''} ${e.description||''} ${e.created_by_name||''} ${e.payment_mode||''}`.toLowerCase().includes(q));
 
-  const total = list.reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
   const now = new Date();
   const monthTotal = all.filter(e => { const d=new Date(e.expense_date); return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth(); }).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
   const qStart = Math.floor(now.getMonth()/3)*3;
   const qtrTotal = all.filter(e => { const d=new Date(e.expense_date); return d.getFullYear()===now.getFullYear() && d.getMonth()>=qStart && d.getMonth()<qStart+3; }).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const yearTotal = all.filter(e => new Date(e.expense_date).getFullYear()===now.getFullYear()).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
 
   const _stat = (lbl,val,cls) => `<div class="stat-card ${cls}" style="padding:16px 18px"><div class="stat-num" style="font-size:20px">₹${val.toLocaleString('en-IN')}</div><div class="stat-lbl">${lbl}</div></div>`;
   const statsEl = document.getElementById('oexpStats');
-  if (statsEl) statsEl.innerHTML = _stat(`Selected (${list.length})`, total, 'sc-navy') + _stat('This Month', monthTotal, 'sc-blue') + _stat('This Quarter', qtrTotal, 'sc-green');
+  if (statsEl) statsEl.innerHTML = _stat('This Month', monthTotal, 'sc-blue') + _stat('This Quarter', qtrTotal, 'sc-green') + _stat('This Year', yearTotal, 'sc-navy');
 
   const listEl = document.getElementById('oexpList');
   if (!listEl) return;
