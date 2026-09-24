@@ -1237,6 +1237,7 @@ async function loadClientVisitsAll() {
       <input id="svSearch" placeholder="🔍 Search client, project, visitor, location..." oninput="applySvFilters()"
         style="flex:1;min-width:200px;padding:10px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
       <select id="svClientFilter" onchange="applySvFilters()" style="padding:10px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff"><option value="">All clients</option></select>
+      <select id="svVisitorFilter" onchange="applySvFilters()" style="padding:10px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff"><option value="">All visitors</option></select>
       <input type="date" id="svDateFilter" onchange="applySvFilters()" style="padding:9px 12px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
       <button type="button" class="btn btn-outline btn-sm" onclick="clearSvFilters()">Clear</button>
     </div>
@@ -1313,6 +1314,11 @@ async function loadClientVisitsAll() {
     const names = [...new Set(data.map(v => v.clients?.name || '(No client)'))].sort();
     cfSel.innerHTML = '<option value="">All clients</option>' + names.map(n => `<option>${esc(n)}</option>`).join('');
   }
+  const vfSel = document.getElementById('svVisitorFilter');
+  if (vfSel) {
+    const visitors = [...new Set(data.flatMap(v => (v.visited_by || '').split(',').map(n => n.trim()).filter(Boolean)))].sort();
+    vfSel.innerHTML = '<option value="">All visitors</option>' + visitors.map(n => `<option>${esc(n)}</option>`).join('');
+  }
   renderClientVisits(data, false);
 }
 
@@ -1385,16 +1391,19 @@ function applySvFilters(){
   const df = document.getElementById('svDateFilter')?.value || '';
   const _p = n => String(n).padStart(2,'0');
   const toISO = d => { if(!d) return ''; const s2=(d.includes('-')&&d.split('-')[0].length<=2)?d.split('-').reverse().join('-'):d; const dt=new Date(s2); return isNaN(dt)?'':`${dt.getFullYear()}-${_p(dt.getMonth()+1)}-${_p(dt.getDate())}`; };
+  const vf = document.getElementById('svVisitorFilter')?.value || '';
   let list = window._svAll || [];
   if (cf) list = list.filter(v => (v.clients?.name || '(No client)') === cf);
+  if (vf) list = list.filter(v => (v.visited_by || '').split(',').map(n => n.trim()).includes(vf));
   if (df) list = list.filter(v => toISO(v.visit_date) === df);
   if (q) list = list.filter(v => `${v.clients?.name||''} ${v.project_name||''} ${v.sub_project_name||''} ${v.visited_by||''} ${v.location||''} ${v.discussion||''} ${v.suggestions||''} ${v.reference||''}`.toLowerCase().includes(q));
-  renderClientVisits(list, !!(q || cf || df));
+  renderClientVisits(list, !!(q || cf || df || vf));
 }
 function clearSvFilters(){
   const a=document.getElementById('svSearch'); if(a) a.value='';
   const b=document.getElementById('svClientFilter'); if(b) b.value='';
   const c=document.getElementById('svDateFilter'); if(c) c.value='';
+  const d=document.getElementById('svVisitorFilter'); if(d) d.value='';
   renderClientVisits(window._svAll || [], false);
 }
 async function openEditSiteVisit(visitId) {
