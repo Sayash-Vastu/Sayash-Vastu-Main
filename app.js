@@ -1086,6 +1086,12 @@ const clientCrmSection = document.getElementById('client-crm-section');
 if (clientCrmSection) clientCrmSection.style.display = hideClientCrm ? 'none' : 'block';
   if (navClientCrmMenu) navClientCrmMenu.style.display = 'none';
 
+// Office Expenses — only Harshita & Yash (CEO)
+const navOfficeExp = document.getElementById('nav-office-expenses');
+if (navOfficeExp) {
+  const showOfficeExp = currentUser.role === 'ceo' || ['harshita@sayashvastu.com','yash@sayashvastu.com'].includes((currentUser.email||'').toLowerCase());
+  navOfficeExp.style.display = showOfficeExp ? 'flex' : 'none';
+}
 if (navClients) navClients.style.display = showClientData ? 'flex' : 'none';
 if (navClientProjects) navClientProjects.style.display = showClientData ? 'flex' : 'none';
 if (navClientVisits) navClientVisits.style.display = showClientData ? 'flex' : 'none';
@@ -1128,6 +1134,7 @@ const viewTitles = {
   projects: ['Projects','Company project overview'],
   helpRequest: ['Help Requests','Request help from colleagues'],
 expenses: ['Expense Claims','Submit and track your expense reimbursements'],
+  officeExpenses: ['Office Expenses','Daily office expense tracking — monthly & quarterly'],
 compliance: ['Compliance Checklist','Monthly finance and compliance tasks'],
   offerLetters: ['Offer Letters','Upload and manage employee offer letters'],
   salarySlips: ['Salary Slips','Generate and download salary slips'],
@@ -1214,6 +1221,7 @@ if (name === 'offerLetters') loadOfferLetters();
     if (name === 'calendar') loadCalendar();
 if (name === 'expenses') loadExpenses();
   if (name === 'invoices') loadInvoices();
+  if (name === 'officeExpenses') loadOfficeExpenses();
   if (name === 'compliance') loadCompliance();
   if (name === 'attendance') loadMyRegularizations();
 if (name === 'clientsList') loadClientsList();
@@ -10812,6 +10820,146 @@ async function deleteExpense(id) {
 // ═══════════════════════════════════════════
 //  INVOICES
 // ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  OFFICE EXPENSES (daily office spending) — Harshita & Yash only
+// ═══════════════════════════════════════════
+function _canOfficeExp() {
+  return currentUser && (currentUser.role === 'ceo' || ['harshita@sayashvastu.com','yash@sayashvastu.com'].includes((currentUser.email||'').toLowerCase()));
+}
+const OFFICE_EXP_CATEGORIES = ['Stationery','Tea / Snacks','Pantry / Groceries','Cleaning','Electricity / Utilities','Internet / Phone','Repairs & Maintenance','Travel / Conveyance','Courier / Postage','Printing','Rent','Miscellaneous'];
+
+async function loadOfficeExpenses() {
+  const el = document.getElementById('view-officeExpenses');
+  if (!el) return;
+  if (!_canOfficeExp()) { el.innerHTML = '<div class="empty-state"><div class="empty-icon">🔒</div><div class="empty-title">Not available</div></div>'; return; }
+  el.innerHTML = `
+    <div class="page-header"><h2>🏢 Office Expenses</h2><p>Daily office expense tracking</p></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+      <select id="oexpPeriod" onchange="renderOfficeExpenses()" style="padding:9px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+        <option value="month">This Month</option>
+        <option value="quarter">This Quarter</option>
+        <option value="year">This Year</option>
+        <option value="all">All Time</option>
+        <option value="pickmonth">Specific Month…</option>
+      </select>
+      <input type="month" id="oexpMonth" onchange="renderOfficeExpenses()" style="display:none;padding:8px 12px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+      <input id="oexpSearch" placeholder="🔍 Search…" oninput="renderOfficeExpenses()" style="flex:1;min-width:160px;padding:9px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+      <button class="btn btn-gold" onclick="openAddOfficeExpense()">➕ Add Expense</button>
+    </div>
+    <div id="oexpStats" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px"></div>
+    <div id="oexpList"></div>
+  `;
+  const { data } = await sb.from('office_expenses').select('*').eq('is_archived', false).order('expense_date', { ascending: false });
+  window._officeExp = data || [];
+  renderOfficeExpenses();
+}
+
+function _oexpInPeriod(dateStr) {
+  const period = document.getElementById('oexpPeriod')?.value || 'month';
+  if (period === 'all') return true;
+  const d = new Date(dateStr); if (isNaN(d)) return false;
+  const now = new Date();
+  if (period === 'year') return d.getFullYear() === now.getFullYear();
+  if (period === 'quarter') return d.getFullYear() === now.getFullYear() && Math.floor(d.getMonth()/3) === Math.floor(now.getMonth()/3);
+  if (period === 'pickmonth') { const m = document.getElementById('oexpMonth')?.value; if (!m) return true; const [y,mo] = m.split('-').map(Number); return d.getFullYear()===y && (d.getMonth()+1)===mo; }
+  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+}
+
+function renderOfficeExpenses() {
+  const period = document.getElementById('oexpPeriod')?.value || 'month';
+  const monthInput = document.getElementById('oexpMonth');
+  if (monthInput) monthInput.style.display = period === 'pickmonth' ? 'inline-block' : 'none';
+  const q = (document.getElementById('oexpSearch')?.value || '').toLowerCase().trim();
+  const all = window._officeExp || [];
+  let list = all.filter(e => _oexpInPeriod(e.expense_date));
+  if (q) list = list.filter(e => `${e.category||''} ${e.description||''} ${e.created_by_name||''} ${e.payment_mode||''}`.toLowerCase().includes(q));
+
+  const total = list.reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+  const now = new Date();
+  const monthTotal = all.filter(e => { const d=new Date(e.expense_date); return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth(); }).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const qStart = Math.floor(now.getMonth()/3)*3;
+  const qtrTotal = all.filter(e => { const d=new Date(e.expense_date); return d.getFullYear()===now.getFullYear() && d.getMonth()>=qStart && d.getMonth()<qStart+3; }).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+
+  const _stat = (lbl,val,cls) => `<div class="stat-card ${cls}" style="padding:16px 18px"><div class="stat-num" style="font-size:20px">₹${val.toLocaleString('en-IN')}</div><div class="stat-lbl">${lbl}</div></div>`;
+  const statsEl = document.getElementById('oexpStats');
+  if (statsEl) statsEl.innerHTML = _stat(`Selected (${list.length})`, total, 'sc-navy') + _stat('This Month', monthTotal, 'sc-blue') + _stat('This Quarter', qtrTotal, 'sc-green');
+
+  const listEl = document.getElementById('oexpList');
+  if (!listEl) return;
+  if (!list.length) { listEl.innerHTML = '<div class="empty-state"><div class="empty-icon">🧾</div><div class="empty-title">No expenses in this period</div></div>'; return; }
+  listEl.innerHTML = `
+    <div class="panel"><div class="panel-body" style="padding:0;overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
+        ${['Date','Category','Description','Amount','Mode','By','Action'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;white-space:nowrap">${h}</th>`).join('')}
+      </tr></thead>
+      <tbody>
+        ${list.map(e => `<tr style="border-bottom:1px solid #f5f6fa">
+          <td style="padding:9px 14px;white-space:nowrap">${fmtDate(e.expense_date)}</td>
+          <td style="padding:9px 14px"><span class="badge b-gray">${esc(e.category)||'—'}</span></td>
+          <td style="padding:9px 14px;max-width:260px">${esc(e.description)||'—'}</td>
+          <td style="padding:9px 14px;font-weight:700;color:var(--navy);white-space:nowrap">₹${(parseFloat(e.amount)||0).toLocaleString('en-IN')}</td>
+          <td style="padding:9px 14px;font-size:12px">${esc(e.payment_mode)||'—'}</td>
+          <td style="padding:9px 14px;font-size:12px">${esc(e.created_by_name)||'—'}</td>
+          <td style="padding:9px 14px"><button class="btn btn-sm" onclick="deleteOfficeExpense('${e.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div></div>`;
+}
+
+function openAddOfficeExpense() {
+  const today = new Date().toISOString().split('T')[0];
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="addOfficeExpModal">
+      <div class="modal">
+        <div class="modal-title">➕ Add Office Expense</div>
+        <div class="form-grid cols-2">
+          <div class="field"><label>Date *</label><input type="date" id="oe-date" value="${today}"></div>
+          <div class="field"><label>Amount (₹) *</label><input type="number" id="oe-amount" placeholder="e.g. 500"></div>
+          <div class="field"><label>Category</label>
+            <select id="oe-category">${OFFICE_EXP_CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select>
+          </div>
+          <div class="field"><label>Payment Mode</label>
+            <select id="oe-mode"><option>Cash</option><option>UPI</option><option>Card</option><option>Bank Transfer</option><option>Other</option></select>
+          </div>
+          <div class="field" style="grid-column:1/-1"><label>Description</label><input id="oe-desc" placeholder="What was this expense for?"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" onclick="closeModal('addOfficeExpModal')">Cancel</button>
+          <button class="btn btn-gold" onclick="saveOfficeExpense()">💾 Save</button>
+        </div>
+      </div>
+    </div>`);
+}
+
+async function saveOfficeExpense() {
+  const date = document.getElementById('oe-date').value;
+  const amount = parseFloat(document.getElementById('oe-amount').value);
+  if (!date) { showToast('⚠️ Date required', 'warn'); return; }
+  if (!amount || amount <= 0) { showToast('⚠️ Valid amount required', 'warn'); return; }
+  const { error } = await sb.from('office_expenses').insert({
+    expense_date: date,
+    amount: amount,
+    category: document.getElementById('oe-category').value,
+    payment_mode: document.getElementById('oe-mode').value,
+    description: document.getElementById('oe-desc').value.trim() || null,
+    created_by: currentUser.email,
+    created_by_name: currentUser.name,
+  });
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Expense added!', 'ok');
+  closeModal('addOfficeExpModal');
+  loadOfficeExpenses();
+}
+
+async function deleteOfficeExpense(id) {
+  if (!confirm('Delete this expense entry?')) return;
+  const { error } = await sb.from('office_expenses').update({ is_archived: true }).eq('id', id);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Deleted', 'ok');
+  loadOfficeExpenses();
+}
+
 function isInvoiceFinance() {
   return currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com';
 }
