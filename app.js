@@ -10840,9 +10840,9 @@ async function loadOfficeExpenses() {
         <option value="quarter">This Quarter</option>
         <option value="year">This Year</option>
         <option value="all">All Time</option>
-        <option value="pickmonth">Specific Month…</option>
+        <option value="pickmonth">📅 By Month</option>
       </select>
-      <input type="month" id="oexpMonth" onchange="renderOfficeExpenses()" style="display:none;padding:8px 12px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
+      <input type="month" id="oexpMonth" title="Pick a month to filter" onchange="document.getElementById('oexpPeriod').value='pickmonth';renderOfficeExpenses()" style="padding:8px 12px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
       <input id="oexpSearch" placeholder="🔍 Search…" oninput="renderOfficeExpenses()" style="flex:1;min-width:160px;padding:9px 14px;border:1px solid var(--border);border-radius:9px;font:inherit;font-size:13px;background:#fff">
       <button class="btn btn-gold" onclick="openAddOfficeExpense()">➕ Add Expense</button>
     </div>
@@ -10866,9 +10866,6 @@ function _oexpInPeriod(dateStr) {
 }
 
 function renderOfficeExpenses() {
-  const period = document.getElementById('oexpPeriod')?.value || 'month';
-  const monthInput = document.getElementById('oexpMonth');
-  if (monthInput) monthInput.style.display = period === 'pickmonth' ? 'inline-block' : 'none';
   const q = (document.getElementById('oexpSearch')?.value || '').toLowerCase().trim();
   const all = window._officeExp || [];
   let list = all.filter(e => _oexpInPeriod(e.expense_date));
