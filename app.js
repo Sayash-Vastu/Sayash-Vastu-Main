@@ -10931,7 +10931,7 @@ async function toggleInvoiceStatus(id, newStatus, empEmail, vendorName) {
     await createNotification(empEmail,
       '💰 Invoice Paid',
       `Your invoice from ${vendorName || 'vendor'} has been marked as paid by ${currentUser.name}.`,
-      'info', 'invoices'
+      'General', 'invoices'
     );
   }
   showToast('✅ Status updated!','ok');
