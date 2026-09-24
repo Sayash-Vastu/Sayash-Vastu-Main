@@ -204,6 +204,32 @@ setInterval(async function() {
   }
 }, 60000);
 
+  // ── 45-day payment escalation: if a raised bill is still unpaid 45 days after follow-up began, notify Yash & Alisha ──
+setInterval(async function() {
+  if (!currentUser) return;
+  const isPayFollowUser = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+  if (!isPayFollowUser) return;
+  const escKey = 'sv_pay_escalation_' + new Date().toISOString().split('T')[0];
+  if (localStorage.getItem(escKey)) return;
+  // Follow-up begins ~1 week after the bill is raised; escalate 45 days after that (≈ 52 days after raised_date)
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 52);
+  const cutoffStr = cutoff.toISOString().split('T')[0];
+  const { data: overdue } = await sbClient.from('billing').select('*')
+    .eq('status', 'Raised').not('raised_date', 'is', null).lte('raised_date', cutoffStr)
+    .or('escalated.is.null,escalated.eq.false');
+  if (overdue && overdue.length) {
+    for (const b of overdue) {
+      const days = Math.floor((Date.now() - new Date(b.raised_date).getTime()) / 86400000);
+      const title = `🚨 Payment overdue — ${b.client_name || 'Client'}`;
+      const msg = `Bill of ₹${(b.amount||0).toLocaleString('en-IN')} raised on ${fmtDate(b.raised_date)} is still unpaid after ${days} days. Follow-up done but payment not received within 45 days — please take action.`;
+      await createNotification('yash@sayashvastu.com', title, msg, 'General', 'pendingPayments');
+      await createNotification('alisha@sayashvastu.com', title, msg, 'General', 'pendingPayments');
+      await sbClient.from('billing').update({ escalated: true, escalated_at: new Date().toISOString() }).eq('id', b.id);
+    }
+  }
+  localStorage.setItem(escKey, 'true');
+}, 60000);
+
   // Auto summary emails + birthday check
 setInterval(async function() {
   if (!currentUser) return;
@@ -1934,6 +1960,7 @@ function renderBillsList() {
     const last = logs[0] || null;
     const next = last && last.next_followup ? last.next_followup : null;
     const isOverdue = next && next < today && b.status !== 'Paid';
+    const escOverdue = b.status === 'Raised' && b.raised_date && (Math.floor((Date.now() - new Date(b.raised_date).getTime())/86400000) >= 52);
     const lastBadge = last && last.outcome ? `<span style="font-size:10px;background:#f4f6fb;color:${outcomeColors[last.outcome]||'#6b7280'};border:1px solid #e2e5ec;border-radius:10px;padding:1px 7px;font-weight:600;white-space:nowrap">${esc(last.outcome)}</span>` : '';
 
     let sub;
@@ -1977,7 +2004,7 @@ function renderBillsList() {
     return `<tr>
       <td><strong>${esc(b.client_name)}</strong><div style="font-size:11px;color:var(--muted)">${sub}</div></td>
       <td style="white-space:nowrap">${amtHtml}${lastBadge?'<br>'+lastBadge:''}</td>
-      <td>${statusBadge(b.status)}</td>
+      <td>${statusBadge(b.status)}${escOverdue ? '<div style="margin-top:4px"><span style="font-size:10px;background:#fdeceb;color:#C0392B;border-radius:8px;padding:2px 7px;font-weight:700;white-space:nowrap">🚨 45d+ overdue</span></div>' : ''}</td>
       <td>${fuCell}</td>
       <td>${nextCell}</td>
       <td><div style="display:flex;gap:4px;flex-wrap:wrap">${actions}</div></td>
