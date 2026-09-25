@@ -596,7 +596,7 @@
 <div class="field" style="grid-column:1/-1">
                 <label>Attach File (Optional)</label>
                 <div class="upload-zone" onclick="document.getElementById('at-file').click()" style="padding:12px">
-                  <input type="file" id="at-file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.dwg,.zip" onchange="previewAssignFile(this)" style="display:none"/>
+                  <input type="file" id="at-file" accept=".pdf,.jpg,.jpeg,.png,.xlsx,.docx,.dwg,.zip" multiple onchange="previewAssignFile(this)" style="display:none"/>
                   <div id="at-file-preview" style="display:flex;align-items:center;gap:10px;justify-content:center">
                     <span style="font-size:20px">📎</span>
                     <div><div class="upload-zone-text">Click to attach file</div>
