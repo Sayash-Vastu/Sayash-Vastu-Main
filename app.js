@@ -4269,7 +4269,7 @@ async function renderMyTasks() {
       <td>${t.pending_with_name ? `<span style="font-size:11px;font-weight:600;color:var(--purple)">📌 ${esc(t.pending_with_name)}</span>` : t.approval_type && t.approval_status==='Pending' ? `<span style="font-size:11px;font-weight:600;color:var(--amber)">⏳ ${esc(t.approval_type)}</span>` : isForwarded?'<span style="font-size:11px;color:var(--purple);font-weight:600">⏳ Your review</span>':'—'}</td>
 <td style="min-width:100px">
         ${files.length ? renderFileChips(files) : ''}
-        ${t.file_url ? `<div class="file-chip">📎 <a href="${t.file_url}" target="_blank">${esc((t.file_name||'File').length > 16 ? (t.file_name||'File').substring(0,16)+'…' : (t.file_name||'File'))}</a></div>` : ''}
+        ${t.file_url ? t.file_url.split(',').map((u,i) => { const nm = ((t.file_name||'File').split(',')[i] || ('File '+(i+1))).trim(); return `<div class="file-chip">📎 <a href="${u.trim()}" target="_blank">${esc(nm.length > 16 ? nm.substring(0,16)+'…' : nm)}</a></div>`; }).join('') : ''}
         ${!files.length && !t.file_url ? '<span style="color:var(--muted);font-size:11px">—</span>' : ''}
       </td>
 <td style="min-width:160px">
@@ -4616,15 +4616,15 @@ const tkList = document.getElementById('tkAssignList');
   }
 }
   function previewAssignFile(input) {
-  const file = input.files[0];
-  if (!file) return;
+  const files = Array.from(input.files || []);
+  if (!files.length) return;
+  if (files.length > 3) {
+    document.getElementById('at-file-preview').innerHTML = '<div style="color:var(--red);font-size:12px;font-weight:600">⚠️ Max 3 files — please select up to 3</div>';
+    return;
+  }
   document.getElementById('at-file-preview').innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px;justify-content:center">
-      <span style="font-size:20px">📎</span>
-      <div>
-        <div style="font-size:12px;font-weight:600;color:var(--navy)">${file.name}</div>
-        <div style="font-size:11px;color:var(--muted)">${(file.size/1024).toFixed(0)} KB</div>
-      </div>
+    <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;width:100%">
+      ${files.map(f => `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">📎</span><span style="font-size:12px;font-weight:600;color:var(--navy)">${f.name}</span><span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span></div>`).join('')}
     </div>`;
 }
   
@@ -4712,25 +4712,29 @@ if (!detail||!start||!end) {
   const atFile = document.getElementById('at-file');
   const atOneDriveLink = document.getElementById('at-onedrive-link') ? document.getElementById('at-onedrive-link').value.trim() : '';
   let atFileUrl = null; let atFileName = null;
-  if (atFile && atFile.files[0]) {
-    const f = atFile.files[0];
-    if (f.size > 10 * 1024 * 1024) { 
-      msg.textContent='❌ File too large (max 10MB)'; 
-      msg.style.color='var(--red)'; 
-      btn.disabled = false; btn.textContent = '➕ Assign Task';
-      return; 
+  if (atFile && atFile.files && atFile.files.length) {
+    const files = Array.from(atFile.files).slice(0, 3); // up to 3 files
+    const urls = []; const names = [];
+    for (const f of files) {
+      if (f.size > 10 * 1024 * 1024) {
+        msg.textContent = '❌ ' + f.name + ' is too large (max 10MB each)';
+        msg.style.color='var(--red)';
+        btn.disabled = false; btn.textContent = '➕ Assign Task';
+        return;
+      }
+      msg.textContent = '⏳ Uploading ' + f.name + '...'; msg.style.color='var(--muted)';
+      const path = `assign/${Date.now()}_${Math.random().toString(36).slice(2,6)}_${f.name.replace(/[^a-z0-9.]/gi,'_')}`;
+      const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, f, {upsert: false});
+      if (!uploadErr) {
+        const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
+        urls.push(urlData.publicUrl); names.push(f.name);
+      } else {
+        console.error('Upload error:', uploadErr);
+        msg.textContent = '⚠️ Upload failed for ' + f.name + ': ' + uploadErr.message;
+        msg.style.color = 'var(--amber)';
+      }
     }
-    msg.textContent='⏳ Uploading file...'; msg.style.color='var(--muted)';
-    const path = `assign/${Date.now()}_${f.name.replace(/[^a-z0-9.]/gi,'_')}`;
-    const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, f, {upsert: false});
-    if (!uploadErr) {
-      const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
-      atFileUrl = urlData.publicUrl; atFileName = f.name;
-    } else {
-      console.error('Upload error:', uploadErr);
-      msg.textContent = '⚠️ File upload failed: ' + uploadErr.message;
-      msg.style.color = 'var(--amber)';
-    }
+    if (urls.length) { atFileUrl = urls.join(','); atFileName = names.join(','); }
   } else if (atOneDriveLink) {
     atFileUrl = atOneDriveLink;
     atFileName = 'OneDrive Link';
