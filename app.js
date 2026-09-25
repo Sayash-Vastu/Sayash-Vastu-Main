@@ -4616,16 +4616,34 @@ const tkList = document.getElementById('tkAssignList');
   }
 }
   function previewAssignFile(input) {
-  const files = Array.from(input.files || []);
-  if (!files.length) return;
-  if (files.length > 3) {
-    document.getElementById('at-file-preview').innerHTML = '<div style="color:var(--red);font-size:12px;font-weight:600">⚠️ Max 3 files — please select up to 3</div>';
+  window._atFiles = window._atFiles || [];
+  const incoming = Array.from(input.files || []);
+  input.value = ''; // clear so the same file can be re-picked and picker can add more
+  for (const f of incoming) {
+    if (window._atFiles.length >= 3) { showToast('⚠️ Max 3 files allowed', 'warn'); break; }
+    if (!window._atFiles.some(x => x.name === f.name && x.size === f.size)) window._atFiles.push(f);
+  }
+  renderAssignFiles();
+}
+function renderAssignFiles() {
+  const el = document.getElementById('at-file-preview');
+  if (!el) return;
+  const files = window._atFiles || [];
+  if (!files.length) {
+    el.innerHTML = '<div style="display:flex;align-items:center;gap:10px;justify-content:center"><span style="font-size:20px">📎</span><div><div class="upload-zone-text">Click to attach file</div><div class="upload-zone-hint">Up to 3 files — PDF, Image, Excel, DWG — max 10MB each</div></div></div>';
     return;
   }
-  document.getElementById('at-file-preview').innerHTML = `
-    <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start;width:100%">
-      ${files.map(f => `<div style="display:flex;align-items:center;gap:8px"><span style="font-size:16px">📎</span><span style="font-size:12px;font-weight:600;color:var(--navy)">${f.name}</span><span style="font-size:11px;color:var(--muted)">${(f.size/1024).toFixed(0)} KB</span></div>`).join('')}
-    </div>`;
+  el.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px;align-items:stretch;width:100%">
+    ${files.map((f,i) => `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:6px 10px">
+      <span style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:16px">📎</span><span style="font-size:12px;font-weight:600;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${f.name}</span><span style="font-size:11px;color:var(--muted);white-space:nowrap">${(f.size/1024).toFixed(0)} KB</span></span>
+      <button type="button" onclick="event.stopPropagation();removeAssignFile(${i})" title="Remove" style="background:none;border:none;color:var(--red);font-size:16px;cursor:pointer;line-height:1;flex-shrink:0;padding:0 4px">✕</button>
+    </div>`).join('')}
+    ${files.length < 3 ? '<div style="font-size:11px;color:var(--muted);text-align:center">+ Click to add more (up to 3)</div>' : ''}
+  </div>`;
+}
+function removeAssignFile(i) {
+  if (window._atFiles) window._atFiles.splice(i, 1);
+  renderAssignFiles();
 }
   
 
@@ -4712,8 +4730,9 @@ if (!detail||!start||!end) {
   const atFile = document.getElementById('at-file');
   const atOneDriveLink = document.getElementById('at-onedrive-link') ? document.getElementById('at-onedrive-link').value.trim() : '';
   let atFileUrl = null; let atFileName = null;
-  if (atFile && atFile.files && atFile.files.length) {
-    const files = Array.from(atFile.files).slice(0, 3); // up to 3 files
+  const atFiles = window._atFiles || [];
+  if (atFiles.length) {
+    const files = atFiles.slice(0, 3); // up to 3 files
     const urls = []; const names = [];
     for (const f of files) {
       if (f.size > 10 * 1024 * 1024) {
@@ -4826,7 +4845,7 @@ const { error } = await sb.from('tasks').insert({
   const countEl = document.getElementById('at-selected-count');
   if (countEl) countEl.textContent = '';
 ['at-project','at-detail','at-end','at-onedrive-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  if (atFile) { atFile.value=''; document.getElementById('at-file-preview').innerHTML='<div style="display:flex;align-items:center;gap:10px;justify-content:center"><span style="font-size:20px">📎</span><div><div class="upload-zone-text">Click to attach file</div><div class="upload-zone-hint">PDF, Image, Excel, DWG — max 10MB</div></div></div>'; }
+  if (atFile) { atFile.value=''; window._atFiles = []; renderAssignFiles(); }
   setTimeout(()=>msg.textContent='',5000);
   loadNotifications();
 }
