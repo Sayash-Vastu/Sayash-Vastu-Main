@@ -10876,7 +10876,7 @@ async function deleteExpense(id) {
 function _canOfficeExp() {
   return currentUser && (currentUser.role === 'ceo' || ['harshita@sayashvastu.com','yash@sayashvastu.com'].includes((currentUser.email||'').toLowerCase()));
 }
-const OFFICE_EXP_CATEGORIES = ['Stationery','Tea / Snacks','Pantry / Groceries','Cleaning','Electricity / Utilities','Internet / Phone','Repairs & Maintenance','Travel / Conveyance','Courier / Postage','Printing','Rent','Miscellaneous'];
+const OFFICE_EXP_CATEGORIES = ['Stationery','Printing','Tea / Snacks','Pantry / Groceries','Food / Refreshments','Cleaning','Electricity / Utilities','Water','Internet / Phone','Software / Subscriptions','Repairs & Maintenance','Furniture / Equipment','Travel / Conveyance','Fuel','Courier / Postage','Marketing / Ads','Gifts','Puja / Festival','Rent','Salary / Wages','Misc / Other'];
 
 async function loadOfficeExpenses() {
   const el = document.getElementById('view-officeExpenses');
