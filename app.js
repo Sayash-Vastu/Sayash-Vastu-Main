@@ -1533,6 +1533,32 @@ async function toggleVoiceRecording(prefix) {
       };
 
       window._mediaRecorder.start();
+      // Live speech-to-text — fills Site Description while you speak (voice note still saved)
+      try {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (SR) {
+          const field = document.getElementById(prefix + '-discussion');
+          const baseText = field ? field.value : '';
+          const rec = new SR();
+          rec.lang = window._voiceLang || 'en-IN';
+          rec.continuous = true;
+          rec.interimResults = true;
+          let finalText = '';
+          rec.onresult = (e) => {
+            let interim = '';
+            for (let i = e.resultIndex; i < e.results.length; i++) {
+              const t = e.results[i][0].transcript;
+              if (e.results[i].isFinal) finalText += t + ' '; else interim += t;
+            }
+            if (field) field.value = (baseText ? baseText + ' ' : '') + finalText + interim;
+          };
+          rec.onerror = () => {};
+          rec.start();
+          window._speechRec = rec;
+        } else {
+          showToast('ℹ️ Live transcription not supported on this browser — voice note still saved', 'warn');
+        }
+      } catch (e2) {}
       btn.textContent = '⏹️ Stop Recording';
       btn.classList.add('btn-red');
       btn.classList.remove('btn-outline');
@@ -1542,6 +1568,7 @@ async function toggleVoiceRecording(prefix) {
   } else {
     // Stop recording
     window._mediaRecorder.stop();
+    try { if (window._speechRec) { window._speechRec.stop(); window._speechRec = null; } } catch(e){}
     btn.textContent = '🎙️ Record Voice Note';
     btn.classList.remove('btn-red');
     btn.classList.add('btn-outline');
@@ -1651,14 +1678,16 @@ function addVisitDateField(){
 }
 
 function openAddVisitEmpGlobal() {
+  window._avgPhotoFiles = [];
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="addVisitGlobalModal">
       <div class="modal">
         <div class="modal-title">🏗️ Add Site Visit</div>
         <div class="form-grid cols-2">
-<div class="field" style="grid-column:1/-1"><label>Client *</label>
-            <input id="avg-client" list="avgClientList" placeholder="Type or select client..." onchange="loadProjectsForClientByName(this.value)">
+<div class="field" style="grid-column:1/-1;position:relative"><label>Client *</label>
+            <input id="avg-client" placeholder="Type or select client..." autocomplete="off" oninput="avgClientFilter()" onfocus="avgClientFilter()" onblur="setTimeout(avgClientHide,200)">
             <datalist id="avgClientList"></datalist>
+            <div id="avgClientDropdown" style="display:none;position:absolute;left:0;right:0;z-index:60;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.15);margin-top:2px"></div>
           </div>
 <div class="field" style="grid-column:1/-1">
   <label>Projects Visited (select all that apply)</label>
@@ -1735,14 +1764,23 @@ function openAddVisitEmpGlobal() {
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
 <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>📍 Pointers (key points / observations)</label><textarea id="avg-pointers" placeholder="Key pointers from the visit..."></textarea></div>
-          <div class="field" style="grid-column:1/-1"><label>📸 Site Photos (Optional — multiple)</label>
-            <input type="file" id="avg-photos" accept="image/*" multiple capture="environment" style="display:block;font-size:13px">
-            <div id="avgPhotoPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+          <div class="field" style="grid-column:1/-1"><label>📸 Site Photos</label>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+              <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('avg-photo-cam').click()">📷 Take Photo</button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('avg-photo-gal').click()">🖼️ Gallery</button>
+              <button type="button" class="btn btn-outline btn-sm" id="avg-photo-dl" onclick="avgDownloadAllPhotos()" style="display:none">⬇ Download all</button>
+              <span id="avg-photo-count" style="font-size:11px;color:var(--muted);align-self:center"></span>
+            </div>
+            <input type="file" id="avg-photo-cam" accept="image/*" capture="environment" style="display:none" onchange="avgAddPhotos(this.files);this.value=''">
+            <input type="file" id="avg-photo-gal" accept="image/*" multiple style="display:none" onchange="avgAddPhotos(this.files);this.value=''">
+            <div id="avgPhotoPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:4px"></div>
+            <div style="font-size:11px;color:var(--muted);margin-top:4px">Take Photo se ek-ek karke add karo (retake ke liye × se hatao), ya Gallery se multiple</div>
           </div>
           <div class="field" style="grid-column:1/-1;background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:10px 12px">
             <label style="margin:0;font-weight:600">🧾 Billing Status</label>
             <select id="avg-billing-status" style="margin-top:6px">
               <option value="Nil">Nil — No billing for this visit</option>
+              <option value="As Per Contract">As Per Contract — Covered under contract</option>
               <option value="To Raise">To Raise — Bill needs to be raised</option>
               <option value="Raised">Raised — Already raised</option>
             </select>
@@ -2678,6 +2716,81 @@ function loadSubProjectsForProjectAssign(projectName) {
 let _avgResolvedClientId = null;
 let _avgResolvedClientName = null;
 
+// ===== Site photos: capture, compress, preview, remove, download =====
+window._avgPhotoFiles = window._avgPhotoFiles || [];
+function _compressImage(file, maxDim, quality){
+  maxDim = maxDim || 1600; quality = quality || 0.72;
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{
+      let w = img.width, h = img.height;
+      if (w > h && w > maxDim) { h = Math.round(h * maxDim / w); w = maxDim; }
+      else if (h >= w && h > maxDim) { w = Math.round(w * maxDim / h); h = maxDim; }
+      const canvas = document.createElement('canvas'); canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      canvas.toBlob(b=>{ URL.revokeObjectURL(url); b ? resolve({ blob: b, name: (file.name||'photo').replace(/\.[^.]+$/,'') + '.jpg' }) : reject(new Error('compress')); }, 'image/jpeg', quality);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('load')); };
+    img.src = url;
+  });
+}
+async function avgAddPhotos(fileList){
+  const files = Array.from(fileList || []);
+  for (const f of files) {
+    try { window._avgPhotoFiles.push(await _compressImage(f)); }
+    catch(e){ window._avgPhotoFiles.push({ blob: f, name: f.name || 'photo.jpg' }); }
+  }
+  avgRenderPhotos();
+}
+function avgRenderPhotos(){
+  const el = document.getElementById('avgPhotoPreview');
+  const dl = document.getElementById('avg-photo-dl');
+  const cnt = document.getElementById('avg-photo-count');
+  const arr = window._avgPhotoFiles || [];
+  if (cnt) cnt.textContent = arr.length ? (arr.length + ' photo' + (arr.length>1?'s':'')) : '';
+  if (dl) dl.style.display = arr.length ? 'inline-flex' : 'none';
+  if (!el) return;
+  el.innerHTML = arr.map((p,i)=>{
+    const u = URL.createObjectURL(p.blob);
+    return `<span style="position:relative;display:inline-block"><img src="${u}" style="width:56px;height:56px;object-fit:cover;border-radius:6px;border:1px solid var(--border)"><button type="button" onclick="avgRemovePhoto(${i})" title="Remove / retake" style="position:absolute;top:-7px;right:-7px;background:var(--red);color:#fff;border:none;border-radius:50%;width:19px;height:19px;font-size:12px;line-height:1;cursor:pointer;padding:0">×</button></span>`;
+  }).join('');
+}
+function avgRemovePhoto(i){ (window._avgPhotoFiles||[]).splice(i,1); avgRenderPhotos(); }
+function avgDownloadAllPhotos(){
+  (window._avgPhotoFiles||[]).forEach((p,i)=>{
+    const a = document.createElement('a'); a.href = URL.createObjectURL(p.blob); a.download = p.name || ('photo-'+(i+1)+'.jpg'); document.body.appendChild(a); a.click(); a.remove();
+  });
+}
+function avgClientFilter(){
+  const inp = document.getElementById('avg-client');
+  const dd = document.getElementById('avgClientDropdown');
+  if(!inp || !dd) return;
+  const q = (inp.value || '').trim().toLowerCase();
+  const all = window._avgAllClients || [];
+  const list = (q ? all.filter(c => (c.name||'').toLowerCase().includes(q)) : all).slice(0,60);
+  window._avgClientFiltered = list;
+  let html = list.map((c,i) => `<div onmousedown="avgClientPick(${i})" style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f2f3f6">${esc(c.name)}</div>`).join('');
+  const exact = all.some(c => (c.name||'').toLowerCase() === q);
+  if(q && !exact){
+    html += `<div onmousedown="avgClientPickNew()" style="padding:9px 12px;cursor:pointer;font-size:13px;color:var(--gold);font-weight:700">➕ Create "${esc(inp.value)}"</div>`;
+  }
+  dd.innerHTML = html || '<div style="padding:9px 12px;font-size:12px;color:var(--muted)">No clients found</div>';
+  dd.style.display = 'block';
+}
+function avgClientPick(i){
+  const c = (window._avgClientFiltered||[])[i];
+  if(!c) return;
+  const inp = document.getElementById('avg-client');
+  if(inp) inp.value = c.name;
+  avgClientHide();
+  loadProjectsForClientByName(c.name);
+}
+function avgClientPickNew(){
+  avgClientHide();
+  loadProjectsForClientByName(document.getElementById('avg-client').value);
+}
+function avgClientHide(){ const dd = document.getElementById('avgClientDropdown'); if(dd) dd.style.display='none'; }
 async function loadProjectsForClientByName(clientName) {
   if (!clientName || !clientName.trim()) {
     _avgResolvedClientId = null; _avgResolvedClientName = null;
@@ -2932,10 +3045,11 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   const voiceNoteUrls = await uploadVoiceNotes('avg');
   // Site photos upload (multiple) + pointers
   const photoUrls = [];
-  const _photoFiles = document.getElementById('avg-photos') ? document.getElementById('avg-photos').files : [];
-  for (const _pf of _photoFiles) {
-    const _ppath = `site-visits/photos/${Date.now()}_${Math.random().toString(36).slice(2,7)}_${_pf.name.replace(/[^a-z0-9.]/gi,'_')}`;
-    const { error: _pErr } = await sbClient.storage.from('client-documents').upload(_ppath, _pf);
+  const _photoItems = window._avgPhotoFiles || [];
+  for (const _pi of _photoItems) {
+    const _nm = (_pi.name || 'photo.jpg').replace(/[^a-z0-9.]/gi,'_');
+    const _ppath = `site-visits/photos/${Date.now()}_${Math.random().toString(36).slice(2,7)}_${_nm}`;
+    const { error: _pErr } = await sbClient.storage.from('client-documents').upload(_ppath, _pi.blob, { contentType: 'image/jpeg' });
     if (!_pErr) { const { data: _pUrl } = sbClient.storage.from('client-documents').getPublicUrl(_ppath); if (_pUrl && _pUrl.publicUrl) photoUrls.push(_pUrl.publicUrl); }
   }
   const pointers = document.getElementById('avg-pointers') ? document.getElementById('avg-pointers').value.trim() : '';
