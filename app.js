@@ -1483,8 +1483,25 @@ async function saveEditSiteVisit(visitId) {
     suggestions: document.getElementById('ev-suggestions').value.trim() || null,
     reference: document.getElementById('ev-reference').value.trim() || null
   };
+  // Capture old client_id + date to locate the linked tracker record before it changes
+  let _svOld = null;
+  try { const { data: _d } = await sbClient.from('site_visits').select('client_id, visit_date').eq('id', visitId).single(); _svOld = _d; } catch (e) {}
   const { error } = await sbClient.from('site_visits').update(upd).eq('id', visitId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  // Keep Project Tracker in sync on edit — only when exactly ONE matching record (unambiguous)
+  try {
+    if (_svOld && _svOld.client_id && _svOld.visit_date) {
+      const { data: _m } = await sbClient.from('project_records').select('id')
+        .eq('client_id', _svOld.client_id).eq('site_visit_date', _svOld.visit_date);
+      if (_m && _m.length === 1) {
+        await sbClient.from('project_records').update({
+          recommendation: upd.discussion,
+          comments: upd.suggestions || null,
+          site_visit_date: upd.visit_date
+        }).eq('id', _m[0].id);
+      }
+    }
+  } catch (e) { console.error('tracker sync on edit failed:', e); }
   showToast('✅ Site visit updated!', 'ok');
   document.getElementById('editVisitModal').remove();
   loadClientVisitsAll();
