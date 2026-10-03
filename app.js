@@ -1717,6 +1717,11 @@ function openAddVisitEmpGlobal() {
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
 <div class="field" style="grid-column:1/-1"><label>Comments / Remarks</label><textarea id="avg-remarks" placeholder="Any comments or remarks..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>📍 Pointers (key points / observations)</label><textarea id="avg-pointers" placeholder="Key pointers from the visit..."></textarea></div>
+          <div class="field" style="grid-column:1/-1"><label>📸 Site Photos (Optional — multiple)</label>
+            <input type="file" id="avg-photos" accept="image/*" multiple capture="environment" style="display:block;font-size:13px">
+            <div id="avgPhotoPreview" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+          </div>
           <div class="field" style="grid-column:1/-1;background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:10px 12px">
             <label style="margin:0;font-weight:600">🧾 Billing Status</label>
             <select id="avg-billing-status" style="margin-top:6px">
@@ -2908,6 +2913,15 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   }
 
   const voiceNoteUrls = await uploadVoiceNotes('avg');
+  // Site photos upload (multiple) + pointers
+  const photoUrls = [];
+  const _photoFiles = document.getElementById('avg-photos') ? document.getElementById('avg-photos').files : [];
+  for (const _pf of _photoFiles) {
+    const _ppath = `site-visits/photos/${Date.now()}_${Math.random().toString(36).slice(2,7)}_${_pf.name.replace(/[^a-z0-9.]/gi,'_')}`;
+    const { error: _pErr } = await sbClient.storage.from('client-documents').upload(_ppath, _pf);
+    if (!_pErr) { const { data: _pUrl } = sbClient.storage.from('client-documents').getPublicUrl(_ppath); if (_pUrl && _pUrl.publicUrl) photoUrls.push(_pUrl.publicUrl); }
+  }
+  const pointers = document.getElementById('avg-pointers') ? document.getElementById('avg-pointers').value.trim() : '';
 
   const isMaxHealthcare = clientName === 'MAX Healthcare';
   const isSignatureGlobal = clientName === 'Signature Global';
@@ -2952,6 +2966,8 @@ visit_date: visitDate,
         reference: document.getElementById('avg-reference').value.trim() || null,
 remarks: document.getElementById('avg-remarks').value.trim(),
         voice_notes: voiceNoteUrls,
+        photos: photoUrls,
+        pointers: pointers || null,
         drone_shoot_url: document.getElementById('avg-drone-url').value.trim() || null,
         drone_shoot_caption: document.getElementById('avg-drone-caption').value.trim() || null,
         city: city,
@@ -2973,6 +2989,8 @@ let trackerPayload = {
         contact_person: document.getElementById('avg-contact').value.trim() || null,
         contact_phone: (document.getElementById('avg-contact-phone') ? document.getElementById('avg-contact-phone').value.trim() : '') || null,
         billing_status: (document.getElementById('avg-billing-status') ? document.getElementById('avg-billing-status').value : 'Nil'),
+        photos: photoUrls,
+        pointers: pointers || null,
       };
         if (isMaxHealthcare) {
         trackerPayload.coordinator = visitedBy;
