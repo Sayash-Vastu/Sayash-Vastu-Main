@@ -722,7 +722,7 @@ async function exportAttPDF() {
   const totalDays = lastDay;
 
   // Fetch all employees
-const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
+const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('name', { ascending: true });
   const empsF = (emps||[]).filter(e => e.name.trim().toLowerCase() !== 'neha gupta');
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
@@ -6016,7 +6016,7 @@ async function loadAttReport() {
   const start=`${yr}-${mo}-01`;
 const lastDay = new Date(yr, mo, 0).getDate();
 const end = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-const { data: emps } = await sb.from('employees').select('name,email,weekly_off_pattern').eq('is_active',true).not('role','in','(ceo,hr)');
+const { data: emps } = await sb.from('employees').select('name,email,weekly_off_pattern').eq('is_active',true).not('role','in','(ceo,hr)').order('name', { ascending: true });
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
 
   function isOffPatternDay(pattern, dateObj) {
