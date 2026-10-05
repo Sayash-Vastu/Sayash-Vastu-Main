@@ -1095,6 +1095,12 @@ if (navCompliance) {
     navCompliance.style.display = 'none';
   }
 }
+// Attendance Report in Alisha's HR section (CEO already has it in the Admin panel)
+const navHrAttReport = document.getElementById('nav-hr-att-report');
+if (navHrAttReport) {
+  const _em = (currentUser.email || '').trim().toLowerCase();
+  navHrAttReport.style.display = (_em === 'alisha@sayashvastu.com' || currentUser.displayRole === 'hr') ? 'flex' : 'none';
+}
   // Client CRM Navigation
 const navClientCrmParent = document.getElementById('nav-client-crm-parent');
 const navClientCrmMenu = document.getElementById('clientCrmMenu');
@@ -1182,13 +1188,13 @@ document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
     const arr = document.getElementById('company-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
   }
-  if (['attendance','leaves','holidays','hrPolicy'].includes(name)) {
+  if (['attendance','leaves','holidays','hrPolicy'].includes(name) || (name === 'attReport' && currentUser.role !== 'ceo')) {
     const hrMenuEl = document.getElementById('hrMenu');
     if (hrMenuEl) hrMenuEl.style.display = 'block';
     const arr = document.getElementById('hr-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
   }
-if (['allTasks','employees','attReport','leaveApprove'].includes(name)) {
+if (currentUser.role === 'ceo' && ['allTasks','employees','attReport','leaveApprove'].includes(name)) {
     document.getElementById('ceoMenu').style.display = 'block';
     const arr = document.getElementById('ceo-arrow');
     if (arr) arr.style.transform = 'rotate(90deg)';
