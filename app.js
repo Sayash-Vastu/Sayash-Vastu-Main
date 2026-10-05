@@ -5123,16 +5123,25 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   if (_joining) { const j = new Date(_joining); if(!isNaN(j)){ const p=new Date(j); p.setMonth(p.getMonth()+3); _probEnd = p.toISOString().split('T')[0]; } }
   const _yStart = new Date().getFullYear() + '-01-01';
   const _normLv = (s)=>{ const t=(s||'').trim(); if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const pr=t.split('-'); if(pr.length===3) return pr[2]+'-'+pr[1].padStart(2,'0')+'-'+pr[0].padStart(2,'0'); return null; };
-  let _paidTaken = 0;
+  let _paidTaken = 0, _probTaken = 0;
   leaves.filter(l=>l.status==='Approved').forEach(l=>{
-    if (l.leave_type === 'Other') return;
     let ds2=[];
     if (l.specific_dates && l.specific_dates.trim()) ds2 = l.specific_dates.split(',').map(_normLv).filter(Boolean);
     else { let d=new Date(l.from_date); const e2=new Date(l.to_date); while(d<=e2){ ds2.push(d.toISOString().split('T')[0]); d.setDate(d.getDate()+1);} }
     const per = l.leave_type==='Half Day'?0.5:1;
-    ds2.forEach(x=>{ if (x < _yStart) return; if (_probEnd && x < _probEnd) return; _paidTaken += per; });
+    ds2.forEach(x=>{
+      if (x < _yStart) return;
+      if (_probEnd && x < _probEnd) { _probTaken += per; return; }   // probation leave — unpaid, separate
+      if (l.leave_type === 'Other') return;                          // 'Other' = unpaid, doesn't touch quota
+      _paidTaken += per;                                             // regular paid leave consumes the 12-quota
+    });
   });
   document.getElementById('lv-balance').textContent=Math.max(0,12-_paidTaken);
+  // Probation leaves card (unpaid) — show only if any
+  const _probCard = document.getElementById('lv-prob-card');
+  const _probNum = document.getElementById('lv-probation');
+  if (_probNum) _probNum.textContent = _probTaken;
+  if (_probCard) _probCard.style.display = _probTaken > 0 ? '' : 'none';
   
   // Leave breakdown by type
   const bdEl = document.getElementById('leaveBreakdown');
