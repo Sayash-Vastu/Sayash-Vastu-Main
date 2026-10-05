@@ -184,7 +184,7 @@ setInterval(async function() {
   // Payment follow-up reminder check (once per day, for CEO/Alisha/Ritika)
 setInterval(async function() {
   if (!currentUser) return;
-  const isPayFollowUser = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+  const isPayFollowUser = currentUser.role === 'ceo' || ['alisha@sayashvastu.com'].includes(currentUser.email);
   if (!isPayFollowUser) return;
   const todayStr2 = new Date().toISOString().split('T')[0];
   const remKey = 'sv_payfollow_reminded_' + todayStr2;
@@ -207,7 +207,7 @@ setInterval(async function() {
   // ── 45-day payment escalation: if a raised bill is still unpaid 45 days after follow-up began, notify Yash & Alisha ──
 setInterval(async function() {
   if (!currentUser) return;
-  const isPayFollowUser = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+  const isPayFollowUser = currentUser.role === 'ceo' || ['alisha@sayashvastu.com'].includes(currentUser.email);
   if (!isPayFollowUser) return;
   const escKey = 'sv_pay_escalation_' + new Date().toISOString().split('T')[0];
   if (localStorage.getItem(escKey)) return;
@@ -1111,7 +1111,7 @@ const navPayments = document.getElementById('nav-payments-link');
 
 const hideClientCrm = ['shantanu@sayashvastu.com', 'komal@sayashvastu.com'].includes(currentUser.email);
 const showClientData = !hideClientCrm;
-const showPayments = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+const showPayments = currentUser.role === 'ceo' || ['alisha@sayashvastu.com'].includes(currentUser.email);
   
 if (navClientCrmParent) navClientCrmParent.style.display = hideClientCrm ? 'none' : 'flex';
 const clientCrmSection = document.getElementById('client-crm-section');
@@ -1998,7 +1998,7 @@ function switchPaymentTab(tab) {
   else { if(completedBtn) completedBtn.className = 'btn btn-gold btn-sm'; renderCompletedPaymentsList(); }
 }
 
-// ── BILLING PIPELINE: To Raise (Alisha) -> Raised (Ritika follow-up + WhatsApp) -> Paid ──
+// ── BILLING PIPELINE: To Raise (Alisha) -> Raised (Alisha follow-up + WhatsApp) -> Paid ──
 function renderBillsList() {
   const _isRitika = ((currentUser && currentUser.email) || '').toLowerCase() === 'ritika@sayashvastu.com';
   let bills = (window._billingRows || []).filter(b => b.status !== 'Cancelled');
@@ -2024,7 +2024,11 @@ function renderBillsList() {
     const logs = (window._payFollowupsByBill||{})[b.id] || [];
     const count = logs.length;
     const last = logs[0] || null;
-    const next = last && last.next_followup ? last.next_followup : null;
+    let next = last && last.next_followup ? last.next_followup : null;
+    if (!next && b.status === 'Raised' && b.raised_date) {
+      const _d = new Date(b.raised_date); _d.setDate(_d.getDate() + 10);
+      next = _d.toISOString().split('T')[0];   // default: 10 days after bill raised
+    }
     const isOverdue = next && next < today && b.status !== 'Paid';
     const escOverdue = b.status === 'Raised' && b.raised_date && (Math.floor((Date.now() - new Date(b.raised_date).getTime())/86400000) >= 52);
     const lastBadge = last && last.outcome ? `<span style="font-size:10px;background:#f4f6fb;color:${outcomeColors[last.outcome]||'#6b7280'};border:1px solid #e2e5ec;border-radius:10px;padding:1px 7px;font-weight:600;white-space:nowrap">${esc(last.outcome)}</span>` : '';
@@ -2120,7 +2124,7 @@ async function saveRaiseBill(billId) {
   const { error } = await sbClient.from('billing').update({
     amount, invoice_no: invoice, notes, status: 'Raised',
     raised_date: new Date().toISOString().split('T')[0],
-    followup_by: 'ritika@sayashvastu.com', updated_at: new Date().toISOString()
+    followup_by: 'alisha@sayashvastu.com', updated_at: new Date().toISOString()
   }).eq('id', billId);
   if (error) { showToast('❌ ' + error.message, 'err'); if(btn){btn.disabled=false;btn.textContent='📤 Mark Raised & Notify';} return; }
   // 1) Sync Project Tracker Billing column -> "Raised"
@@ -2130,18 +2134,18 @@ async function saveRaiseBill(billId) {
     if (b && b.visit_date) _tq = _tq.eq('site_visit_date', b.visit_date);
     await _tq;
   } catch(e) { console.error('tracker billing sync failed:', e); }
-  // 2) Notify Ritika to start payment follow-up
-  await createNotification('ritika@sayashvastu.com', '💰 Bill Raised — Start Payment Follow-up',
+  // 2) Notify Alisha to start payment follow-up
+  await createNotification('alisha@sayashvastu.com', '💰 Bill Raised — Start Payment Follow-up',
     'Bill of \u20B9' + amount.toLocaleString('en-IN') + ' has been raised for ' + (b?b.client_name:'client') + '. Please begin payment follow-up.', 'Billing', null);
-  // 2b) Create a payment follow-up TASK for Ritika so it shows in her My Tasks (due after 1 week)
+  // 2b) Create a payment follow-up TASK for Alisha so it shows in her My Tasks (start today, due in 10 days)
   try {
-    const _fu = new Date(); _fu.setDate(_fu.getDate() + 7);
+    const _fu = new Date(); _fu.setDate(_fu.getDate() + 10);
     const _cli = (b && b.client_name) ? b.client_name : 'Client';
     await sb.from('tasks').insert({
       project: _cli,
       task_detail: 'Payment follow-up — ' + _cli + ' (Bill ₹' + amount.toLocaleString('en-IN') + ' raised on ' + new Date().toLocaleDateString('en-IN') + ')',
-      assigned_to_email: 'ritika@sayashvastu.com',
-      assigned_to_name: 'Ritika Upadhyay',
+      assigned_to_email: 'alisha@sayashvastu.com',
+      assigned_to_name: 'Alisha Massey',
       assigned_by_email: currentUser.email,
       assigned_by_name: currentUser.name,
       start_date: new Date().toISOString().split('T')[0],
@@ -2154,7 +2158,7 @@ async function saveRaiseBill(billId) {
   // 3) Notify the person who logged the visit (e.g. Harshita) that the bill is raised
   if (b && b.created_by) {
     await createNotification(b.created_by, '🧾 Bill Raised',
-      'The bill for ' + (b.client_name || 'the client') + ' has been raised' + (amount ? ' (\u20B9' + amount.toLocaleString('en-IN') + ')' : '') + '. Payment follow-up is now handled by Ritika.', 'Billing', null);
+      'The bill for ' + (b.client_name || 'the client') + ' has been raised' + (amount ? ' (\u20B9' + amount.toLocaleString('en-IN') + ')' : '') + '. Payment follow-up is now handled by Alisha.', 'Billing', null);
   }
   closeModal('raiseBillModal');
   showToast('✅ Bill raised — tracker updated & team notified');
@@ -3576,7 +3580,7 @@ const { data: existingNotifs } = await sb.from('notifications')
   }
 
 // Payment Follow-ups Due (Ritika/Alisha/CEO only)
-  const showPayFollowWidget = currentUser.role === 'ceo' || ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'].includes(currentUser.email);
+  const showPayFollowWidget = currentUser.role === 'ceo' || ['alisha@sayashvastu.com'].includes(currentUser.email);
   const payFollowPanelEl = document.getElementById('empPayFollowupsPanel');
   if (payFollowPanelEl) payFollowPanelEl.style.display = showPayFollowWidget ? 'block' : 'none';
   if (showPayFollowWidget) {
