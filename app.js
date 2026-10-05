@@ -6060,7 +6060,7 @@ const { data: emps } = await sb.from('employees').select('name,email,weekly_off_
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
   const { data: holidaysReport } = await sb.from('holidays').select('date').gte('date',start).lte('date',end);
   const tbody=document.getElementById('attReportBody');
-  if (!emps) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px">No data</td></tr>'; return; }
+  if (!emps) { tbody.innerHTML='<tr><td colspan="14" style="text-align:center;padding:30px">No data</td></tr>'; return; }
   const totalCalendarDays=new Date(yr,mo,0).getDate();
   const holidayDatesSet = new Set((holidaysReport||[]).map(h => h.date));
   let totalDays = 0;
@@ -6081,6 +6081,7 @@ const { data: emps } = await sb.from('employees').select('name,email,weekly_off_
     (attData||[]).filter(a=>a.employee_email===e.email).forEach(a => { attMapR[a.date] = a; });
     const empLeavesR = (leaveDataReport||[]).filter(l=>l.employee_email===e.email);
 let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 0;
+    let paidLeaveR = 0, lopLeaveR = 0, _monthPaidUsed = 0;   // leave quota = 1.5 paid days/month
     const halfDatesR = [], leaveDatesR = [], lateDatesR = [], absentDatesR = [];
     const dIter = new Date(yr, mo-1, 1);
     while (dIter.getMonth() === mo-1) {
@@ -6093,6 +6094,12 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       if (!isOffIter && !isHolidayIter) workingDaysR++;
       if (onLeaveIter) {
         leaveR++; leaveDatesR.push(dsIter);
+        // Split into paid (within 1.5/month quota) vs unpaid LOP; 'Other' type always unpaid
+        const _lt = onLeaveIter.leave_type;
+        const _per = (_lt === 'Half Day') ? 0.5 : 1;
+        if (_lt === 'Other') { lopLeaveR += _per; }
+        else if (_monthPaidUsed + _per <= 1.5) { paidLeaveR += _per; _monthPaidUsed += _per; }
+        else { lopLeaveR += _per; }
       } else if (attRec) {
         if (attRec.status === 'Present') presentR++;
         else if (attRec.status === 'Half Day') { halfR++; halfDatesR.push(dsIter); }
@@ -6106,7 +6113,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       }
       dIter.setDate(dIter.getDate()+1);
     }
-    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, workingDays: workingDaysR, halfDates: halfDatesR, leaveDates: leaveDatesR, lateDates: lateDatesR, absentDates: absentDatesR };
+    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, workingDays: workingDaysR, paidLeave: paidLeaveR, lopLeave: lopLeaveR, halfDates: halfDatesR, leaveDates: leaveDatesR, lateDates: lateDatesR, absentDates: absentDatesR };
   });
 
   const totalPresent = Object.values(empCalc).reduce((s,v)=>s+v.present,0);
@@ -6149,7 +6156,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
   }
 
 tbody.innerHTML=emps.map(e=>{
-    const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,halfDates:[],leaveDates:[],lateDates:[],absentDates:[]};
+    const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,paidLeave:0,lopLeave:0,halfDates:[],leaveDates:[],lateDates:[],absentDates:[]};
     const empWorkingDays = c.workingDays || totalDays;
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const empAtt=(attData||[]).filter(a=>a.employee_email===e.email);
@@ -6160,6 +6167,9 @@ tbody.innerHTML=emps.map(e=>{
       <td><span class="badge b-red">${c.absent}</span></td>
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
+      <td style="font-size:12px;color:var(--muted);font-weight:600">1.5</td>
+      <td><span class="badge b-green">${c.paidLeave}</span></td>
+      <td><span class="badge ${(c.lopLeave||0)>0?'b-red':'b-gray'}">${c.lopLeave}</span></td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-weight:700">${empWorkingDays}</td>
     <td style="font-weight:700;color:var(--navy)">${totalHrs.toFixed(1)}h</td>
@@ -11055,7 +11065,8 @@ async function deleteExpense(id) {
 function _canOfficeExp() {
   return currentUser && (currentUser.role === 'ceo' || ['harshita@sayashvastu.com','yash@sayashvastu.com'].includes((currentUser.email||'').toLowerCase()));
 }
-const OFFICE_EXP_CATEGORIES = ['Stationery','Printing','Tea / Snacks','Pantry / Groceries','Food / Refreshments','Cleaning','Electricity / Utilities','Water','Internet / Phone','Software / Subscriptions','Repairs & Maintenance','Furniture / Equipment','Travel / Conveyance','Fuel','Courier / Postage','Marketing / Ads','Gifts','Puja / Festival','Rent','Salary / Wages','Misc / Other'];
+const OFFICE_EXP_CATEGORIES = ['Stationery','Printing','Tea / Snacks','Pantry / Groceries','Food / Refreshments','Cleaning','Electricity / Utilities','Water','Internet / Phone','Software / Subscriptions','Repairs & Maintenance','Furniture / Equipment','Travel / Conveyance','Fuel','Courier / Postage','Marketing / Ads','Gifts','Puja / Festival','Rent','Salary / Wages','Client','Misc / Other'];
+const OFFICE_EXP_PAID_BY = ['Harshita','Damodar','Other'];
 
 async function loadOfficeExpenses() {
   const el = document.getElementById('view-officeExpenses');
@@ -11106,8 +11117,8 @@ function exportOfficeExpensesCSV() {
   const list = window._oexpFiltered || [];
   if (!list.length) { showToast('⚠️ Nothing to export', 'warn'); return; }
   const csvQ = v => `"${(v==null?'':String(v)).replace(/"/g,'""')}"`;
-  const header = ['Date','Category','Description','Amount','Mode','By'];
-  const rows = list.map(e => [e.expense_date, e.category, e.description, e.amount, e.payment_mode, e.created_by_name].map(csvQ).join(','));
+  const header = ['Date','Category','Description','Amount','Mode','Paid By','By'];
+  const rows = list.map(e => [e.expense_date, e.category, e.description, e.amount, e.payment_mode, e.paid_by, e.created_by_name].map(csvQ).join(','));
   const csv = [header.join(','), ...rows].join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='office_expenses_'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); a.remove();
@@ -11130,7 +11141,7 @@ function renderOfficeExpenses() {
   const all = window._officeExp || [];
   let list = all.filter(e => _oexpInPeriod(e.expense_date));
   if (catF) list = list.filter(e => (e.category||'') === catF);
-  if (q) list = list.filter(e => `${e.category||''} ${e.description||''} ${e.created_by_name||''} ${e.payment_mode||''}`.toLowerCase().includes(q));
+  if (q) list = list.filter(e => `${e.category||''} ${e.description||''} ${e.created_by_name||''} ${e.payment_mode||''} ${e.paid_by||''}`.toLowerCase().includes(q));
   window._oexpFiltered = list;
 
   const now = new Date();
@@ -11168,7 +11179,7 @@ function renderOfficeExpenses() {
     <div class="panel"><div class="panel-body" style="padding:0;overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
-        ${['Date','Category','Description','Amount','Mode','By','Action'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;white-space:nowrap">${h}</th>`).join('')}
+        ${['Date','Category','Description','Amount','Mode','Paid By','By','Action'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;white-space:nowrap">${h}</th>`).join('')}
       </tr></thead>
       <tbody>
         ${list.map(e => `<tr style="border-bottom:1px solid #f5f6fa">
@@ -11177,6 +11188,7 @@ function renderOfficeExpenses() {
           <td style="padding:9px 14px;max-width:260px">${esc(e.description)||'—'}</td>
           <td style="padding:9px 14px;font-weight:700;color:var(--navy);white-space:nowrap">₹${(parseFloat(e.amount)||0).toLocaleString('en-IN')}</td>
           <td style="padding:9px 14px;font-size:12px">${esc(e.payment_mode)||'—'}</td>
+          <td style="padding:9px 14px;font-size:12px">${esc(e.paid_by)||'—'}</td>
           <td style="padding:9px 14px;font-size:12px">${esc(e.created_by_name)||'—'}</td>
           <td style="padding:9px 14px;white-space:nowrap">
             <button class="btn btn-sm btn-outline" onclick="openEditOfficeExpense('${e.id}')" style="font-size:11px">✏️</button>
@@ -11202,6 +11214,9 @@ function openAddOfficeExpense() {
           <div class="field"><label>Payment Mode</label>
             <select id="oe-mode"><option>Cash</option><option>UPI</option><option>Card</option><option>Bank Transfer</option><option>Other</option></select>
           </div>
+          <div class="field"><label>Paid By</label>
+            <select id="oe-paidby">${OFFICE_EXP_PAID_BY.map(p=>`<option>${p}</option>`).join('')}</select>
+          </div>
           <div class="field" style="grid-column:1/-1"><label>Description</label><input id="oe-desc" placeholder="What was this expense for?"></div>
         </div>
         <div class="modal-actions">
@@ -11222,6 +11237,7 @@ async function saveOfficeExpense() {
     amount: amount,
     category: document.getElementById('oe-category').value,
     payment_mode: document.getElementById('oe-mode').value,
+    paid_by: document.getElementById('oe-paidby').value,
     description: document.getElementById('oe-desc').value.trim() || null,
     created_by: currentUser.email,
     created_by_name: currentUser.name,
@@ -11238,6 +11254,7 @@ function openEditOfficeExpense(id) {
   const v = s => (s == null ? '' : String(s).replace(/"/g,'&quot;'));
   const modes = ['Cash','UPI','Card','Bank Transfer','Other'];
   const catOpts = OFFICE_EXP_CATEGORIES.map(c=>`<option ${c===e.category?'selected':''}>${c}</option>`).join('') + (OFFICE_EXP_CATEGORIES.includes(e.category)?'':`<option selected>${esc(e.category)||''}</option>`);
+  const paidByOpts = OFFICE_EXP_PAID_BY.map(p=>`<option ${p===e.paid_by?'selected':''}>${p}</option>`).join('') + ((e.paid_by && !OFFICE_EXP_PAID_BY.includes(e.paid_by))?`<option selected>${esc(e.paid_by)}</option>`:'');
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="editOfficeExpModal">
       <div class="modal">
@@ -11247,6 +11264,7 @@ function openEditOfficeExpense(id) {
           <div class="field"><label>Amount (₹) *</label><input type="number" id="eoe-amount" value="${e.amount != null ? e.amount : ''}"></div>
           <div class="field"><label>Category</label><select id="eoe-category">${catOpts}</select></div>
           <div class="field"><label>Payment Mode</label><select id="eoe-mode">${modes.map(m=>`<option ${m===e.payment_mode?'selected':''}>${m}</option>`).join('')}</select></div>
+          <div class="field"><label>Paid By</label><select id="eoe-paidby">${paidByOpts}</select></div>
           <div class="field" style="grid-column:1/-1"><label>Description</label><input id="eoe-desc" value="${v(e.description)}"></div>
         </div>
         <div class="modal-actions">
@@ -11267,6 +11285,7 @@ async function saveEditOfficeExpense(id) {
     amount: amount,
     category: document.getElementById('eoe-category').value,
     payment_mode: document.getElementById('eoe-mode').value,
+    paid_by: document.getElementById('eoe-paidby').value,
     description: document.getElementById('eoe-desc').value.trim() || null,
   }).eq('id', id);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
