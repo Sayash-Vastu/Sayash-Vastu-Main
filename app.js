@@ -5116,7 +5116,23 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   document.getElementById('lv-pending').textContent=pending;
   document.getElementById('lv-taken').textContent=taken;
   document.getElementById('lv-rejected') && (document.getElementById('lv-rejected').textContent=rejected);
-  document.getElementById('lv-balance').textContent=Math.max(0,12-taken);
+  // Balance = 12/year − paid leaves used (probation leaves & 'Other' don't consume the quota)
+  const { data: _me } = await sb.from('employees').select('joining_date').eq('email', currentUser.email).single();
+  const _joining = (_me && _me.joining_date) || currentUser.joining_date || null;
+  let _probEnd = null;
+  if (_joining) { const j = new Date(_joining); if(!isNaN(j)){ const p=new Date(j); p.setMonth(p.getMonth()+3); _probEnd = p.toISOString().split('T')[0]; } }
+  const _yStart = new Date().getFullYear() + '-01-01';
+  const _normLv = (s)=>{ const t=(s||'').trim(); if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const pr=t.split('-'); if(pr.length===3) return pr[2]+'-'+pr[1].padStart(2,'0')+'-'+pr[0].padStart(2,'0'); return null; };
+  let _paidTaken = 0;
+  leaves.filter(l=>l.status==='Approved').forEach(l=>{
+    if (l.leave_type === 'Other') return;
+    let ds2=[];
+    if (l.specific_dates && l.specific_dates.trim()) ds2 = l.specific_dates.split(',').map(_normLv).filter(Boolean);
+    else { let d=new Date(l.from_date); const e2=new Date(l.to_date); while(d<=e2){ ds2.push(d.toISOString().split('T')[0]); d.setDate(d.getDate()+1);} }
+    const per = l.leave_type==='Half Day'?0.5:1;
+    ds2.forEach(x=>{ if (x < _yStart) return; if (_probEnd && x < _probEnd) return; _paidTaken += per; });
+  });
+  document.getElementById('lv-balance').textContent=Math.max(0,12-_paidTaken);
   
   // Leave breakdown by type
   const bdEl = document.getElementById('leaveBreakdown');
@@ -5141,7 +5157,7 @@ tbody.innerHTML = leaves.map(l=>`<tr>
     <td style="font-weight:700">${l.total_days||1}</td>
 <td style="font-size:12px;color:var(--muted)">${esc(l.reason||'—')}${l.specific_dates ? `<div style="font-size:10.5px;color:var(--amber);font-weight:600;margin-top:3px">📅 ${esc(l.specific_dates)}</div>` : ''}</td>
     <td>${l.attachment_url ? l.attachment_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" style="font-size:11px;color:var(--blue);display:block">📎 File ${idx+1}</a>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
-    <td>${leaveBadge(l.status)}</td>
+    <td>${leaveBadge(l.status)}${(_probEnd && String(l.from_date).slice(0,10) < _probEnd)?`<div style="margin-top:3px"><span class="badge b-amber" style="font-size:9px" title="Taken during probation — unpaid (deducted)">🟡 Probation</span></div>`:''}</td>
     <td>${l.status==='Pending'?`<button onclick="cancelLeave('${l.id}')" style="background:#fdf0ee;color:var(--red);border:1px solid var(--red-bg);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancel</button>`:'—'}</td>
   </tr>`).join('');
 }
@@ -6227,6 +6243,11 @@ async function loadLeaveApprovals() {
   const { data } = await sb.from('leaves').select('*').eq('is_archived',false).order('created_at',{ascending:false});
   _allLeaveApprovals = data || [];
 
+  // Build probation-end map (joining + 3 months) so leaves taken during probation can be marked
+  const { data: _empsLv } = await sb.from('employees').select('email, joining_date');
+  window._empProbEnd = {};
+  (_empsLv||[]).forEach(e=>{ if(e.joining_date){ const j=new Date(e.joining_date); if(!isNaN(j)){ const p=new Date(j); p.setMonth(p.getMonth()+3); window._empProbEnd[e.email]=p.toISOString().split('T')[0]; } } });
+
   const pending = _allLeaveApprovals.filter(l=>l.status==='Pending');
   const approved = _allLeaveApprovals.filter(l=>l.status==='Approved');
   const rejected = _allLeaveApprovals.filter(l=>l.status==='Rejected');
@@ -6254,11 +6275,16 @@ async function loadLeaveApprovals() {
   renderLeaveHistory();
 }
 
+function _probBadge(l){
+  const pe = (window._empProbEnd||{})[l.employee_email];
+  if (pe && String(l.from_date).slice(0,10) < pe) return `<span class="badge b-amber" style="font-size:9px;margin-left:6px" title="Taken during probation — unpaid (deducted)">🟡 Probation · unpaid</span>`;
+  return '';
+}
 function leaveCard(l) {
   return `<div class="leave-action-card" style="margin-bottom:12px">
     <div class="leave-action-head">
       <div>
-        <div style="font-size:14px;font-weight:700;color:var(--navy)">${esc(l.employee_name)}</div>
+        <div style="font-size:14px;font-weight:700;color:var(--navy)">${esc(l.employee_name)}${_probBadge(l)}</div>
         <div style="font-size:12px;color:var(--muted);margin-top:3px">
           <span class="badge b-blue" style="margin-right:6px">${esc(l.leave_type)}</span>
           ${fmtDate(l.from_date)} → ${fmtDate(l.to_date)} · <strong>${l.total_days}</strong> day(s)
@@ -6294,7 +6320,7 @@ function renderLeaveHistory() {
   }
 
   tbody.innerHTML = history.map(l => `<tr>
-    <td style="font-weight:600;color:var(--navy)">${esc(l.employee_name)}</td>
+    <td style="font-weight:600;color:var(--navy)">${esc(l.employee_name)}${_probBadge(l)}</td>
     <td><span class="badge b-blue">${esc(l.leave_type)}</span></td>
     <td style="font-size:12px">${fmtDate(l.from_date)}</td>
     <td style="font-size:12px">${fmtDate(l.to_date)}</td>
