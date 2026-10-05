@@ -5577,10 +5577,18 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate) {
     .lte('from_date', yEnd).gte('to_date', yStart)
     .order('from_date', { ascending: true });
 
-  const MONTHLY_CAP = 1.5; // Max paid leave days per calendar month; beyond this = LOP
-  const monthUsed = {};    // '2026-07' -> paid days already used that month
+  const ANNUAL_QUOTA = 12;   // Paid leaves per year (annual pool); beyond this = LOP
+  let yearUsed = 0;          // paid leave days already used this year
   const paidDates = new Set();
   const lopDates = new Set();
+
+  // Probation = first 3 months from joining date. Leaves during probation are ALWAYS unpaid
+  // (deducted even if approved) and do NOT consume the annual quota.
+  let probationEnd = null;
+  if (joiningDate) {
+    const j = new Date(joiningDate);
+    if (!isNaN(j)) { const p = new Date(j); p.setMonth(p.getMonth() + 3); probationEnd = p.toISOString().split('T')[0]; }
+  }
 
   // Normalize a date string like '8-7-2026' or '08-07-2026' to '2026-07-08'
   const normalizeDate = (s) => {
@@ -5607,22 +5615,15 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate) {
       while (d <= end) { days.push(d.toISOString().split('T')[0]); d.setDate(d.getDate() + 1); }
     }
 
-    // 'Other' leave type is always unpaid
-    if (type === 'Other') {
-      days.forEach(ds => lopDates.add(ds));
-      return;
-    }
-
     const perDay = type === 'Half Day' ? 0.5 : 1;
     days.forEach(ds => {
-      const mKey = ds.substring(0, 7); // '2026-07'
-      const used = monthUsed[mKey] || 0;
-      if (used + perDay <= MONTHLY_CAP) {
-        paidDates.add(ds);
-        monthUsed[mKey] = used + perDay;
-      } else {
-        lopDates.add(ds);
-      }
+      // 1) During probation → always unpaid, quota untouched
+      if (probationEnd && ds < probationEnd) { lopDates.add(ds); return; }
+      // 2) 'Other' leave type is always unpaid
+      if (type === 'Other') { lopDates.add(ds); return; }
+      // 3) Draw from the annual 12-day pool
+      if (yearUsed + perDay <= ANNUAL_QUOTA) { paidDates.add(ds); yearUsed += perDay; }
+      else { lopDates.add(ds); }
     });
   });
 
@@ -6040,7 +6041,7 @@ async function loadAttReport() {
   const start=`${yr}-${mo}-01`;
 const lastDay = new Date(yr, mo, 0).getDate();
 const end = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-const { data: emps } = await sb.from('employees').select('name,email,weekly_off_pattern').eq('is_active',true).not('role','in','(ceo,hr)').order('name', { ascending: true });
+const { data: emps } = await sb.from('employees').select('name,email,weekly_off_pattern,joining_date').eq('is_active',true).not('role','in','(ceo,hr)').order('name', { ascending: true });
   const { data: attData } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date',start).lte('date',end);
 
   function isOffPatternDay(pattern, dateObj) {
@@ -6161,14 +6162,20 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
   const { data: _yearLeaves } = await sb.from('leaves').select('employee_email, from_date, to_date, specific_dates, leave_type')
     .eq('status','Approved').lte('from_date', end).gte('to_date', _yearStart);
   const _normD = (s)=>{ const t=(s||'').trim(); if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const p=t.split('-'); if(p.length===3) return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'); return null; };
+  // Probation end (joining + 3 months) per employee — probation leaves are unpaid & don't consume the 12-pool
+  const _probEndByEmail = {};
+  (emps||[]).forEach(e=>{
+    if (e.joining_date) { const j = new Date(e.joining_date); if(!isNaN(j)){ const p=new Date(j); p.setMonth(p.getMonth()+3); _probEndByEmail[e.email] = p.toISOString().split('T')[0]; } }
+  });
   const _usedByEmail = {};
   (_yearLeaves||[]).forEach(l=>{
     if (l.leave_type === 'Other') return;   // 'Other' is unpaid — not from the paid quota
+    const _pe = _probEndByEmail[l.employee_email] || null;
     let days=[];
     if (l.specific_dates && l.specific_dates.trim()) days = l.specific_dates.split(',').map(_normD).filter(Boolean);
     else { let d=new Date(l.from_date); const e2=new Date(l.to_date); while(d<=e2){ days.push(d.toISOString().split('T')[0]); d.setDate(d.getDate()+1);} }
     const per = l.leave_type==='Half Day'?0.5:1;
-    const cnt = days.filter(ds=>ds>=_yearStart && ds<=end).length * per;
+    const cnt = days.filter(ds=> ds>=_yearStart && ds<=end && !(_pe && ds < _pe)).length * per;   // skip probation days
     _usedByEmail[l.employee_email] = (_usedByEmail[l.employee_email]||0) + cnt;
   });
 
@@ -6179,8 +6186,11 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     const usedYTD = _usedByEmail[e.email] || 0;
     const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD;
     const llColor = leavesLeft <= 0 ? 'var(--red)' : leavesLeft <= 3 ? '#b7791f' : 'var(--green)';
+    const _pe = _probEndByEmail[e.email];
+    const _todayStr = new Date().toISOString().split('T')[0];
+    const isProb = _pe && _todayStr < _pe;
     return `<tr>
-      <td style="font-weight:600">${esc(e.name)}</td>
+      <td style="font-weight:600">${esc(e.name)}${isProb?` <span class="badge b-amber" style="font-size:9px" title="On probation till ${fmtDate(_pe)} — all leaves are unpaid (deducted)">Probation</span>`:''}</td>
       <td><span class="badge b-green">${c.present}</span></td>
       <td><span class="badge b-red">${c.absent}</span></td>
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
