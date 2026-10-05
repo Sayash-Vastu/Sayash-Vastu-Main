@@ -6060,7 +6060,7 @@ const { data: emps } = await sb.from('employees').select('name,email,weekly_off_
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
   const { data: holidaysReport } = await sb.from('holidays').select('date').gte('date',start).lte('date',end);
   const tbody=document.getElementById('attReportBody');
-  if (!emps) { tbody.innerHTML='<tr><td colspan="14" style="text-align:center;padding:30px">No data</td></tr>'; return; }
+  if (!emps) { tbody.innerHTML='<tr><td colspan="15" style="text-align:center;padding:30px">No data</td></tr>'; return; }
   const totalCalendarDays=new Date(yr,mo,0).getDate();
   const holidayDatesSet = new Set((holidaysReport||[]).map(h => h.date));
   let totalDays = 0;
@@ -6155,9 +6155,14 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     `;
   }
 
-tbody.innerHTML=emps.map(e=>{
+const _nowR = new Date();
+  const _isCurMonth = (_nowR.getFullYear() === yr && (_nowR.getMonth()+1) === mo);
+  const periodDays = _isCurMonth ? _nowR.getDate() : totalCalendarDays;   // month-to-date for current month
+  tbody.innerHTML=emps.map(e=>{
     const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,paidLeave:0,lopLeave:0,halfDates:[],leaveDates:[],lateDates:[],absentDates:[]};
     const empWorkingDays = c.workingDays || totalDays;
+    const deductionDays = (c.absent||0) + (c.lopLeave||0);        // unpaid days → salary deduction
+    const payableDays = Math.max(0, periodDays - deductionDays);  // salary base (offs & holidays paid)
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const empAtt=(attData||[]).filter(a=>a.employee_email===e.email);
     const totalHrs = empAtt.reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
@@ -6167,11 +6172,12 @@ tbody.innerHTML=emps.map(e=>{
       <td><span class="badge b-red">${c.absent}</span></td>
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
-      <td style="font-size:12px;color:var(--muted);font-weight:600">1.5</td>
-      <td><span class="badge b-green">${c.paidLeave}</span></td>
-      <td><span class="badge ${(c.lopLeave||0)>0?'b-red':'b-gray'}">${c.lopLeave}</span></td>
+      <td><span class="badge b-green" title="Leaves within quota (1.5/month) — paid">${c.paidLeave}</span></td>
+      <td><span class="badge ${(c.lopLeave||0)>0?'b-red':'b-gray'}" title="Leaves beyond quota — unpaid (deducted)">${c.lopLeave}</span></td>
+      <td><span class="badge ${deductionDays>0?'b-red':'b-green'}" title="Absents + unpaid leaves = days deducted from salary">${deductionDays}</span></td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-weight:700">${empWorkingDays}</td>
+      <td style="font-weight:800;color:var(--navy)" title="Calendar days − deduction (weekly offs & holidays are paid). Salary = monthly × payable ÷ month days.">${payableDays}</td>
     <td style="font-weight:700;color:var(--navy)">${totalHrs.toFixed(1)}h</td>
       <td style="font-size:11px">
         ${c.half > 0 ? `<span class="badge b-amber">Half Day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
