@@ -1881,7 +1881,7 @@ el.innerHTML = `
     <div id="pendingPaymentsList"></div>
   `;  
   const [{ data: clients }, { data: projects }, { data: payments }, { data: followups }, { data: billing }, { data: payFollowups }] = await Promise.all([
-    sbClient.from('clients').select('id, name, phone'),
+    sbClient.from('clients').select('id, name, phone, accounts_name, accounts_phone'),
     sbClient.from('projects').select('*'),
     sbClient.from('payments').select('*'),
     sbClient.from('followups').select('*').order('next_followup', { ascending: true }),
@@ -1930,6 +1930,7 @@ const allPaymentRows = (projects || []).map(p => {
   });
   window._payFollowupsByBill = pfByBill;
   window._clientPhoneMap = {}; (clients||[]).forEach(c => { window._clientPhoneMap[c.id] = c.phone || ''; });
+  window._clientAccountsMap = {}; (clients||[]).forEach(c => { window._clientAccountsMap[c.id] = { name: c.accounts_name || '', phone: c.accounts_phone || '' }; });
 
   const totalPending = pendingRows.reduce((s, r) => s + r.balance, 0);
   const today = new Date().toISOString().split('T')[0];
@@ -2045,9 +2046,13 @@ function renderBillsList() {
 
     let fuCell, nextCell;
     if (b.status === 'Raised') {
-      fuCell = count
+      const _accR = (window._clientAccountsMap||{})[b.client_id] || {};
+      const _accLine = (_accR.name || _accR.phone)
+        ? `<div style="font-size:10.5px;color:var(--navy);margin-top:3px">📞 Accounts: ${esc(_accR.name||'')}${_accR.phone?` · ${esc(_accR.phone)}`:''}</div>`
+        : '';
+      fuCell = (count
         ? `<div style="font-size:12px"><b>${count}×</b> followed up</div>${last?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${fmtDate(last.followup_date)}${last.client_response?` — “${esc(last.client_response.substring(0,38))}${last.client_response.length>38?'…':''}”`:''}</div>`:''}`
-        : `<span style="font-size:11px;color:var(--amber);font-weight:600">No follow-up yet</span>`;
+        : `<span style="font-size:11px;color:var(--amber);font-weight:600">No follow-up yet</span>`) + _accLine;
       nextCell = next ? `<span style="font-size:12px;${isOverdue?'color:var(--red);font-weight:700':''}">${fmtDate(next)}${isOverdue?' ⚠️':''}</span>` : '<span style="color:var(--muted)">—</span>';
     } else if (b.status === 'Paid') {
       fuCell = count ? `<span style="font-size:11px;color:var(--muted)">${count}× done</span>` : '<span style="color:var(--muted)">—</span>';
@@ -2061,7 +2066,8 @@ function renderBillsList() {
     if (b.status === 'To Raise') {
       actions = `<button class="btn btn-gold btn-sm" onclick="openRaiseBillModal('${b.id}')">🧾 Raise Bill</button>${del(b.id)}`;
     } else if (b.status === 'Raised') {
-      const phone = b.contact_phone || (window._clientPhoneMap||{})[b.client_id] || '';
+      const _acc = (window._clientAccountsMap||{})[b.client_id] || {};
+      const phone = _acc.phone || b.contact_phone || (window._clientPhoneMap||{})[b.client_id] || '';
       const digits = String(phone).replace(/\D/g,'');
       const waNum = digits.length === 10 ? '91'+digits : digits;
       const msg = encodeURIComponent(`Dear ${b.client_name}, this is a gentle reminder regarding the pending payment for ${b.project_name||'your project'}${b.invoice_no?` (Invoice ${b.invoice_no})`:''}${b.amount?`, amount ₹${Number(b.amount).toLocaleString('en-IN')}`:''}. Kindly arrange the payment at your earliest convenience. Thank you. — Sayash Vastu`);
@@ -2095,6 +2101,7 @@ function renderBillsList() {
 function openRaiseBillModal(billId) {
   const b = (window._billingRows||[]).find(x => x.id === billId);
   if (!b) { showToast('Bill not found', 'err'); return; }
+  const _rbAcc = (window._clientAccountsMap || {})[b.client_id] || { name: '', phone: '' };
   document.body.insertAdjacentHTML('beforeend', `
     <div class="modal-overlay open" id="raiseBillModal">
       <div class="modal">
@@ -2103,8 +2110,11 @@ function openRaiseBillModal(billId) {
         <div class="form-grid cols-2">
           <div class="field"><label>Amount (\u20B9) *</label><input type="number" id="rb-amount" placeholder="e.g. 25000"></div>
           <div class="field"><label>Invoice No.</label><input id="rb-invoice" placeholder="e.g. INV-2026-045"></div>
+          <div class="field"><label>Accounts Person Name</label><input id="rb-acc-name" value="${esc(_rbAcc.name || '')}" placeholder="e.g. Vivek Garg (Accounts)"></div>
+          <div class="field"><label>Accounts Phone (for follow-up)</label><input id="rb-acc-phone" value="${esc(_rbAcc.phone || b.contact_phone || '')}" placeholder="10-digit number"></div>
           <div class="field" style="grid-column:1/-1"><label>Notes</label><textarea id="rb-notes" placeholder="Any details..."></textarea></div>
         </div>
+        <div style="font-size:11px;color:var(--muted);margin:-4px 0 10px">\uD83D\uDCAC WhatsApp payment reminders will go to this Accounts number. It is saved on the client for next time.</div>
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeModal('raiseBillModal')">Cancel</button>
           <button class="btn btn-gold" id="rbSaveBtn" onclick="saveRaiseBill('${b.id}')">📤 Mark Raised & Notify</button>
@@ -2117,6 +2127,8 @@ async function saveRaiseBill(billId) {
   const amount = parseFloat(document.getElementById('rb-amount').value) || null;
   const invoice = document.getElementById('rb-invoice').value.trim() || null;
   const notes = document.getElementById('rb-notes').value.trim() || null;
+  const accName = (document.getElementById('rb-acc-name')?.value || '').trim();
+  const accPhone = (document.getElementById('rb-acc-phone')?.value || '').trim();
   if (!amount) { showToast('Amount is required', 'err'); return; }
   const b = (window._billingRows||[]).find(x => x.id === billId);
   const btn = document.getElementById('rbSaveBtn');
@@ -2124,9 +2136,17 @@ async function saveRaiseBill(billId) {
   const { error } = await sbClient.from('billing').update({
     amount, invoice_no: invoice, notes, status: 'Raised',
     raised_date: new Date().toISOString().split('T')[0],
+    contact_phone: accPhone || b.contact_phone || null,
     followup_by: 'alisha@sayashvastu.com', updated_at: new Date().toISOString()
   }).eq('id', billId);
   if (error) { showToast('❌ ' + error.message, 'err'); if(btn){btn.disabled=false;btn.textContent='📤 Mark Raised & Notify';} return; }
+  // Save accounts contact on the client so it auto-fills next time + follow-up uses it
+  if ((accName || accPhone) && b && b.client_id) {
+    try {
+      await sbClient.from('clients').update({ accounts_name: accName || null, accounts_phone: accPhone || null }).eq('id', b.client_id);
+      if (window._clientAccountsMap) window._clientAccountsMap[b.client_id] = { name: accName, phone: accPhone };
+    } catch(e) { console.error('accounts contact save failed:', e); }
+  }
   // 1) Sync Project Tracker Billing column -> "Raised"
   try {
     let _tq = sbClient.from('project_records').update({ billing_status: 'Raised' })
