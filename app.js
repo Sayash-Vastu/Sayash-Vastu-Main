@@ -4117,32 +4117,121 @@ async function markEmpLogin(workType) {
   }
 
   const { data: emp } = await sb.from('employees').select('id').eq('email', currentUser.email).single();
- const { error } = await sb.from('attendance').insert({
+
+  const _payload = {
     employee_id: emp?.id,
     employee_email: currentUser.email,
     employee_name: currentUser.name,
     date: today,
     check_in: now.toISOString(),
-status: (() => {
-  const h = new Date().getHours();
-  return h >= 13 ? 'Half Day' : 'Present';
-})(),
-   work_type: workType || 'Office',
+    status: (new Date().getHours() >= 13 ? 'Half Day' : 'Present'),
+    work_type: workType || 'Office',
     latitude: latitude,
     longitude: longitude,
     location_address: location_address,
     ip_address: ip_address
-  });
-  if (error) { showToast('❌ '+error.message, 'err'); return; }
-const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
-  showToast(`✅ Logged in (${typeLabel}) at `+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), 'ok');
+  };
 
-  // Early login appreciation (before 10 AM)
-  if (now.getHours() < 10) {
-    showEarlyLoginAppreciation();
+  // ── Late-coming reason gate: 3 late marks allowed; 4th late onwards must submit a reason before attendance is marked ──
+  const _isLateNow = now.getHours() > 10 || (now.getHours() === 10 && now.getMinutes() > 10);
+  let _priorLate = 0;
+  if (_isLateNow) {
+    try {
+      const _mStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+      const _policyStart = '2026-09-21';
+      const _effStart = _mStart > _policyStart ? _mStart : _policyStart;
+      const { data: _att } = await sb.from('attendance').select('check_in').eq('employee_email', currentUser.email).eq('is_archived', false).gte('date', _effStart);
+      (_att || []).forEach(a => { if (a.check_in) { const t = new Date(a.check_in); if (t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 10)) _priorLate++; } });
+    } catch(e) { console.error('late count', e); }
   }
 
+  if (_isLateNow && _priorLate >= 3) {
+    // 4th (or later) late → hold attendance until a reason is submitted
+    window._pendingCheckin = { payload: _payload, now: now, workType: workType };
+    openLateReasonModal(_priorLate + 1);
+    return;
+  }
+
+  await _finishCheckin(_payload, now, workType);
+}
+
+async function _finishCheckin(payload, now, workType) {
+  const { error } = await sb.from('attendance').insert(payload);
+  if (error) { showToast('❌ '+error.message, 'err'); return; }
+  const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
+  showToast(`✅ Logged in (${typeLabel}) at `+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), 'ok');
+  // Early login appreciation (before 10 AM)
+  if (now.getHours() < 10) { showEarlyLoginAppreciation(); }
   loadEmpDashboard();
+}
+
+function openLateReasonModal(lateNo) {
+  const ex = document.getElementById('lateReasonModal'); if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="lateReasonModal">
+      <div class="modal" style="max-width:460px">
+        <div style="padding:22px 24px">
+          <div style="font-size:16px;font-weight:800;color:var(--navy);margin-bottom:6px">⏰ Reason for late check-in required</div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:16px">You've already used your <strong>3 late allowances</strong> this month. This is late check-in <strong>#${lateNo}</strong>. Please share why you're running late — your attendance will be marked once you submit, and we'll suggest something that may help.</div>
+          <textarea id="lateReasonText" rows="3" placeholder="e.g. Heavy traffic, woke up late, feeling unwell, personal work at home..." style="width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none;resize:vertical"></textarea>
+          <div id="lateReasonErr" style="color:var(--red);font-size:12px;margin-top:6px;display:none">Please enter a reason — your attendance won't be marked until you do.</div>
+          <div style="display:flex;justify-content:flex-end;margin-top:16px">
+            <button class="btn btn-gold" onclick="submitLateReason()">Submit &amp; Mark Attendance</button>
+          </div>
+        </div>
+      </div>
+    </div>`);
+  setTimeout(() => { const t = document.getElementById('lateReasonText'); if (t) t.focus(); }, 80);
+}
+
+async function submitLateReason() {
+  const t = document.getElementById('lateReasonText');
+  const reason = ((t && t.value) || '').trim();
+  if (reason.length < 3) { const e = document.getElementById('lateReasonErr'); if (e) e.style.display = 'block'; return; }
+  const pending = window._pendingCheckin;
+  if (!pending) { closeModal('lateReasonModal'); return; }
+  const payload = Object.assign({}, pending.payload, { late_reason: reason });
+  const { error } = await sb.from('attendance').insert(payload);
+  if (error) { showToast('❌ '+error.message, 'err'); return; }
+  window._pendingCheckin = null;
+  closeModal('lateReasonModal');
+  const typeLabel = pending.workType==='WFH'?'Work From Home':pending.workType==='On Site'?'On Site':'Office';
+  showToast(`✅ Attendance marked (${typeLabel})`, 'ok');
+  showLateSolution(reason);
+  loadEmpDashboard();
+}
+
+function _lateSolutionFor(reason) {
+  const r = (reason || '').toLowerCase();
+  if (/traffic|jam|road|metro|bus|train|transport|cab|auto|commut/.test(r))
+    return "Traffic is unpredictable, so give yourself a buffer — try leaving 15–20 minutes earlier and checking a live maps app before you start to pick a clearer route. If one stretch is always jammed, tell HR; we can look at a slightly flexible start time.";
+  if (/alarm|woke|wake|slept|sleep|overslept|late night|get ?up|uth/.test(r))
+    return "Mornings can be tough. Two alarms 10 minutes apart, phone kept across the room, and winding down 30 minutes earlier at night make waking up on time far easier. Small habit, big difference.";
+  if (/sick|unwell|ill|fever|health|pain|doctor|hospital|medical|tabiyat|bimar/.test(r))
+    return "Your health comes first — please don't push yourself. If you're not well, you can apply for a leave or half day from the Leave section. Take care and recover fully. 🙏";
+  if (/family|personal|home|kid|child|parent|wife|husband|emergency|ghar/.test(r))
+    return "Family matters are important. If something regularly needs your time in the mornings, talk to HR about a short-term flexible start — a planned adjustment beats a daily rush.";
+  if (/rain|weather|cold|storm|flood|fog|barish|mausam/.test(r))
+    return "Bad weather makes commuting hard. On such days leave a little earlier, or choose Work From Home at check-in (if your work allows) to stay safe and on time.";
+  if (/far|distance|live far|long way|travel|door|duur/.test(r))
+    return "A long commute adds up. Leaving 15–20 minutes earlier gives a cushion for delays. If distance is a regular issue, discuss an occasional WFH day or a flexible start with HR.";
+  return "Thanks for sharing. Planning your morning the night before — bag and clothes ready, and leaving 15 minutes earlier than you think you need — fixes most delays. If something specific keeps coming up, HR is happy to help find a workable solution.";
+}
+
+function showLateSolution(reason) {
+  const sol = _lateSolutionFor(reason);
+  const ex = document.getElementById('lateSolutionModal'); if (ex) ex.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div class="modal-overlay open" id="lateSolutionModal" onclick="if(event.target===this) closeModal('lateSolutionModal')">
+      <div class="modal" style="max-width:440px">
+        <div style="padding:24px;text-align:center">
+          <div style="font-size:40px;margin-bottom:10px">🤝</div>
+          <div style="font-size:15px;font-weight:800;color:var(--navy);margin-bottom:12px">A suggestion that might help</div>
+          <div style="font-size:13px;color:var(--text);line-height:1.6;background:#f8f9fc;border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:left">${sol}</div>
+          <button class="btn btn-gold" onclick="closeModal('lateSolutionModal')" style="margin-top:18px;padding:10px 28px">Got it 👍</button>
+        </div>
+      </div>
+    </div>`);
 }
 
 function showEarlyLoginAppreciation() {
@@ -6242,6 +6331,37 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       </td>
     </tr>`;
   }).join('');
+
+  // ── CEO-only (Yash): Late check-in reasons submitted this month ──
+  const _lrEl = document.getElementById('att-late-reasons');
+  if (_lrEl) {
+    const _isYash = (currentUser.email || '').toLowerCase() === CEO_EMAIL;
+    if (!_isYash) {
+      _lrEl.innerHTML = '';
+    } else {
+      const _lrRows = (attData || [])
+        .filter(a => a.late_reason && String(a.late_reason).trim())
+        .sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+      const _fmtT = ci => { try { return new Date(ci).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}); } catch(e) { return '—'; } };
+      _lrEl.innerHTML = `
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">⏰ Late Check-in Reasons <span class="badge b-red" style="margin-left:6px">${_lrRows.length}</span></div>
+            <span style="font-size:11px;color:var(--muted)">Submitted after 3 allowed late marks · visible to CEO only</span>
+          </div>
+          ${_lrRows.length ? `<div class="tbl-wrap"><table>
+            <thead><tr><th>Employee</th><th>Date</th><th>Check-in</th><th>Reason</th></tr></thead>
+            <tbody>${_lrRows.map(a => `<tr>
+              <td style="font-weight:600;white-space:nowrap">${esc(a.employee_name || a.employee_email || '—')}</td>
+              <td style="white-space:nowrap">${fmtDate(a.date)}</td>
+              <td style="white-space:nowrap;color:var(--red);font-weight:600">${_fmtT(a.check_in)}</td>
+              <td style="font-size:12px;color:var(--text);line-height:1.5">${esc(a.late_reason)}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>`
+          : `<div style="padding:22px;text-align:center;color:var(--muted);font-size:13px">No late-coming reasons submitted this month. 🎉</div>`}
+        </div>`;
+    }
+  }
 }
 // ═══════════════════════════════════════════
 //  LEAVE APPROVALS CEO
