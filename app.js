@@ -11297,8 +11297,8 @@ function exportOfficeExpensesCSV() {
   const list = window._oexpFiltered || [];
   if (!list.length) { showToast('⚠️ Nothing to export', 'warn'); return; }
   const csvQ = v => `"${(v==null?'':String(v)).replace(/"/g,'""')}"`;
-  const header = ['Date','Category','Description','Amount','Mode','Paid By','By'];
-  const rows = list.map(e => [e.expense_date, e.category, e.description, e.amount, e.payment_mode, e.paid_by, e.created_by_name].map(csvQ).join(','));
+  const header = ['Date','Category','Description','Amount','Mode','Paid By','By','Bill URL'];
+  const rows = list.map(e => [e.expense_date, e.category, e.description, e.amount, e.payment_mode, e.paid_by, e.created_by_name, e.bill_url].map(csvQ).join(','));
   const csv = [header.join(','), ...rows].join('\n');
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='office_expenses_'+new Date().toISOString().slice(0,10)+'.csv'; document.body.appendChild(a); a.click(); a.remove();
@@ -11359,7 +11359,7 @@ function renderOfficeExpenses() {
     <div class="panel"><div class="panel-body" style="padding:0;overflow-x:auto">
     <table style="width:100%;border-collapse:collapse;font-size:13px">
       <thead><tr style="background:#f8f9fc;border-bottom:1px solid var(--border)">
-        ${['Date','Category','Description','Amount','Mode','Paid By','By','Action'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;white-space:nowrap">${h}</th>`).join('')}
+        ${['Date','Category','Description','Amount','Mode','Paid By','By','Bill','Action'].map(h=>`<th style="padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;white-space:nowrap">${h}</th>`).join('')}
       </tr></thead>
       <tbody>
         ${list.map(e => `<tr style="border-bottom:1px solid #f5f6fa">
@@ -11370,6 +11370,7 @@ function renderOfficeExpenses() {
           <td style="padding:9px 14px;font-size:12px">${esc(e.payment_mode)||'—'}</td>
           <td style="padding:9px 14px;font-size:12px">${esc(e.paid_by)||'—'}</td>
           <td style="padding:9px 14px;font-size:12px">${esc(e.created_by_name)||'—'}</td>
+          <td style="padding:9px 14px;white-space:nowrap">${e.bill_url ? `<a href="${esc(e.bill_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px;color:var(--blue)">📎 View</a>` : '<span style="color:var(--muted)">—</span>'}</td>
           <td style="padding:9px 14px;white-space:nowrap">
             <button class="btn btn-sm btn-outline" onclick="openEditOfficeExpense('${e.id}')" style="font-size:11px">✏️</button>
             <button class="btn btn-sm" onclick="deleteOfficeExpense('${e.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg);margin-left:4px">🗑️</button>
@@ -11398,13 +11399,25 @@ function openAddOfficeExpense() {
             <select id="oe-paidby">${OFFICE_EXP_PAID_BY.map(p=>`<option>${p}</option>`).join('')}</select>
           </div>
           <div class="field" style="grid-column:1/-1"><label>Description</label><input id="oe-desc" placeholder="What was this expense for?"></div>
+          <div class="field" style="grid-column:1/-1"><label>Invoice / Bill (optional)</label><input type="file" id="oe-bill" accept="image/*,application/pdf,.pdf,.jpg,.jpeg,.png,.webp"></div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeModal('addOfficeExpModal')">Cancel</button>
-          <button class="btn btn-gold" onclick="saveOfficeExpense()">💾 Save</button>
+          <button class="btn btn-gold" id="oe-save-btn" onclick="saveOfficeExpense()">💾 Save</button>
         </div>
       </div>
     </div>`);
+}
+
+async function _uploadOfficeExpBill(fileEl) {
+  const file = fileEl && fileEl.files && fileEl.files[0];
+  if (!file) return null;
+  const ext = (file.name.split('.').pop() || 'dat').toLowerCase();
+  const path = 'office-expenses/' + Date.now() + '_' + Math.random().toString(36).slice(2, 8) + '.' + ext;
+  const { error } = await sb.storage.from(STORAGE_BUCKET).upload(path, file, { upsert: false });
+  if (error) { showToast('⚠️ Bill upload failed: ' + error.message, 'warn'); return null; }
+  const { data: urlData } = sb.storage.from(STORAGE_BUCKET).getPublicUrl(path);
+  return (urlData && urlData.publicUrl) || null;
 }
 
 async function saveOfficeExpense() {
@@ -11412,6 +11425,9 @@ async function saveOfficeExpense() {
   const amount = parseFloat(document.getElementById('oe-amount').value);
   if (!date) { showToast('⚠️ Date required', 'warn'); return; }
   if (!amount || amount <= 0) { showToast('⚠️ Valid amount required', 'warn'); return; }
+  const btn = document.getElementById('oe-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
+  const bill_url = await _uploadOfficeExpBill(document.getElementById('oe-bill'));
   const { error } = await sb.from('office_expenses').insert({
     expense_date: date,
     amount: amount,
@@ -11419,9 +11435,11 @@ async function saveOfficeExpense() {
     payment_mode: document.getElementById('oe-mode').value,
     paid_by: document.getElementById('oe-paidby').value,
     description: document.getElementById('oe-desc').value.trim() || null,
+    bill_url: bill_url,
     created_by: currentUser.email,
     created_by_name: currentUser.name,
   });
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Save'; }
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Expense added!', 'ok');
   closeModal('addOfficeExpModal');
@@ -11446,10 +11464,15 @@ function openEditOfficeExpense(id) {
           <div class="field"><label>Payment Mode</label><select id="eoe-mode">${modes.map(m=>`<option ${m===e.payment_mode?'selected':''}>${m}</option>`).join('')}</select></div>
           <div class="field"><label>Paid By</label><select id="eoe-paidby">${paidByOpts}</select></div>
           <div class="field" style="grid-column:1/-1"><label>Description</label><input id="eoe-desc" value="${v(e.description)}"></div>
+          <div class="field" style="grid-column:1/-1">
+            <label>Invoice / Bill ${e.bill_url ? `— <a href="${v(e.bill_url)}" target="_blank" style="color:var(--blue);font-weight:600">📎 View current</a>` : '(optional)'}</label>
+            <input type="file" id="eoe-bill" accept="image/*,application/pdf,.pdf,.jpg,.jpeg,.png,.webp">
+            ${e.bill_url ? '<div style="font-size:11px;color:var(--muted);margin-top:3px">Choose a new file only to replace the current bill.</div>' : ''}
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-outline" onclick="closeModal('editOfficeExpModal')">Cancel</button>
-          <button class="btn btn-gold" onclick="saveEditOfficeExpense('${id}')">💾 Save</button>
+          <button class="btn btn-gold" id="eoe-save-btn" onclick="saveEditOfficeExpense('${id}')">💾 Save</button>
         </div>
       </div>
     </div>`);
@@ -11460,14 +11483,20 @@ async function saveEditOfficeExpense(id) {
   const amount = parseFloat(document.getElementById('eoe-amount').value);
   if (!date) { showToast('⚠️ Date required', 'warn'); return; }
   if (!amount || amount <= 0) { showToast('⚠️ Valid amount required', 'warn'); return; }
-  const { error } = await sb.from('office_expenses').update({
+  const btn = document.getElementById('eoe-save-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
+  const upd = {
     expense_date: date,
     amount: amount,
     category: document.getElementById('eoe-category').value,
     payment_mode: document.getElementById('eoe-mode').value,
     paid_by: document.getElementById('eoe-paidby').value,
     description: document.getElementById('eoe-desc').value.trim() || null,
-  }).eq('id', id);
+  };
+  const newBill = await _uploadOfficeExpBill(document.getElementById('eoe-bill'));
+  if (newBill) upd.bill_url = newBill;   // only replace when a new file is chosen
+  const { error } = await sb.from('office_expenses').update(upd).eq('id', id);
+  if (btn) { btn.disabled = false; btn.textContent = '💾 Save'; }
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   showToast('✅ Expense updated!', 'ok');
   closeModal('editOfficeExpModal');
