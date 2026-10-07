@@ -6196,7 +6196,9 @@ const { data: emps } = await sb.from('employees').select('name,email,weekly_off_
     (attData||[]).filter(a=>a.employee_email===e.email).forEach(a => { attMapR[a.date] = a; });
     const empLeavesR = (leaveDataReport||[]).filter(l=>l.employee_email===e.email);
 let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 0;
-    let paidLeaveR = 0, lopLeaveR = 0, _monthPaidUsed = 0;   // leave quota = 1.5 paid days/month
+    let paidLeaveR = 0, lopLeaveR = 0, probLeaveR = 0, otherLeaveR = 0, regLeaveR = 0;
+    let _probEnd = null;
+    if (e.joining_date) { const _j = new Date(e.joining_date); if (!isNaN(_j)) { const _p = new Date(_j); _p.setMonth(_p.getMonth()+3); _probEnd = _p.toISOString().split('T')[0]; } }
     const halfDatesR = [], leaveDatesR = [], lateDatesR = [], absentDatesR = [];
     const dIter = new Date(yr, mo-1, 1);
     while (dIter.getMonth() === mo-1) {
@@ -6209,12 +6211,12 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       if (!isOffIter && !isHolidayIter) workingDaysR++;
       if (onLeaveIter) {
         leaveR++; leaveDatesR.push(dsIter);
-        // Split into paid (within 1.5/month quota) vs unpaid LOP; 'Other' type always unpaid
+        // Classify: probation & 'Other' leaves are unpaid; the rest counts against the 12/year quota
         const _lt = onLeaveIter.leave_type;
         const _per = (_lt === 'Half Day') ? 0.5 : 1;
-        if (_lt === 'Other') { lopLeaveR += _per; }
-        else if (_monthPaidUsed + _per <= 1.5) { paidLeaveR += _per; _monthPaidUsed += _per; }
-        else { lopLeaveR += _per; }
+        if (_probEnd && dsIter < _probEnd) { probLeaveR += _per; }
+        else if (_lt === 'Other') { otherLeaveR += _per; }
+        else { regLeaveR += _per; }
       } else if (attRec) {
         if (attRec.status === 'Present') presentR++;
         else if (attRec.status === 'Half Day') { halfR++; halfDatesR.push(dsIter); }
@@ -6228,7 +6230,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       }
       dIter.setDate(dIter.getDate()+1);
     }
-    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, workingDays: workingDaysR, paidLeave: paidLeaveR, lopLeave: lopLeaveR, halfDates: halfDatesR, leaveDates: leaveDatesR, lateDates: lateDatesR, absentDates: absentDatesR };
+    empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, workingDays: workingDaysR, paidLeave: paidLeaveR, lopLeave: lopLeaveR, probLeave: probLeaveR, otherLeave: otherLeaveR, regLeave: regLeaveR, halfDates: halfDatesR, leaveDates: leaveDatesR, lateDates: lateDatesR, absentDates: absentDatesR };
   });
 
   const totalPresent = Object.values(empCalc).reduce((s,v)=>s+v.present,0);
@@ -6293,21 +6295,23 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     _usedByEmail[l.employee_email] = (_usedByEmail[l.employee_email]||0) + cnt;
   });
 
-  // Authoritative unpaid-day count per employee (same logic as Salary Slips) → "days to pay"
-  const _payArr = await Promise.all((emps||[]).map(e => calculatePayroll(e.email, Number(yr), Number(mo)).catch(()=>null)));
-  const _payByEmail = {}; (emps||[]).forEach((e,i)=>{ if(_payArr[i]) _payByEmail[e.email]=_payArr[i]; });
-
   tbody.innerHTML=emps.map(e=>{
     const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,halfDates:[],leaveDates:[],lateDates:[],absentDates:[]};
     const empWorkingDays = c.workingDays || totalDays;
-    // Days to pay = working days − unpaid (LOP) days (absences + unpaid/probation leaves). Paid leaves & half-days are paid.
-    const _pay = _payByEmail[e.email];
-    const _lop = _pay ? _pay.lopDays : ((c.absent||0) + (c.lopLeave||0));
-    const payableDays = Math.max(0, empWorkingDays - _lop);
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const usedYTD = _usedByEmail[e.email] || 0;
     const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD;
     const llColor = leavesLeft <= 0 ? 'var(--red)' : leavesLeft <= 3 ? '#b7791f' : 'var(--green)';
+    // Days to pay = working days − unpaid days. Unpaid = absences + probation leaves + 'Other' leaves + regular leaves beyond the 12/year quota.
+    const _regLeave = c.regLeave || 0;
+    const _usedBefore = usedYTD - _regLeave;                        // regular quota-leaves used before this month
+    const _quotaLeft = Math.max(0, ANNUAL_LEAVE_QUOTA - _usedBefore);
+    const _regUnpaid = Math.max(0, _regLeave - _quotaLeft);         // this month's regular leaves beyond quota
+    const _unpaidLeave = (c.probLeave || 0) + (c.otherLeave || 0) + _regUnpaid;
+    const _lop = (c.absent || 0) + _unpaidLeave;
+    const _pd = empWorkingDays - _lop;
+    const payableDays = Number.isInteger(_pd) ? _pd : _pd.toFixed(1);
+    const _lopTxt = Number.isInteger(_lop) ? _lop : _lop.toFixed(1);
     const _pe = _probEndByEmail[e.email];
     const _todayStr = new Date().toISOString().split('T')[0];
     const isProb = _pe && _todayStr < _pe;
@@ -6318,7 +6322,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
       <td><span style="font-weight:800;font-size:14px;color:${llColor}">${leavesLeft < 0 ? 0 : leavesLeft}</span><span style="font-size:10px;color:var(--muted)"> / ${ANNUAL_LEAVE_QUOTA}</span>${leavesLeft<0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${Math.abs(leavesLeft)} over</div>`:''}</td>
-      <td title="Pay salary for this many days = working days − unpaid days (absences + unpaid leaves). Paid leaves & half-days are paid."><span style="font-weight:800;color:var(--green);font-size:16px">${payableDays}</span><span style="font-size:11px;color:var(--muted)"> / ${empWorkingDays}</span>${_lop>0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${_lop} day${_lop>1?'s':''} unpaid</div>`:'<div style="font-size:9.5px;color:var(--green);font-weight:600">full</div>'}</td>
+      <td title="Pay salary for this many days = working days − unpaid days (absences + probation/Other leaves + leaves beyond the 12/year quota). Paid leaves & half-days are paid."><span style="font-weight:800;color:var(--green);font-size:16px">${payableDays}</span><span style="font-size:11px;color:var(--muted)"> / ${empWorkingDays}</span>${_lop>0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${_lopTxt} day${_lop>1?'s':''} unpaid</div>`:'<div style="font-size:9.5px;color:var(--green);font-weight:600">full</div>'}</td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-size:11px">
         ${c.half > 0 ? `<span class="badge b-amber">Half: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
