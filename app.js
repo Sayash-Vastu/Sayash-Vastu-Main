@@ -6302,16 +6302,9 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     const usedYTD = _usedByEmail[e.email] || 0;
     const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD;
     const llColor = leavesLeft <= 0 ? 'var(--red)' : leavesLeft <= 3 ? '#b7791f' : 'var(--green)';
-    // Days to pay = working days − unpaid days. Unpaid = absences + probation leaves + 'Other' leaves + regular leaves beyond the 12/year quota.
-    const _regLeave = c.regLeave || 0;
-    const _usedBefore = usedYTD - _regLeave;                        // regular quota-leaves used before this month
-    const _quotaLeft = Math.max(0, ANNUAL_LEAVE_QUOTA - _usedBefore);
-    const _regUnpaid = Math.max(0, _regLeave - _quotaLeft);         // this month's regular leaves beyond quota
-    const _unpaidLeave = (c.probLeave || 0) + (c.otherLeave || 0) + _regUnpaid;
-    const _lop = (c.absent || 0) + _unpaidLeave;
-    const _pd = empWorkingDays - _lop;
-    const payableDays = Number.isInteger(_pd) ? _pd : _pd.toFixed(1);
-    const _lopTxt = Number.isInteger(_lop) ? _lop : _lop.toFixed(1);
+    // Net working days = working days − absent − leave − half-day halves (simple: days actually worked)
+    const _net = empWorkingDays - (c.absent||0) - (c.leave||0) - (c.half||0)*0.5;
+    const netDays = Number.isInteger(_net) ? _net : _net.toFixed(1);
     const _pe = _probEndByEmail[e.email];
     const _todayStr = new Date().toISOString().split('T')[0];
     const isProb = _pe && _todayStr < _pe;
@@ -6322,7 +6315,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
       <td><span style="font-weight:800;font-size:14px;color:${llColor}">${leavesLeft < 0 ? 0 : leavesLeft}</span><span style="font-size:10px;color:var(--muted)"> / ${ANNUAL_LEAVE_QUOTA}</span>${leavesLeft<0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${Math.abs(leavesLeft)} over</div>`:''}</td>
-      <td title="Pay salary for this many days = working days − unpaid days (absences + probation/Other leaves + leaves beyond the 12/year quota). Paid leaves & half-days are paid."><span style="font-weight:800;color:var(--green);font-size:16px">${payableDays}</span><span style="font-size:11px;color:var(--muted)"> / ${empWorkingDays}</span>${_lop>0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${_lopTxt} day${_lop>1?'s':''} unpaid</div>`:'<div style="font-size:9.5px;color:var(--green);font-weight:600">full</div>'}</td>
+      <td title="Working days minus leave, absent and half-days = days actually worked"><span style="font-weight:800;color:var(--navy);font-size:17px">${netDays}</span><span style="font-size:12px;color:var(--muted)"> / ${empWorkingDays}</span></td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-size:11px">
         ${c.half > 0 ? `<span class="badge b-amber">Half: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
