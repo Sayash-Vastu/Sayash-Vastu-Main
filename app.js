@@ -6293,12 +6293,17 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     _usedByEmail[l.employee_email] = (_usedByEmail[l.employee_email]||0) + cnt;
   });
 
+  // Authoritative unpaid-day count per employee (same logic as Salary Slips) → "days to pay"
+  const _payArr = await Promise.all((emps||[]).map(e => calculatePayroll(e.email, Number(yr), Number(mo)).catch(()=>null)));
+  const _payByEmail = {}; (emps||[]).forEach((e,i)=>{ if(_payArr[i]) _payByEmail[e.email]=_payArr[i]; });
+
   tbody.innerHTML=emps.map(e=>{
     const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,halfDates:[],leaveDates:[],lateDates:[],absentDates:[]};
     const empWorkingDays = c.workingDays || totalDays;
-    // Payable days = days actually paid for = present + paid leaves + half-day halves (absences & unpaid leaves deducted)
-    const _payable = (c.present||0) + (c.paidLeave||0) + (c.half||0)*0.5;
-    const payableDays = Number.isInteger(_payable) ? _payable : _payable.toFixed(1);
+    // Days to pay = working days − unpaid (LOP) days (absences + unpaid/probation leaves). Paid leaves & half-days are paid.
+    const _pay = _payByEmail[e.email];
+    const _lop = _pay ? _pay.lopDays : ((c.absent||0) + (c.lopLeave||0));
+    const payableDays = Math.max(0, empWorkingDays - _lop);
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const usedYTD = _usedByEmail[e.email] || 0;
     const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD;
@@ -6313,7 +6318,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
       <td><span style="font-weight:800;font-size:14px;color:${llColor}">${leavesLeft < 0 ? 0 : leavesLeft}</span><span style="font-size:10px;color:var(--muted)"> / ${ANNUAL_LEAVE_QUOTA}</span>${leavesLeft<0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${Math.abs(leavesLeft)} over</div>`:''}</td>
-      <td style="font-weight:800;color:var(--green);font-size:15px" title="Days actually paid = Present + paid leaves + half-day halves (absences & unpaid leaves deducted)">${payableDays}<div style="font-size:9px;color:var(--muted);font-weight:500">of ${empWorkingDays}</div></td>
+      <td title="Pay salary for this many days = working days − unpaid days (absences + unpaid leaves). Paid leaves & half-days are paid."><span style="font-weight:800;color:var(--green);font-size:16px">${payableDays}</span><span style="font-size:11px;color:var(--muted)"> / ${empWorkingDays}</span>${_lop>0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${_lop} day${_lop>1?'s':''} unpaid</div>`:'<div style="font-size:9.5px;color:var(--green);font-weight:600">full</div>'}</td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-size:11px">
         ${c.half > 0 ? `<span class="badge b-amber">Half: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
