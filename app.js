@@ -6302,8 +6302,14 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     const usedYTD = _usedByEmail[e.email] || 0;
     const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD;
     const llColor = leavesLeft <= 0 ? 'var(--red)' : leavesLeft <= 3 ? '#b7791f' : 'var(--green)';
-    // Net working days = working days − absent − leave − half-day halves (simple: days actually worked)
-    const _net = empWorkingDays - (c.absent||0) - (c.leave||0) - (c.half||0)*0.5;
+    // Days to pay = working days − unpaid days. Unpaid = absents + probation/'Other' leaves + regular leaves beyond the 12/year quota.
+    // Paid leaves (within 12/year) and half-days are PAID — NOT deducted.
+    const _regLeave = c.regLeave || 0;
+    const _usedBefore = usedYTD - _regLeave;                         // regular quota-leaves used before this month
+    const _quotaLeft = Math.max(0, ANNUAL_LEAVE_QUOTA - _usedBefore);
+    const _regUnpaid = Math.max(0, _regLeave - _quotaLeft);          // this month's regular leaves beyond quota
+    const _unpaid = (c.absent||0) + (c.probLeave||0) + (c.otherLeave||0) + _regUnpaid;
+    const _net = empWorkingDays - _unpaid;
     const netDays = Number.isInteger(_net) ? _net : _net.toFixed(1);
     const _pe = _probEndByEmail[e.email];
     const _todayStr = new Date().toISOString().split('T')[0];
