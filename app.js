@@ -6175,7 +6175,7 @@ const { data: emps } = await sb.from('employees').select('name,email,weekly_off_
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
   const { data: holidaysReport } = await sb.from('holidays').select('date').gte('date',start).lte('date',end);
   const tbody=document.getElementById('attReportBody');
-  if (!emps) { tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:30px">No data</td></tr>'; return; }
+  if (!emps) { tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:30px">No data</td></tr>'; return; }
   const totalCalendarDays=new Date(yr,mo,0).getDate();
   const holidayDatesSet = new Set((holidaysReport||[]).map(h => h.date));
   let totalDays = 0;
@@ -6296,6 +6296,9 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
   tbody.innerHTML=emps.map(e=>{
     const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,halfDates:[],leaveDates:[],lateDates:[],absentDates:[]};
     const empWorkingDays = c.workingDays || totalDays;
+    // Payable days = days actually paid for = present + paid leaves + half-day halves (absences & unpaid leaves deducted)
+    const _payable = (c.present||0) + (c.paidLeave||0) + (c.half||0)*0.5;
+    const payableDays = Number.isInteger(_payable) ? _payable : _payable.toFixed(1);
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const usedYTD = _usedByEmail[e.email] || 0;
     const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD;
@@ -6310,20 +6313,12 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
       <td><span style="font-weight:800;font-size:14px;color:${llColor}">${leavesLeft < 0 ? 0 : leavesLeft}</span><span style="font-size:10px;color:var(--muted)"> / ${ANNUAL_LEAVE_QUOTA}</span>${leavesLeft<0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${Math.abs(leavesLeft)} over</div>`:''}</td>
+      <td style="font-weight:800;color:var(--green);font-size:15px" title="Days actually paid = Present + paid leaves + half-day halves (absences & unpaid leaves deducted)">${payableDays}<div style="font-size:9px;color:var(--muted);font-weight:500">of ${empWorkingDays}</div></td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
-      <td style="font-weight:800;color:var(--navy);font-size:14px">${empWorkingDays}</td>
       <td style="font-size:11px">
         ${c.half > 0 ? `<span class="badge b-amber">Half: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
         ${c.leave > 0 ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
         ${c.half === 0 && c.leave === 0 ? '—' : ''}
-      </td>
-      <td>
-        <div style="display:flex;align-items:center;gap:8px">
-          <div class="progress-bar" style="width:80px">
-            <div class="progress-fill" style="width:${pct}%;background:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}"></div>
-          </div>
-          <span style="font-size:12px;font-weight:700;color:${pct>=80?'var(--green)':pct>=60?'var(--amber)':'var(--red)'}">${pct}%</span>
-        </div>
       </td>
       <td style="white-space:nowrap">
         <button class="btn btn-sm" title="Download ${esc(e.name)}'s attendance PDF" onclick="exportMyAttPDF({email:'${e.email}'}, '${monthVal}')" style="background:#eef4ff;color:var(--navy);border-color:var(--border)">📄</button>
