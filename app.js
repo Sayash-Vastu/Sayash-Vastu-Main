@@ -163,7 +163,7 @@ setInterval(async function() {
         // Auto checkout at 9 PM (21:00)
         const checkoutTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 21, 0, 0);
         const hrs = ((checkoutTime - new Date(openAtt.check_in))/3600000).toFixed(2);
-        const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
+        const status = parseFloat(hrs) >= 7 ? 'Present' : 'Half Day';
         await sb.from('attendance').update({
           check_out: checkoutTime.toISOString(),
           working_hours: hrs, status
@@ -4271,7 +4271,7 @@ const { data: todayAtt } = await sb.from('attendance').select('*')
     .maybeSingle();
   if (!todayAtt) { showToast('❌ No login found!', 'err'); btn.disabled=false; btn.textContent='🚪 Log Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
-  const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
+  const status = parseFloat(hrs) >= 7 ? 'Present' : 'Half Day';
   const { error } = await sb.from('attendance').update({
     check_out: now.toISOString(),
     working_hours: hrs, status
@@ -5183,7 +5183,7 @@ async function markCheckOut() {
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('date',today).eq('is_archived',false).maybeSingle();
   if (!todayAtt) { showToast('❌ No check-in found!','err'); btn.disabled=false; btn.textContent='🚪 Check Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
-  const status = parseFloat(hrs) >= 5 ? 'Present' : parseFloat(hrs) >= 2 ? 'Half Day' : 'Half Day';
+  const status = parseFloat(hrs) >= 7 ? 'Present' : 'Half Day';
   const { error } = await sb.from('attendance').update({
     check_out: now.toISOString(), working_hours: hrs, status
   }).eq('id',todayAtt.id);
@@ -6308,9 +6308,11 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     const _usedBefore = usedYTD - _regLeave;                         // regular quota-leaves used before this month
     const _quotaLeft = Math.max(0, ANNUAL_LEAVE_QUOTA - _usedBefore);
     const _regUnpaid = Math.max(0, _regLeave - _quotaLeft);          // this month's regular leaves beyond quota
-    const _unpaid = (c.absent||0) + (c.probLeave||0) + (c.otherLeave||0) + _regUnpaid;
-    const _net = empWorkingDays - _unpaid;
-    const netDays = Number.isInteger(_net) ? _net : _net.toFixed(1);
+    const _lopDays = (c.absent||0) + (c.probLeave||0) + (c.otherLeave||0) + _regUnpaid;   // Loss of Pay days
+    // MNC-standard: Paid Days = total month days − LOP (weekends, holidays & paid leaves are all paid)
+    const _paid = totalCalendarDays - _lopDays;
+    const paidDays = Number.isInteger(_paid) ? _paid : _paid.toFixed(1);
+    const lopTxt = Number.isInteger(_lopDays) ? _lopDays : _lopDays.toFixed(1);
     const _pe = _probEndByEmail[e.email];
     const _todayStr = new Date().toISOString().split('T')[0];
     const isProb = _pe && _todayStr < _pe;
@@ -6321,7 +6323,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
       <td><span style="font-weight:800;font-size:14px;color:${llColor}">${leavesLeft < 0 ? 0 : leavesLeft}</span><span style="font-size:10px;color:var(--muted)"> / ${ANNUAL_LEAVE_QUOTA}</span>${leavesLeft<0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${Math.abs(leavesLeft)} over</div>`:''}</td>
-      <td title="Working days minus leave, absent and half-days = days actually worked"><span style="font-weight:800;color:var(--navy);font-size:17px">${netDays}</span><span style="font-size:12px;color:var(--muted)"> / ${empWorkingDays}</span></td>
+      <td title="Paid Days = total month days − LOP (Loss of Pay). Weekends, holidays & paid leaves are all paid. Salary = monthly × Paid Days ÷ month days."><span style="font-weight:800;color:var(--green);font-size:17px">${paidDays}</span><span style="font-size:12px;color:var(--muted)"> / ${totalCalendarDays}</span>${_lopDays>0?`<div style="font-size:9.5px;color:var(--muted)">LOP: ${lopTxt}</div>`:''}</td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-size:11px">
         ${c.half > 0 ? `<span class="badge b-amber">Half: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
@@ -10252,7 +10254,7 @@ async function approveRegularization(id, empEmail, empName, date, checkIn, check
   const checkInDT = new Date(`${date}T${checkIn}`);
   const checkOutDT = checkOut ? new Date(`${date}T${checkOut}`) : null;
   const hrs = checkOutDT ? ((checkOutDT - checkInDT)/3600000).toFixed(2) : null;
-  const status = hrs ? (parseFloat(hrs) >= 5 ? 'Present' : 'Half Day') : 'Present';
+  const status = hrs ? (parseFloat(hrs) >= 7 ? 'Present' : 'Half Day') : 'Present';
 
   await sb.from('attendance').insert({
     employee_id: emp?.id,
