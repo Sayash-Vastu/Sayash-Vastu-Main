@@ -3349,6 +3349,7 @@ await loadDailyQuoteWithOverride();
     loginStatus.textContent = 'Not logged in today';
     loginStatus.style.color = 'var(--muted)';
     document.getElementById('empHrsWorked').textContent = '0.0h';
+    { const _sw = document.getElementById('empSwitchBtn'); if (_sw) _sw.style.display = 'none'; }
   } else if (todayAtt.check_in && !todayAtt.check_out) {
     loginBtn.style.display = 'none';
     logoutBtn.style.display = 'block';
@@ -3356,9 +3357,13 @@ await loadDailyQuoteWithOverride();
     const lwrap2 = document.getElementById('loginTypeWrap');
     if (lwrap2) lwrap2.style.display = 'none';
     const inTime = new Date(todayAtt.check_in).toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
-    const wfhBadge = todayAtt.work_type === 'WFH' ? ' 🏠 WFH' : ' 🏢 Office';
-    loginStatus.textContent = 'Logged in at ' + inTime + wfhBadge;
+    const _wt = todayAtt.work_type || 'Office';
+    const _wtIcon = _wt === 'WFH' ? '🏠' : _wt === 'On Site' ? '📍' : _wt.includes('/') ? '🔄' : '🏢';
+    loginStatus.textContent = 'Logged in at ' + inTime + ' ' + _wtIcon + ' ' + _wt;
     loginStatus.style.color = 'var(--green)';
+    // Show "Switched Location" button only for a single On Site / Office day
+    const _swBtn = document.getElementById('empSwitchBtn');
+    if (_swBtn) _swBtn.style.display = (_wt === 'On Site' || _wt === 'Office') ? 'inline-block' : 'none';
     // Calculate hours so far
     const hrs = ((new Date() - new Date(todayAtt.check_in)) / 3600000).toFixed(1);
     document.getElementById('empHrsWorked').textContent = parseFloat(hrs).toFixed(1) + 'h';
@@ -3371,6 +3376,7 @@ await loadDailyQuoteWithOverride();
     loginStatus.textContent = 'In: ' + inTime + ' | Out: ' + outTime;
     loginStatus.style.color = 'var(--green)';
     document.getElementById('empHrsWorked').textContent = parseFloat(todayAtt.working_hours || 0).toFixed(1) + 'h';
+    { const _sw = document.getElementById('empSwitchBtn'); if (_sw) _sw.style.display = 'none'; }
   }
 
   // Open tasks count
@@ -3654,6 +3660,8 @@ const isOverdueEmp = f.next_followup < today;
       return '<span class="badge b-blue" style="font-size:10px">🏠 WFH</span>';
     if (a.work_type === 'On Site')
       return '<span class="badge b-green" style="font-size:10px">📍 On Site</span>';
+    if (a.work_type && a.work_type.includes('/'))
+      return '<span class="badge b-amber" style="font-size:10px">🔄 ' + a.work_type + '</span>';
     return '<span class="badge b-navy" style="font-size:10px">🏢 Office</span>';
   };
 
@@ -3675,6 +3683,8 @@ const isOverdueEmp = f.next_followup < today;
           ? '<span class="badge b-blue" style="font-size:10px">🏠 WFH</span>'
           : a.work_type === 'On Site'
           ? '<span class="badge b-green" style="font-size:10px">📍 On Site</span>'
+          : (a.work_type && a.work_type.includes('/'))
+          ? '<span class="badge b-amber" style="font-size:10px">🔄 ' + a.work_type + '</span>'
           : '<span class="badge b-navy" style="font-size:10px">🏢 Office</span>';
         const statusColor = a.check_out ? 'var(--muted)' : 'var(--green)';
         const statusText = a.check_out
@@ -4013,6 +4023,8 @@ const overdueFollows = (pendingFollowupsCeo||[]).filter(f => f.next_followup);
       <option value="Office" ${a.work_type==='Office'?'selected':''}>🏢 Office</option>
       <option value="WFH" ${a.work_type==='WFH'?'selected':''}>🏠 WFH</option>
       <option value="On Site" ${a.work_type==='On Site'?'selected':''}>📍 On Site</option>
+      <option value="On Site/Office" ${a.work_type==='On Site/Office'?'selected':''}>🔄 On Site/Office</option>
+      <option value="Office/On Site" ${a.work_type==='Office/On Site'?'selected':''}>🔄 Office/On Site</option>
     </select>
   </div>
 </td>
@@ -4256,6 +4268,29 @@ function showEarlyLoginAppreciation() {
   `);
   setTimeout(() => { const el = document.getElementById('earlyLoginModal'); if (el) el.remove(); }, 6000);
 }
+// Person switched location during the day (site ↔ office) — records combined work_type in attendance
+async function switchWorkLocation() {
+  const today = new Date().toISOString().split('T')[0];
+  const { data: att } = await sb.from('attendance').select('id, work_type')
+    .eq('employee_email', currentUser.email)
+    .eq('date', today)
+    .eq('is_archived', false)
+    .order('check_in', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!att) { showToast('⚠️ No login found for today', 'warn'); return; }
+  const wt = att.work_type || 'Office';
+  let combined;
+  if (wt === 'On Site') combined = 'On Site/Office';
+  else if (wt === 'Office') combined = 'Office/On Site';
+  else { showToast('ℹ️ Switch applies only to On Site / Office days', 'warn'); return; }
+  if (!confirm('Mark that you switched location today? Attendance will show: ' + combined)) return;
+  const { error } = await sb.from('attendance').update({ work_type: combined }).eq('id', att.id);
+  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  showToast('✅ Location switched — ' + combined, 'ok');
+  loadEmpDashboard();
+}
+
   async function markEmpLogout() {
   const now = new Date();
   const today = now.toISOString().split('T')[0];
