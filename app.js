@@ -163,7 +163,7 @@ setInterval(async function() {
         // Auto checkout at 9 PM (21:00)
         const checkoutTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 21, 0, 0);
         const hrs = ((checkoutTime - new Date(openAtt.check_in))/3600000).toFixed(2);
-        const status = parseFloat(hrs) >= 7 ? 'Present' : 'Half Day';
+        const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
         await sb.from('attendance').update({
           check_out: checkoutTime.toISOString(),
           working_hours: hrs, status
@@ -3089,6 +3089,7 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
 
   let allErrors = [];
   let skippedDupes = [];
+  let _taskCreated = false;
 const { data: allEmpForAssign } = await sb.from('employees').select('email,name').eq('is_active', true);
   const assigneeMatches = selectedAssignees.map(name => (allEmpForAssign||[]).find(e => e.name === name)).filter(Boolean);
   
@@ -3183,7 +3184,8 @@ trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitTy
         showToast('⚠️ Visit saved, but Project Tracker was not updated: ' + trackerErr.message, 'warn');
       }
       if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
-if (_isFirstDate) for (const em of assigneeMatches) {
+if (_isFirstDate && visitType === 'Site Visit') for (const em of assigneeMatches) {
+        _taskCreated = true;
         await sb.from('tasks').insert({
           project: clientName,
           task_detail: `Site visit report pending — ${clientName} / ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}. ${discussion || ''}`.trim(),
@@ -3212,13 +3214,16 @@ if (_isFirstDate) for (const em of assigneeMatches) {
 if (selectedAssignees.length && !assigneeMatches.length) {
     showToast('⚠️ Task not created — no employee was selected', 'warn');
   }
+  if (selectedAssignees.length && assigneeMatches.length && visitType !== 'Site Visit') {
+    showToast('ℹ️ Report task is created only for "Site Visit" — none created for ' + visitType, 'warn');
+  }
   if (skippedDupes.length) {
     showToast('ℹ️ ' + skippedDupes.length + ' already existed — skipped (no duplicate created)', 'warn');
   }
   if (allErrors.length) {
     showToast('⚠️ Some entries failed:  ' + allErrors.join(', '), 'warn');
   } else if (!skippedDupes.length) {
-    showToast('✅ Site visit(s) saved' + (assignedToName ? ' & task(s) assigned!' : '!'), 'ok');
+    showToast('✅ Site visit(s) saved' + (_taskCreated ? ' & task(s) assigned!' : '!'), 'ok');
   } else {
     showToast('✅ Saved — duplicates skipped', 'ok');
   }
@@ -4306,7 +4311,7 @@ const { data: todayAtt } = await sb.from('attendance').select('*')
     .maybeSingle();
   if (!todayAtt) { showToast('❌ No login found!', 'err'); btn.disabled=false; btn.textContent='🚪 Log Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
-  const status = parseFloat(hrs) >= 7 ? 'Present' : 'Half Day';
+  const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
   const { error } = await sb.from('attendance').update({
     check_out: now.toISOString(),
     working_hours: hrs, status
@@ -5218,7 +5223,7 @@ async function markCheckOut() {
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('date',today).eq('is_archived',false).maybeSingle();
   if (!todayAtt) { showToast('❌ No check-in found!','err'); btn.disabled=false; btn.textContent='🚪 Check Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
-  const status = parseFloat(hrs) >= 7 ? 'Present' : 'Half Day';
+  const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
   const { error } = await sb.from('attendance').update({
     check_out: now.toISOString(), working_hours: hrs, status
   }).eq('id',todayAtt.id);
@@ -10289,7 +10294,7 @@ async function approveRegularization(id, empEmail, empName, date, checkIn, check
   const checkInDT = new Date(`${date}T${checkIn}`);
   const checkOutDT = checkOut ? new Date(`${date}T${checkOut}`) : null;
   const hrs = checkOutDT ? ((checkOutDT - checkInDT)/3600000).toFixed(2) : null;
-  const status = hrs ? (parseFloat(hrs) >= 7 ? 'Present' : 'Half Day') : 'Present';
+  const status = hrs ? (parseFloat(hrs) >= 5 ? 'Present' : 'Half Day') : 'Present';
 
   await sb.from('attendance').insert({
     employee_id: emp?.id,
