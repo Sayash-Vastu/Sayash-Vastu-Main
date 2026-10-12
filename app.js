@@ -4232,6 +4232,14 @@ function _lateSolutionFor(reason) {
     return "Bad weather makes commuting hard. On such days leave a little earlier, or choose Work From Home at check-in (if your work allows) to stay safe and on time.";
   if (/far|distance|live far|long way|travel|door|duur/.test(r))
     return "A long commute adds up. Leaving 15–20 minutes earlier gives a cushion for delays. If distance is a regular issue, discuss an occasional WFH day or a flexible start with HR.";
+  if (/forgot|forget|bhool|bhul|miss|didn'?t login|did not login|login nahi|punch|mark nahi/.test(r))
+    return "No problem — it happens. Set a daily phone reminder at your check-in time so it becomes a habit. If you actually reached on time but forgot to log in, use the Attendance Regularization section to correct that day.";
+  if (/worked late|work late|overtime|late yesterday|stayed late|extra hour|night|der tak|kaam|late night work/.test(r))
+    return "Thanks for putting in the extra hours — that's genuinely appreciated. If working late regularly affects your mornings, talk to HR about a flexible start on those days so you get proper rest.";
+  if (/meeting|client|site|visit|field|outside|bahar/.test(r))
+    return "Got it — field/client work is part of the job. On such days, mark 'On Site' at check-in so your attendance reflects it correctly, and inform your senior in advance when possible.";
+  if (/not applicable|na|n\/a|no reason|kuch nahi|-/.test(r.trim()))
+    return "If there was no specific reason this time, that's okay — just aim to check in by 10:10 AM going forward. A consistent on-time start sets a good rhythm for the whole day.";
   return "Thanks for sharing. Planning your morning the night before — bag and clothes ready, and leaving 15 minutes earlier than you think you need — fixes most delays. If something specific keeps coming up, HR is happy to help find a workable solution.";
 }
 
@@ -6392,7 +6400,6 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
         <div class="panel">
           <div class="panel-head">
             <div class="panel-title">⏰ Late Check-in Reasons <span class="badge b-red" style="margin-left:6px">${_lrRows.length}</span></div>
-            <span style="font-size:11px;color:var(--muted)">Submitted after 3 allowed late marks · visible to CEO only</span>
           </div>
           ${_lrRows.length ? `<div class="tbl-wrap"><table>
             <thead><tr><th>Employee</th><th>Date</th><th>Check-in</th><th>Reason</th></tr></thead>
