@@ -5764,6 +5764,7 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate) {
   const ANNUAL_QUOTA = 12;   // Paid leaves per year (annual pool); beyond this = LOP
   let yearUsed = 0;          // paid leave days already used this year
   const paidDates = new Set();
+  const paidWeight = {};     // date -> 1 or 0.5 (for quota math)
   const lopDates = new Set();
 
   // Probation = first 3 months from joining date. Leaves during probation are ALWAYS unpaid
@@ -5806,12 +5807,12 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate) {
       // 2) 'Other' leave type is always unpaid
       if (type === 'Other') { lopDates.add(ds); return; }
       // 3) Draw from the annual 12-day pool
-      if (yearUsed + perDay <= ANNUAL_QUOTA) { paidDates.add(ds); yearUsed += perDay; }
+      if (yearUsed + perDay <= ANNUAL_QUOTA) { paidDates.add(ds); paidWeight[ds] = (paidWeight[ds] || 0) + perDay; yearUsed += perDay; }
       else { lopDates.add(ds); }
     });
   });
 
-  return { paidDates, lopDates };
+  return { paidDates, lopDates, paidWeight, probationEnd };
 }
 // ── Core payroll calculator ──
 async function calculatePayroll(employeeEmail, year, month) {
@@ -5830,7 +5831,11 @@ async function calculatePayroll(employeeEmail, year, month) {
 
   const { data: attRows } = await sb.from('attendance').select('*')
     .eq('employee_email', employeeEmail).eq('is_archived', false).gte('date', startDate).lte('date', endDate);
-const { paidDates, lopDates: quotaExceedDates } = await getLeavePaidMap(employeeEmail, year, emp.joining_date);
+const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEndPay } = await getLeavePaidMap(employeeEmail, year, emp.joining_date);
+  // Absent days are adjusted against the remaining annual quota (after approved leaves up to this month's end).
+  // Probation-period absents stay LOP.
+  const _paidUsedThruMonth = Object.entries(paidWeight || {}).filter(([ds]) => ds <= endDate).reduce((s, [, w]) => s + w, 0);
+  let _absentQuotaLeft = Math.max(0, 12 - _paidUsedThruMonth);
 
   // Holidays are PAID (no deduction) — like weekly offs
   const { data: holidayRows } = await sb.from('holidays').select('date').gte('date', startDate).lte('date', endDate);
@@ -5853,6 +5858,7 @@ const { paidDates, lopDates: quotaExceedDates } = await getLeavePaidMap(employee
 else if (att?.status === 'Half Day') { halfDays++; payableDays += 1; halfDatesList.push(dateStr); }
 else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesList.push(dateStr); }
     else if (quotaExceedDates.has(dateStr)) { lopDays++; lopDatesList.push(dateStr); }
+    else if (_absentQuotaLeft >= 1 && !(_probEndPay && dateStr < _probEndPay)) { _absentQuotaLeft -= 1; leaveDaysCount++; payableDays++; leaveDatesList.push(dateStr); }
     else { lopDays++; lopDatesList.push(dateStr); }
   }
 
@@ -6245,7 +6251,7 @@ const { data: emps } = await sb.from('employees').select('name,email,weekly_off_
   const { data: leaveDataReport } = await sb.from('leaves').select('*').eq('status','Approved').lte('from_date',end).gte('to_date',start);
   const { data: holidaysReport } = await sb.from('holidays').select('date').gte('date',start).lte('date',end);
   const tbody=document.getElementById('attReportBody');
-  if (!emps) { tbody.innerHTML='<tr><td colspan="10" style="text-align:center;padding:30px">No data</td></tr>'; return; }
+  if (!emps) { tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:30px">No data</td></tr>'; return; }
   const totalCalendarDays=new Date(yr,mo,0).getDate();
   const holidayDatesSet = new Set((holidaysReport||[]).map(h => h.date));
   let totalDays = 0;
@@ -6303,6 +6309,47 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     empCalc[e.email] = { absent: absentR, leave: leaveR, present: presentR, half: halfR, late: lateR, workingDays: workingDaysR, paidLeave: paidLeaveR, lopLeave: lopLeaveR, probLeave: probLeaveR, otherLeave: otherLeaveR, regLeave: regLeaveR, halfDates: halfDatesR, leaveDates: leaveDatesR, lateDates: lateDatesR, absentDates: absentDatesR };
   });
 
+// Year-to-date paid leaves used (Jan → selected month) → remaining balance out of annual quota
+  const ANNUAL_LEAVE_QUOTA = 12;
+  const _yearStart = `${yr}-01-01`;
+  const { data: _yearLeaves } = await sb.from('leaves').select('employee_email, from_date, to_date, specific_dates, leave_type')
+    .eq('status','Approved').lte('from_date', end).gte('to_date', _yearStart);
+  const _normD = (s)=>{ const t=(s||'').trim(); if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const p=t.split('-'); if(p.length===3) return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'); return null; };
+  // Probation end (joining + 3 months) per employee — probation leaves are unpaid & don't consume the 12-pool
+  const _probEndByEmail = {};
+  (emps||[]).forEach(e=>{
+    if (e.joining_date) { const j = new Date(e.joining_date); if(!isNaN(j)){ const p=new Date(j); p.setMonth(p.getMonth()+3); _probEndByEmail[e.email] = p.toISOString().split('T')[0]; } }
+  });
+  const _usedByEmail = {};
+  (_yearLeaves||[]).forEach(l=>{
+    if (l.leave_type === 'Other') return;   // 'Other' is unpaid — not from the paid quota
+    const _pe = _probEndByEmail[l.employee_email] || null;
+    let days=[];
+    if (l.specific_dates && l.specific_dates.trim()) days = l.specific_dates.split(',').map(_normD).filter(Boolean);
+    else { let d=new Date(l.from_date); const e2=new Date(l.to_date); while(d<=e2){ days.push(d.toISOString().split('T')[0]); d.setDate(d.getDate()+1);} }
+    const per = l.leave_type==='Half Day'?0.5:1;
+    const cnt = days.filter(ds=> ds>=_yearStart && ds<=end && !(_pe && ds < _pe)).length * per;   // skip probation days
+    _usedByEmail[l.employee_email] = (_usedByEmail[l.employee_email]||0) + cnt;
+  });
+
+  // Absent days (without a leave applied) are adjusted against the remaining 12/year quota.
+  // Probation-period absents are not adjusted (they stay LOP).
+  emps.forEach(e => {
+    const c = empCalc[e.email]; if (!c) return;
+    const _pe2 = _probEndByEmail[e.email] || null;
+    let _left = Math.max(0, ANNUAL_LEAVE_QUOTA - (_usedByEmail[e.email] || 0));
+    const _keepAbsent = [], _adjDates = [];
+    (c.absentDates || []).forEach(ds => {
+      if (_left >= 1 && !(_pe2 && ds < _pe2)) { _left -= 1; _adjDates.push(ds); }
+      else _keepAbsent.push(ds);
+    });
+    c.adjAbsent = _adjDates.length;
+    c.adjDates = _adjDates;
+    c.absentDates = _keepAbsent;
+    c.absent = _keepAbsent.length;
+    c.leave = (c.leave || 0) + _adjDates.length;
+  });
+
   const totalPresent = Object.values(empCalc).reduce((s,v)=>s+v.present,0);
   const totalAbsent = Object.values(empCalc).reduce((s,v)=>s+v.absent,0);
   const totalHalf = Object.values(empCalc).reduce((s,v)=>s+v.half,0);
@@ -6342,35 +6389,12 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     `;
   }
 
-// Year-to-date paid leaves used (Jan → selected month) → remaining balance out of annual quota
-  const ANNUAL_LEAVE_QUOTA = 12;
-  const _yearStart = `${yr}-01-01`;
-  const { data: _yearLeaves } = await sb.from('leaves').select('employee_email, from_date, to_date, specific_dates, leave_type')
-    .eq('status','Approved').lte('from_date', end).gte('to_date', _yearStart);
-  const _normD = (s)=>{ const t=(s||'').trim(); if(/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const p=t.split('-'); if(p.length===3) return p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0'); return null; };
-  // Probation end (joining + 3 months) per employee — probation leaves are unpaid & don't consume the 12-pool
-  const _probEndByEmail = {};
-  (emps||[]).forEach(e=>{
-    if (e.joining_date) { const j = new Date(e.joining_date); if(!isNaN(j)){ const p=new Date(j); p.setMonth(p.getMonth()+3); _probEndByEmail[e.email] = p.toISOString().split('T')[0]; } }
-  });
-  const _usedByEmail = {};
-  (_yearLeaves||[]).forEach(l=>{
-    if (l.leave_type === 'Other') return;   // 'Other' is unpaid — not from the paid quota
-    const _pe = _probEndByEmail[l.employee_email] || null;
-    let days=[];
-    if (l.specific_dates && l.specific_dates.trim()) days = l.specific_dates.split(',').map(_normD).filter(Boolean);
-    else { let d=new Date(l.from_date); const e2=new Date(l.to_date); while(d<=e2){ days.push(d.toISOString().split('T')[0]); d.setDate(d.getDate()+1);} }
-    const per = l.leave_type==='Half Day'?0.5:1;
-    const cnt = days.filter(ds=> ds>=_yearStart && ds<=end && !(_pe && ds < _pe)).length * per;   // skip probation days
-    _usedByEmail[l.employee_email] = (_usedByEmail[l.employee_email]||0) + cnt;
-  });
-
   tbody.innerHTML=emps.map(e=>{
     const c = empCalc[e.email] || {present:0,absent:0,half:0,leave:0,late:0,workingDays:totalDays,halfDates:[],leaveDates:[],lateDates:[],absentDates:[]};
     const empWorkingDays = c.workingDays || totalDays;
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const usedYTD = _usedByEmail[e.email] || 0;
-    const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD;
+    const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD - (c.adjAbsent || 0);
     const llColor = leavesLeft <= 0 ? 'var(--red)' : leavesLeft <= 3 ? '#b7791f' : 'var(--green)';
     // Days to pay = working days − unpaid days. Unpaid = absents + probation/'Other' leaves + regular leaves beyond the 12/year quota.
     // Paid leaves (within 12/year) and half-days are PAID — NOT deducted.
@@ -6392,12 +6416,14 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td><span class="badge b-red">${c.absent}</span></td>
       <td>${c.half > 0 ? `<span class="badge b-amber" title="${c.halfDates.join(', ')}" style="cursor:help">${c.half}</span>` : `<span class="badge b-amber">0</span>`}</td>
       <td><span class="badge b-blue">${c.leave}</span></td>
+      <td title="Days Worked = Present + (Half Day × 0.5). Working days exclude weekly offs and holidays."><span style="font-weight:800;color:var(--navy);font-size:15px">${(c.present + c.half*0.5) % 1 === 0 ? (c.present + c.half*0.5) : (c.present + c.half*0.5).toFixed(1)}</span><span style="font-size:11px;color:var(--muted)"> / ${empWorkingDays}</span></td>
       <td><span style="font-weight:800;font-size:14px;color:${llColor}">${leavesLeft < 0 ? 0 : leavesLeft}</span><span style="font-size:10px;color:var(--muted)"> / ${ANNUAL_LEAVE_QUOTA}</span>${leavesLeft<0?`<div style="font-size:9.5px;color:var(--red);font-weight:700">${Math.abs(leavesLeft)} over</div>`:''}</td>
-      <td title="Paid Days = total month days − LOP (Loss of Pay). Weekends, holidays & paid leaves are all paid. Salary = monthly × Paid Days ÷ month days."><span style="font-weight:800;color:var(--green);font-size:17px">${paidDays}</span><span style="font-size:12px;color:var(--muted)"> / ${totalCalendarDays}</span>${_lopDays>0?`<div style="font-size:9.5px;color:var(--muted)">LOP: ${lopTxt}</div>`:''}</td>
+      <td title="Paid Days = total month days − LOP (Loss of Pay). Weekends, holidays & paid leaves are all paid. Salary = monthly × Paid Days ÷ month days."><span style="font-weight:800;color:var(--green);font-size:17px">${paidDays}</span><span style="font-size:12px;color:var(--muted)"> / ${totalCalendarDays}</span>${_lopDays>0?`<div style="font-size:11px;color:var(--red);font-weight:800">LOP: ${lopTxt}</div>`:''}</td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-size:11px">
         ${c.half > 0 ? `<span class="badge b-amber">Half: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
         ${c.leave > 0 ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.adjAbsent > 0 ? `<span class="badge b-blue" title="Absent days adjusted against leave balance">Absent→Leave: ${c.adjDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
         ${c.half === 0 && c.leave === 0 ? '—' : ''}
       </td>
       <td style="white-space:nowrap">
