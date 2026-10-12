@@ -8371,11 +8371,14 @@ async function loadBirthdaySection() {
     `).join('');
   }
 
-  // Send birthday wish email - only once per day at morning
-  const bdayKey = 'sv_bday_sent_' + new Date().toDateString();
-  const alreadySent = localStorage.getItem(bdayKey);
-  if (!alreadySent) {
+  // Send birthday wish (email + notification) ONCE per day globally.
+  // Guard via the notifications table (NOT localStorage) — else it repeats for every user who opens the dashboard.
+  const _bToday = new Date().toISOString().split('T')[0];
+  {
     for (const emp of bdays) {
+      const _bTitle = `🎂 Happy Birthday, ${emp.name}!`;
+      const { data: _bExisting } = await sb.from('notifications').select('id').eq('to_email', emp.email).eq('title', _bTitle).gte('created_at', _bToday).limit(1);
+      if (_bExisting && _bExisting.length) continue;   // already wished today — skip email + notification
       await sendEmail(
         emp.email,
         emp.name,
@@ -8414,12 +8417,11 @@ Designation: ${emp.designation||'—'}`,
       // Notify the birthday person themselves
       await createNotification(
         emp.email,
-        `🎂 Happy Birthday, ${emp.name}!`,
+        _bTitle,
         `Wishing you a wonderful birthday from the entire Sayash Vastu family! 🎉`,
         'birthday', 'home'
       );
     }
-    localStorage.setItem(bdayKey, 'true');
   }
 }
 async function deleteAttendance(attId) {
