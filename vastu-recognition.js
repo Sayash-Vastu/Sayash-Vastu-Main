@@ -116,13 +116,15 @@ async function perfComputeStats(period){
 
     const hasWork = output > 0 || overdue > 0 || mine.length > 0;
     // Score: delivery quality 35 · work output 35 · reliability 20 · attendance 10
-    const score = hasWork
-      ? Math.round(onTimePct*0.35 + outputPct*0.35 + Math.max(0,100-overdue*25)*0.20 + attPct*0.10)
+    const rawScore = hasWork
+      ? ((finished.length ? onTime/finished.length*100 : 0)*0.35 + outputPct*0.35 + Math.max(0,100-overdue*25)*0.20 + attPct*0.10)
       : 0;
-    return {...e, finished:finished.length, visits, auditsDone, output, onTimePct, overdue, attPct, avgTurn, score, hasWork, presentDays:present, halfDays:halfd, workingDays};
+    const score = Math.round(rawScore);
+    return {...e, finished:finished.length, visits, auditsDone, output, onTimePct, overdue, attPct, avgTurn, score, rawScore, hasWork, presentDays:present, halfDays:halfd, workingDays};
   });
 
-  rows.sort((a,b) => b.score - a.score);
+  // Rank by the exact (unrounded) score; if still tied: more work delivered, then better on-time %, then attendance
+  rows.sort((a,b) => (b.rawScore - a.rawScore) || (b.output - a.output) || (b.onTimePct - a.onTimePct) || (b.attPct - a.attPct));
 
   // ── Badges: spread recognition so everyone can earn something ──
   const worked = rows.filter(r => r.hasWork);
