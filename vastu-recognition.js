@@ -63,8 +63,9 @@ async function perfComputeStats(period){
 
   const holidaySet = new Set((hlds||[]).map(h=>h.date));
   let workingDays = 0;
-  // full-period working days (so % grows toward 100% as the period completes)
-  for(let d = new Date(R.startD); d <= R.endD; d.setDate(d.getDate()+1)){
+  // working days elapsed so far in the period (up to today) — fair attendance % mid-month
+  const _attEnd = R.endD < today ? R.endD : today;
+  for(let d = new Date(R.startD); d <= _attEnd; d.setDate(d.getDate()+1)){
   const ds = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if(d.getDay() === 0) continue;
     if(holidaySet.has(ds)) continue;
@@ -112,18 +113,23 @@ async function perfComputeStats(period){
     const visits = siteVisits.filter(v => String(v.visited_by||'').toLowerCase().includes(nm)).length;
     const auditsDone = audits.filter(a => String(a.inspector_name||'').toLowerCase().includes(nm)).length;
     const output = finished.length + visits + auditsDone;          // total delivered work
-    const outputPct = Math.min(100, output * 12);                  // ~8 items = full marks
-
     const hasWork = output > 0 || overdue > 0 || mine.length > 0;
-    // Score: delivery quality 35 · work output 35 · reliability 20 · attendance 10
-    const rawScore = hasWork
-      ? ((finished.length ? onTime/finished.length*100 : 0)*0.35 + outputPct*0.35 + Math.max(0,100-overdue*25)*0.20 + attPct*0.10)
-      : 0;
-    const score = Math.round(rawScore);
-    return {...e, finished:finished.length, visits, auditsDone, output, onTimePct, overdue, attPct, avgTurn, score, rawScore, hasWork, presentDays:present, halfDays:halfd, workingDays};
+    const onTimeExact = finished.length ? onTime/finished.length*100 : 0;
+    return {...e, finished:finished.length, visits, auditsDone, output, onTimePct, onTimeExact, overdue, attPct, avgTurn, hasWork, presentDays:present, halfDays:halfd, workingDays};
   });
 
   // Rank by the exact (unrounded) score; if still tied: more work delivered, then better on-time %, then attendance
+  // Work output is relative to the team's top performer (top = full 35 pts, others in proportion)
+  const _maxOutput = rows.reduce((m,r) => Math.max(m, r.output), 0);
+  rows.forEach(r => {
+    r.outputPct = _maxOutput ? r.output / _maxOutput * 100 : 0;
+    // Score: delivery quality 35 · work output 35 · reliability 20 · attendance 10
+    r.rawScore = r.hasWork
+      ? (r.onTimeExact*0.35 + r.outputPct*0.35 + Math.max(0,100-r.overdue*25)*0.20 + r.attPct*0.10)
+      : 0;
+    r.score = Math.round(r.rawScore);
+  });
+
   rows.sort((a,b) => (b.rawScore - a.rawScore) || (b.output - a.output) || (b.onTimePct - a.onTimePct) || (b.attPct - a.attPct));
 
   // ── Badges: spread recognition so everyone can earn something ──
@@ -175,10 +181,10 @@ async function loadPerformancePanel(){
   // ── YOUR SCORE hero: shows the employee their own score, broken down ──
   let hero = '';
   if (mine) {
-    const outPct = Math.min(100, mine.output * 12);
+    const outPct = mine.outputPct || 0;
     const comp = [
-      { label:'On-time delivery', pts: mine.onTimePct*0.35,                    max:35, tip:'finish tasks on or before their due date.' },
-      { label:'Work output',      pts: outPct*0.35,                            max:35, tip:'deliver more work — tasks, site visits and audits all count.' },
+      { label:'On-time delivery', pts: mine.onTimeExact*0.35,                    max:35, tip:'finish tasks on or before their due date.' },
+      { label:'Work output',      pts: outPct*0.35,                            max:35, tip:'deliver more work — tasks, site visits and audits all count. Full marks = the team\'s highest output.' },
       { label:'No overdue',       pts: Math.max(0,100-mine.overdue*25)*0.20,   max:20, tip:'clear overdue tasks — each one pulls points down.' },
       { label:'Attendance',       pts: mine.attPct*0.10,                       max:10, tip:'be present on working days.' },
     ];
