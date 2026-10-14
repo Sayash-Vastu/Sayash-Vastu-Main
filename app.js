@@ -7868,7 +7868,8 @@ const denom = totalDays - weekOff;   // full-month working days (grows to 100% b
   const _sub = document.getElementById('att-pct-sub');
   if (_sub) _sub.textContent = (present + (half ? half*0.5 : 0)) + ' of ' + denom + ' working days this month';
   const totalHrs = (attData || []).reduce((s, a) => s + parseFloat(a.working_hours || 0), 0);
-  const avgHrs = present > 0 ? (totalHrs / present).toFixed(1) : 0;
+  const _hrDays = (attData || []).filter(a => parseFloat(a.working_hours || 0) > 0).length;   // completed days only (today excluded until check-out)
+  const avgHrs = _hrDays > 0 ? (totalHrs / _hrDays).toFixed(1) : 0;
   document.getElementById('attSummary').innerHTML = `
     <div style="display:flex;flex-direction:column;gap:8px">
       <div style="display:flex;justify-content:space-between;padding:8px 10px;background:var(--bg);border-radius:8px">
@@ -8957,7 +8958,8 @@ const presentDays = (myAtt||[]).filter(a => a.status==='Present').length;
     const _halfM = (myAtt||[]).filter(a => a.status==='Half Day').length;
     const attPct = Math.min(100, Math.round(((presentDays + _halfM*0.5) / Math.max(1, _wd - (myAtt||[]).filter(a => a.status==='Leave').length)) * 100));
     const totalHrs = (myAtt||[]).reduce((s,a) => s + parseFloat(a.working_hours||0), 0);
-    const avgHrs = presentDays > 0 ? (totalHrs/presentDays).toFixed(1) : '0.0';
+    const _hrDaysM = (myAtt||[]).filter(a => parseFloat(a.working_hours||0) > 0).length;   // completed days only
+    const avgHrs = _hrDaysM > 0 ? (totalHrs/_hrDaysM).toFixed(1) : '0.0';
     const { data: myVisits } = await sbClient.from('site_visits').select('id').eq('visited_by', currentUser.name);
     const mySiteVisitCount = (myVisits || []).length;
     let status, statusColor;
