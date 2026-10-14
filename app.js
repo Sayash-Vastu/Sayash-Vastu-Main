@@ -5391,8 +5391,23 @@ const type=document.getElementById('lv-type').value;
     }
   }
 
-const days = type === 'Half Day' ? 0.5 : Math.ceil((new Date(to)-new Date(from))/86400000)+1;
-  const { data: emp } = await sb.from('employees').select('id').eq('email',currentUser.email).single();
+const { data: emp } = await sb.from('employees').select('id, weekly_off_pattern').eq('email',currentUser.email).single();
+  let days = 0.5;
+  if (type !== 'Half Day') {
+    // Count working days only — skip weekly offs and company holidays
+    const { data: _hl } = await sb.from('holidays').select('date').gte('date', from).lte('date', to);
+    const _hs = new Set((_hl || []).map(h => String(h.date).slice(0,10)));
+    const _nd = (t) => { t = (t||'').trim(); if (/^\d{4}-\d{2}-\d{2}$/.test(t)) return t; const p = t.split(/[-\/.]/); return (p.length === 3 && p[2].length === 4) ? p[2]+'-'+p[1].padStart(2,'0')+'-'+p[0].padStart(2,'0') : null; };
+    let _list = specificDates ? specificDates.split(',').map(_nd).filter(Boolean) : [];
+    if (!_list.length) { for (let d = _lvDate(from); d <= _lvDate(to); d.setDate(d.getDate()+1)) _list.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')); }
+    days = _list.filter(ds => !_isNonWorkingDay(ds, emp && emp.weekly_off_pattern, _hs)).length;
+    if (!days) {
+      msg.textContent = '⚠️ The selected dates are holidays or weekly offs — no leave needed';
+      msg.style.color = 'var(--red)';
+      if (btn) { btn.disabled = false; btn.textContent = 'Apply Leave'; }
+      return;
+    }
+  }
 const { error } = await sb.from('leaves').insert({
     employee_id: emp?.id, employee_email: currentUser.email,
     employee_name: currentUser.name,
@@ -5737,6 +5752,12 @@ async function deleteOfferLetter(empId, empName) {
   loadOfferLetters();
 }
 // ── Weekly-off checker ──
+// Leave days helper: date string 'YYYY-MM-DD' -> local Date (avoids UTC shift)
+function _lvDate(ds) { const [y,m,d] = String(ds).slice(0,10).split('-').map(Number); return new Date(y, m-1, d); }
+// True if the date is a weekly off (per employee pattern) or a company holiday — such days are not counted as leave
+function _isNonWorkingDay(ds, pattern, holidaySet) {
+  return (holidaySet && holidaySet.has(ds)) || isWeeklyOff(_lvDate(ds), pattern || 'sunday_only');
+}
 function isWeeklyOff(date, pattern) {
   const dow = date.getDay();
   if (pattern === 'sat_sun_both') return dow === 0 || dow === 6;
@@ -5754,8 +5775,10 @@ function isWeeklyOff(date, pattern) {
   }
   return dow === 0;
 }
-async function getLeavePaidMap(employeeEmail, year, joiningDate) {
+async function getLeavePaidMap(employeeEmail, year, joiningDate, offPattern) {
   const yStart = `${year}-01-01`, yEnd = `${year}-12-31`;
+  const { data: _yrHol } = await sb.from('holidays').select('date').gte('date', yStart).lte('date', yEnd);
+  const _yrHolSet = new Set((_yrHol || []).map(h => String(h.date).slice(0,10)));
   const { data: leaveRows } = await sb.from('leaves').select('*')
     .eq('employee_email', employeeEmail).eq('status', 'Approved')
     .lte('from_date', yEnd).gte('to_date', yStart)
@@ -5802,6 +5825,8 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate) {
 
     const perDay = type === 'Half Day' ? 0.5 : 1;
     days.forEach(ds => {
+      // 0) Weekly off / holiday inside a leave range → not a leave day at all
+      if (_isNonWorkingDay(ds, offPattern, _yrHolSet)) return;
       // 1) During probation → always unpaid, quota untouched
       if (probationEnd && ds < probationEnd) { lopDates.add(ds); return; }
       // 2) 'Other' leave type is always unpaid
@@ -5831,7 +5856,7 @@ async function calculatePayroll(employeeEmail, year, month) {
 
   const { data: attRows } = await sb.from('attendance').select('*')
     .eq('employee_email', employeeEmail).eq('is_archived', false).gte('date', startDate).lte('date', endDate);
-const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEndPay } = await getLeavePaidMap(employeeEmail, year, emp.joining_date);
+const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEndPay } = await getLeavePaidMap(employeeEmail, year, emp.joining_date, emp.weekly_off_pattern || 'sunday_only');
   // Absent days are adjusted against the remaining annual quota (after approved leaves up to this month's end).
   // Probation-period absents stay LOP.
   const _paidUsedThruMonth = Object.entries(paidWeight || {}).filter(([ds]) => ds <= endDate).reduce((s, [, w]) => s + w, 0);
@@ -6285,7 +6310,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       const onLeaveIter = empLeavesR.find(l => dsIter >= l.from_date && dsIter <= l.to_date);
       const attRec = attMapR[dsIter];
       if (!isOffIter && !isHolidayIter) workingDaysR++;
-      if (onLeaveIter) {
+      if (onLeaveIter && !isOffIter && !isHolidayIter) {
         leaveR++; leaveDatesR.push(dsIter);
         // Classify: probation & 'Other' leaves are unpaid; the rest counts against the 12/year quota
         const _lt = onLeaveIter.leave_type;
@@ -6320,6 +6345,9 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
   (emps||[]).forEach(e=>{
     if (e.joining_date) { const j = new Date(e.joining_date); if(!isNaN(j)){ const p=new Date(j); p.setMonth(p.getMonth()+3); _probEndByEmail[e.email] = p.toISOString().split('T')[0]; } }
   });
+  const { data: _ytdHol } = await sb.from('holidays').select('date').gte('date', _yearStart).lte('date', end);
+  const _ytdHolSet = new Set((_ytdHol || []).map(h => String(h.date).slice(0,10)));
+  const _patByEmail = {}; (emps||[]).forEach(e => { _patByEmail[e.email] = e.weekly_off_pattern || 'sunday_only'; });
   const _usedByEmail = {};
   (_yearLeaves||[]).forEach(l=>{
     if (l.leave_type === 'Other') return;   // 'Other' is unpaid — not from the paid quota
@@ -6328,7 +6356,8 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     if (l.specific_dates && l.specific_dates.trim()) days = l.specific_dates.split(',').map(_normD).filter(Boolean);
     else { let d=new Date(l.from_date); const e2=new Date(l.to_date); while(d<=e2){ days.push(d.toISOString().split('T')[0]); d.setDate(d.getDate()+1);} }
     const per = l.leave_type==='Half Day'?0.5:1;
-    const cnt = days.filter(ds=> ds>=_yearStart && ds<=end && !(_pe && ds < _pe)).length * per;   // skip probation days
+    const cnt = days.filter(ds=> ds>=_yearStart && ds<=end && !(_pe && ds < _pe)
+                             && !_isNonWorkingDay(ds, _patByEmail[l.employee_email], _ytdHolSet)).length * per;   // skip probation, weekly offs & holidays
     _usedByEmail[l.employee_email] = (_usedByEmail[l.employee_email]||0) + cnt;
   });
 
