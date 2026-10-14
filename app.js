@@ -5291,7 +5291,7 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
     ds2.forEach(x=>{
       if (x < _yStart) return;
       if (_probEnd && x < _probEnd) { _probTaken += per; return; }   // probation leave — unpaid, separate
-      if (l.leave_type === 'Other') return;                          // 'Other' = unpaid, doesn't touch quota
+      if (_isUnpaidLeaveType(l.leave_type)) return;                  // Unpaid leave doesn't touch the quota
       _paidTaken += per;                                             // regular paid leave consumes the 12-quota
     });
   });
@@ -5305,9 +5305,13 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   // Leave breakdown by type
   const bdEl = document.getElementById('leaveBreakdown');
   if (bdEl) {
-    const types = ['Casual','Sick','Earned','Unpaid'];
+    const types = ['Casual','Sick','Earned','Half Day','Unpaid'];
+    const _thisYear = String(new Date().getFullYear());
     bdEl.innerHTML = types.map(t => {
-      const count = leaves.filter(l=>l.leave_type===t&&l.status==='Approved').reduce((s,l)=>s+(l.total_days||0),0);
+      // This year's approved leaves only; Half Day = 0.5 each; 'Unpaid' also includes legacy 'Other'
+      const count = leaves.filter(l => (t === 'Unpaid' ? _isUnpaidLeaveType(l.leave_type) : l.leave_type === t)
+                                     && l.status === 'Approved' && String(l.from_date || '').slice(0,4) === _thisYear)
+                          .reduce((s,l) => s + (l.leave_type === 'Half Day' ? 0.5 : (l.total_days || 0)), 0);
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #f5f6fa">
         <span style="font-size:12px;color:var(--muted)">${t} Leave</span>
         <span style="font-size:13px;font-weight:700;color:var(--navy)">${count} day${count!==1?'s':''}</span>
@@ -5752,6 +5756,8 @@ async function deleteOfferLetter(empId, empName) {
   loadOfferLetters();
 }
 // ── Weekly-off checker ──
+// 'Unpaid' (leave form option) and legacy 'Other' are both unpaid leave types — they never use the 12/year paid quota
+function _isUnpaidLeaveType(t) { return t === 'Unpaid' || t === 'Other'; }
 // Leave days helper: date string 'YYYY-MM-DD' -> local Date (avoids UTC shift)
 function _lvDate(ds) { const [y,m,d] = String(ds).slice(0,10).split('-').map(Number); return new Date(y, m-1, d); }
 // True if the date is a weekly off (per employee pattern) or a company holiday — such days are not counted as leave
@@ -5830,7 +5836,7 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate, offPattern) {
       // 1) During probation → always unpaid, quota untouched
       if (probationEnd && ds < probationEnd) { lopDates.add(ds); return; }
       // 2) 'Other' leave type is always unpaid
-      if (type === 'Other') { lopDates.add(ds); return; }
+      if (_isUnpaidLeaveType(type)) { lopDates.add(ds); return; }
       // 3) Draw from the annual 12-day pool
       if (yearUsed + perDay <= ANNUAL_QUOTA) { paidDates.add(ds); paidWeight[ds] = (paidWeight[ds] || 0) + perDay; yearUsed += perDay; }
       else { lopDates.add(ds); }
@@ -6316,7 +6322,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
         const _lt = onLeaveIter.leave_type;
         const _per = (_lt === 'Half Day') ? 0.5 : 1;
         if (_probEnd && dsIter < _probEnd) { probLeaveR += _per; }
-        else if (_lt === 'Other') { otherLeaveR += _per; }
+        else if (_isUnpaidLeaveType(_lt)) { otherLeaveR += _per; }
         else { regLeaveR += _per; }
       } else if (attRec) {
         if (attRec.status === 'Present') presentR++;
@@ -6350,7 +6356,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
   const _patByEmail = {}; (emps||[]).forEach(e => { _patByEmail[e.email] = e.weekly_off_pattern || 'sunday_only'; });
   const _usedByEmail = {};
   (_yearLeaves||[]).forEach(l=>{
-    if (l.leave_type === 'Other') return;   // 'Other' is unpaid — not from the paid quota
+    if (_isUnpaidLeaveType(l.leave_type)) return;   // Unpaid leave is not from the paid quota
     const _pe = _probEndByEmail[l.employee_email] || null;
     let days=[];
     if (l.specific_dates && l.specific_dates.trim()) days = l.specific_dates.split(',').map(_normD).filter(Boolean);
