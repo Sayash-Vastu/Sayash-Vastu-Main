@@ -400,10 +400,12 @@ const typeIcons = {
   };
   const listEl = document.getElementById('notifList');
   if (!notifs.length) {
-    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">🎉 All caught up!</div>';
-  } else {
-    listEl.innerHTML = notifs.map(n => `
-      <div class="notif-item" onclick="handleNotifClick('${n.id}','${n.link_to||''}')" style="cursor:pointer">
+    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">🎉 No notifications in the last 7 days</div>';
+    return;
+  }
+  // Unread on top; read ones stay visible for 7 days under "Earlier" (greyed, no dot)
+  const item = n => `
+      <div class="notif-item" onclick="handleNotifClick('${n.id}','${n.link_to||''}')" style="cursor:pointer;${n.is_read ? 'opacity:.6;' : ''}">
         <div style="display:flex;gap:10px;align-items:flex-start">
           <div style="font-size:20px;flex-shrink:0">${typeIcons[n.type]||'🔔'}</div>
           <div style="flex:1">
@@ -411,11 +413,13 @@ const typeIcons = {
             <div class="notif-item-sub" style="white-space:pre-line;word-break:break-word">${esc(n.message||'')}</div>
             <div class="notif-item-time">${new Date(n.created_at).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}</div>
           </div>
-          <div class="notif-dot-badge" style="margin-top:6px;flex-shrink:0"></div>
+          ${n.is_read ? '' : '<div class="notif-dot-badge" style="margin-top:6px;flex-shrink:0"></div>'}
         </div>
-      </div>
-    `).join('');
-  }
+      </div>`;
+  const hdr = t => `<div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px">${t}</div>`;
+  const unread = notifs.filter(n => !n.is_read), read = notifs.filter(n => n.is_read);
+  listEl.innerHTML = (unread.length ? hdr('New') + unread.map(item).join('') : '')
+                   + (read.length ? hdr('Earlier (last 7 days)') + read.map(item).join('') : '');
 }
 
 function updateNotifBadge(count) {
@@ -435,13 +439,13 @@ async function loadNotifications() {
     const { data: dbNotifs, error } = await sb.from('notifications')
       .select('*')
       .eq('to_email', currentUser.email)
-      .eq('is_read', false)
+      .or('is_read.eq.false,created_at.gte.' + new Date(Date.now() - 7*86400000).toISOString())
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(60);
 
     if (error) { console.error('Notif load error:', error.message); return; }
     notifications = dbNotifs || [];
-    updateNotifBadge(notifications.length);
+    updateNotifBadge(notifications.filter(n => !n.is_read).length);
     renderNotifList(notifications);
   } catch(e) { console.error('Notif error:', e); }
 }
@@ -465,7 +469,7 @@ function setupNotifRealtime() {
         // Avoid duplicates
         if (notifications.find(n => n.id === payload.new.id)) return;
         notifications.unshift(payload.new);
-        updateNotifBadge(notifications.length);
+        updateNotifBadge(notifications.filter(n => !n.is_read).length);
         renderNotifList(notifications);
         // Flash bell
         const bell = document.querySelector('.notif-btn');
@@ -491,8 +495,8 @@ function setupNotifRealtime() {
 async function handleNotifClick(notifId, linkTo) {
   await sb.from('notifications').update({is_read: true}).eq('id', notifId);
   // Remove from local list
-  notifications = notifications.filter(n => n.id !== notifId);
-  updateNotifBadge(notifications.length);
+  notifications = notifications.map(n => n.id === notifId ? { ...n, is_read: true } : n);   // keep it under "Earlier"
+  updateNotifBadge(notifications.filter(n => !n.is_read).length);
   renderNotifList(notifications);
   document.getElementById('notifPanel').classList.remove('open');
   if (linkTo) showView(linkTo);
@@ -511,10 +515,9 @@ function toggleNotifPanel() {
 
 async function markAllRead() {
   await sb.from('notifications').update({is_read: true}).eq('to_email', currentUser.email).eq('is_read', false);
-  notifications = [];
+  notifications = notifications.map(n => ({ ...n, is_read: true }));   // keep them visible for 7 days
   updateNotifBadge(0);
-  document.getElementById('notifList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">🎉 All caught up!</div>';
-  document.getElementById('notifPanel').classList.remove('open');
+  renderNotifList(notifications);
 }
 
 // Helper to create notification
