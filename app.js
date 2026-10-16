@@ -8902,12 +8902,33 @@ let { data: emps } = await sb.from('employees').select('*').eq('is_active', true
     emps = (emps || []).filter(e => !['ceo','hr'].includes(String(e.role||'').toLowerCase()));   // hide CEO & HR from team report
     const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
 const { data: allAtt } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
-    const { data: allVisits } = await sbClient.from('site_visits').select('visited_by');
-    const visitCounts = {};
-    (allVisits || []).forEach(v => {
-      if (!v.visited_by) return;
-      visitCounts[v.visited_by] = (visitCounts[v.visited_by] || 0) + 1;
+    // Site visits THIS MONTH from both Client CRM sources (site_visits + Project Tracker),
+    // one client + one date = one visit, multi-name entries ("Ashmit, Rajendra Lal") credit everyone.
+    const [{ data: svRows }, { data: prRows }] = await Promise.all([
+      sbClient.from('site_visits').select('client_id, visit_date, visited_by')
+        .gte('visit_date', monthStart).lte('visit_date', monthEnd + 'T23:59:59'),
+      sbClient.from('project_records').select('client_id, site_visit_date, visited_by')
+        .not('site_visit_date', 'is', null)
+        .gte('site_visit_date', monthStart).lte('site_visit_date', monthEnd + 'T23:59:59')
+    ]);
+    const _visitRows = [
+      ...(svRows || []).map(v => ({ cid: v.client_id, d: String(v.visit_date || '').slice(0, 10), by: v.visited_by })),
+      ...(prRows || []).map(v => ({ cid: v.client_id, d: String(v.site_visit_date || '').slice(0, 10), by: v.visited_by }))
+    ].filter(v => v.by && v.d);
+    const _visitSets = {};
+    (emps || []).forEach(emp => {
+      const full = String(emp.name || '').trim().toLowerCase();
+      const first = full.split(/\s+/)[0];
+      if (!first) return;
+      const set = new Set();
+      _visitRows.forEach(v => {
+        const parts = String(v.by).toLowerCase().split(/,|&|\/|\band\b/).map(x => x.trim()).filter(Boolean);
+        if (parts.some(pt => pt === full || pt === first || pt.startsWith(first + ' ') || full.startsWith(pt + ' ')))
+          set.add((v.cid || '') + '|' + v.d);
+      });
+      _visitSets[emp.name] = set.size;
     });
+    const visitCounts = _visitSets;
 const { data: allLeadsForPerf } = await sbClient.from('clients').select('assigned_to_name, status, lead_converted_at').not('assigned_to_name', 'is', null);
     const leadCounts = {};
     const convertedCounts = {};
