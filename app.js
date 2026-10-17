@@ -1493,7 +1493,17 @@ async function openEditSiteVisit(visitId) {
             </select>
           </div>
           <div class="field"><label>Visited By</label><input id="ev-by" value="${esc(v.visited_by || '')}" placeholder="Comma separated names"></div>
-          <div class="field"><label>Location <span style="font-weight:400;color:var(--muted);font-size:10.5px">(multiple: separate with " | ")</span></label><input id="ev-location" value="${esc(v.location || '')}"></div>
+          <div class="field" style="grid-column:1/-1"><label>Location</label>
+            <div id="ev-locs">${(() => {
+              const _l = splitLocations(v.location);
+              if (!_l.length) _l.push('');
+              return _l.map((x, i) => i === 0
+                ? `<input class="ev-loc" value="${esc(x)}" placeholder="Site address or Google Maps link">`
+                : `<div style="display:flex;gap:6px;margin-top:6px"><input class="ev-loc" style="flex:1" value="${esc(x)}"><button type="button" class="btn btn-sm" onclick="this.parentElement.remove()" title="Remove" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">✕</button></div>`
+              ).join('');
+            })()}</div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="addLocationRow('ev-locs','ev-loc')" style="margin-top:6px;font-size:11px">➕ Add another location</button>
+          </div>
           <div class="field"><label>Reference</label><input id="ev-reference" value="${esc(v.reference || '')}"></div>
           <div class="field"><label>Description / Discussion</label><textarea id="ev-discussion" rows="3">${esc(v.discussion || '')}</textarea></div>
           <div class="field"><label>Suggestions</label><textarea id="ev-suggestions" rows="3">${esc(v.suggestions || '')}</textarea></div>
@@ -1514,7 +1524,7 @@ async function saveEditSiteVisit(visitId) {
     visit_date: document.getElementById('ev-date').value || null,
         visit_type: document.getElementById('ev-type').value,
     visited_by: document.getElementById('ev-by').value.trim() || null,
-    location: document.getElementById('ev-location').value.trim() || null,
+    location: [...document.querySelectorAll('#ev-locs .ev-loc')].map(i => i.value.trim()).filter(Boolean).join(' | ') || null,
     discussion: document.getElementById('ev-discussion').value.trim() || null,
     suggestions: document.getElementById('ev-suggestions').value.trim() || null,
     reference: document.getElementById('ev-reference').value.trim() || null
@@ -1714,12 +1724,13 @@ function addVisitDateField(){
 }
 
 // Multiple site locations in one visit — stored in site_visits.location joined with " | "
-function avgAddLocation() {
-  const wrap = document.getElementById('avg-locs');
+function avgAddLocation() { addLocationRow('avg-locs', 'avg-loc'); }
+function addLocationRow(wrapId, cls) {
+  const wrap = document.getElementById(wrapId);
   if (!wrap) return;
   const row = document.createElement('div');
   row.style.cssText = 'display:flex;gap:6px;margin-top:6px';
-  row.innerHTML = '<input class="avg-loc" style="flex:1" placeholder="Another site address or Google Maps link">'
+  row.innerHTML = '<input class="' + cls + '" style="flex:1" placeholder="Another site address or Google Maps link">'
     + '<button type="button" class="btn btn-sm" onclick="this.parentElement.remove()" title="Remove" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">✕</button>';
   wrap.appendChild(row);
   row.querySelector('input').focus();
