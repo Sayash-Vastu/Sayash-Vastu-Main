@@ -1524,7 +1524,7 @@ async function saveEditSiteVisit(visitId) {
     visit_date: document.getElementById('ev-date').value || null,
         visit_type: document.getElementById('ev-type').value,
     visited_by: document.getElementById('ev-by').value.trim() || null,
-    location: [...document.querySelectorAll('#ev-locs .ev-loc')].map(i => i.value.trim()).filter(Boolean).join(' | ') || null,
+    location: [...document.querySelectorAll('#ev-locs .ev-loc')].flatMap(i => splitLocations(i.value)).join(' | ') || null,
     discussion: document.getElementById('ev-discussion').value.trim() || null,
     suggestions: document.getElementById('ev-suggestions').value.trim() || null,
     reference: document.getElementById('ev-reference').value.trim() || null
@@ -1735,8 +1735,16 @@ function addLocationRow(wrapId, cls) {
   wrap.appendChild(row);
   row.querySelector('input').focus();
 }
+// Accepts "a | b", newlines, or several URLs pasted together with spaces
 function splitLocations(loc) {
-  return String(loc || '').split(' | ').map(x => x.trim()).filter(Boolean);
+  const t = String(loc || '').trim();
+  if (!t) return [];
+  const out = [];
+  t.split(/\s*\|\s*|\n+/).map(x => x.trim()).filter(Boolean).forEach(p => {
+    const urls = p.match(/https?:\/\/[^\s,|]+/gi);
+    if (urls && urls.length > 1) urls.forEach(u => out.push(u)); else out.push(p);
+  });
+  return out;
 }
 // Render one or more locations as Maps links
 function locLinksHtml(loc, compact) {
@@ -3125,7 +3133,7 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   const familyDetails = document.getElementById('avg-family').value.trim();
   const visitType = document.getElementById('avg-type').value;
   let discussion = document.getElementById('avg-discussion').value.trim();
-  const _locList = [...document.querySelectorAll('#avg-locs .avg-loc')].map(i => i.value.trim()).filter(Boolean);
+  const _locList = [...document.querySelectorAll('#avg-locs .avg-loc')].flatMap(i => splitLocations(i.value));
   const location = _locList.join(' | ');
   let visitDates = [...(window._avgDates || [])].sort();
   if (!visitDates.length) visitDates = [null];
