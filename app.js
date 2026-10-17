@@ -3751,7 +3751,11 @@ const isOverdueEmp = f.next_followup < today;
   };
 
   // Fetch active employees (photos + absent detection)
-  const { data: empList } = await sb.from('employees').select('email,name,photo_url').eq('is_active', true);
+  const { data: empList } = await sb.from('employees').select('email,name,photo_url,weekly_off_pattern').eq('is_active', true);
+  // Today's company holiday (Diwali, Dussehra...) and weekly offs are not "Absent"
+  const { data: _holTodayRows } = await sb.from('holidays').select('*').eq('date', today);
+  const _holToday = (_holTodayRows || [])[0] || null;
+  const _todayObjTeam = _lvDate(today);
   const photoMap = {};
   (empList||[]).forEach(e => { if(e.photo_url) photoMap[e.email] = e.photo_url; });
   // On approved leave today -> exclude from absent
@@ -3799,7 +3803,15 @@ return '<div onclick="openEmpQuickView(\'' + a.employee_email + '\')" style="dis
         const _dn = getDisplayName(e.name, (empList||[]).map(function(x){return {name:x.name};}));
         const _pu = photoMap[e.email];
         const _av = (_pu && _pu!=='null' && _pu!=='') ? '<img src="'+_pu+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">' : '<div class="av" style="background:#c9ccd6;width:28px;height:28px;font-size:10px;color:#fff">'+_in+'</div>';
-        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa">'+_av+'<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--navy)">'+esc(_dn)+'</div><div style="font-size:10px;color:#c0392b;margin-top:2px">Not checked in</div></div><span style="font-size:10px;background:#fdecea;color:#c0392b;padding:2px 8px;border-radius:10px;font-weight:600">Absent</span></div>';
+        let _sub = 'Not checked in', _subColor = '#c0392b', _badge = '<span style="font-size:10px;background:#fdecea;color:#c0392b;padding:2px 8px;border-radius:10px;font-weight:600">Absent</span>';
+        if (_holToday) {
+          _sub = esc(_holToday.title || _holToday.name || 'Holiday'); _subColor = 'var(--muted)';
+          _badge = '<span style="font-size:10px;background:#fdf6e6;color:#8a6d2f;padding:2px 8px;border-radius:10px;font-weight:600">🎉 Holiday</span>';
+        } else if (isWeeklyOff(_todayObjTeam, e.weekly_off_pattern || 'sunday_only')) {
+          _sub = 'Weekly off'; _subColor = 'var(--muted)';
+          _badge = '<span style="font-size:10px;background:#eef1f6;color:#5a6472;padding:2px 8px;border-radius:10px;font-weight:600">Week Off</span>';
+        }
+        return '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f5f6fa">'+_av+'<div style="flex:1"><div style="font-size:12px;font-weight:600;color:var(--navy)">'+esc(_dn)+'</div><div style="font-size:10px;color:'+_subColor+';margin-top:2px">'+_sub+'</div></div>'+_badge+'</div>';
       }).join('');
       empTeamEl.innerHTML = (_presentHtml + _absentHtml) || '<div style="text-align:center;color:var(--muted);font-size:12px;padding:12px">No team data</div>';
     }
@@ -3856,7 +3868,9 @@ const presentEmails = new Set((todayAtt||[]).filter(a=>(a.status==='Present'||a.
   }
 
   const todayObjForOff = new Date();
-  const absentToday = (allActiveEmps||[]).filter(e =>
+  const { data: _holCeo } = await sb.from('holidays').select('date').eq('date', todayDate);
+  const _isHolidayCeo = !!(_holCeo && _holCeo.length);
+  const absentToday = _isHolidayCeo ? 0 : (allActiveEmps||[]).filter(e =>
     !presentEmails.has(e.email) &&
     !leaveEmails.has(e.email) &&
     !isOffToday(e.weekly_off_pattern, todayObjForOff)
@@ -4442,7 +4456,11 @@ async function loadCeoActivityFeed() {
   document.getElementById('ceoActivitySection').style.display = 'block';
   const { data: tasks } = await sb.from('tasks').select('*').eq('is_archived',false).order('updated_at',{ascending:false});
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', new Date().toISOString().split('T')[0]).eq('is_archived',false);
-const { data: emps } = await sb.from('employees').select('name,email,designation,role').eq('is_active',true);
+const { data: emps } = await sb.from('employees').select('name,email,designation,role,weekly_off_pattern').eq('is_active',true);
+  const _todayStrFeed = (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
+  const { data: _holFeed } = await sb.from('holidays').select('*').eq('date', _todayStrFeed);
+  const { data: _lvFeed } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date', _todayStrFeed).gte('to_date', _todayStrFeed);
+  const _onLeaveFeed = new Set((_lvFeed || []).map(l => l.employee_email));
   const el = document.getElementById('ceoActivityFeed');
 
   if (!tasks || !tasks.length) {
@@ -4480,6 +4498,9 @@ const attRecord = (todayAtt||[]).find(a => a.employee_email === empEmail || a.em
     const empInfo = (emps||[]).find(e => e.email === empEmail || e.name === canonicalName);
     
     let attBadge = '<span class="badge b-red" style="font-size:10px">Absent</span>';
+    if (_holFeed && _holFeed.length) attBadge = '<span class="badge" style="font-size:10px;background:#fdf6e6;color:#8a6d2f">🎉 Holiday</span>';
+    else if (empInfo && _onLeaveFeed.has(empInfo.email)) attBadge = '<span class="badge b-purple" style="font-size:10px">On Leave</span>';
+    else if (isWeeklyOff(new Date(), (empInfo && empInfo.weekly_off_pattern) || 'sunday_only')) attBadge = '<span class="badge b-gray" style="font-size:10px">Week Off</span>';
     if (attRecord?.check_in && !attRecord?.check_out) attBadge = '<span class="badge b-green" style="font-size:10px">Present</span>';
     else if (attRecord?.check_in && attRecord?.check_out) attBadge = '<span class="badge b-blue" style="font-size:10px">Checked Out</span>';
     else if (attRecord?.status === 'Half Day') attBadge = '<span class="badge b-amber" style="font-size:10px">Half Day</span>';
