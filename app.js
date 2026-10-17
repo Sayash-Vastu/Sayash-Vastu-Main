@@ -753,6 +753,8 @@ const { data: emps } = await sb.from('employees').select('*').eq('is_active', tr
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
 const { data: attData } = await sb.from('attendance').select('*').eq('is_archived', false).gte('date', start).lte('date', end);
   const { data: leaveData } = await sb.from('leaves').select('*').eq('status', 'Approved').lte('from_date', end).gte('to_date', start);
+  const { data: _holAll } = await sb.from('holidays').select('*').gte('date', start).lte('date', end);
+  const _holMapAll = {}; (_holAll || []).forEach(h => { _holMapAll[String(h.date).slice(0, 10)] = h; });
   
   const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
   const MUTED  = [85,85,85];  const BORDER= [200,213,229]; const LIGHT = [245,248,252];
@@ -782,7 +784,8 @@ const { data: attData } = await sb.from('attendance').select('*').eq('is_archive
       const dispDate  = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
       const a         = attMap[dateStr];
 const isWeekend = dateObj.getDay() === 0;
-      const onLeave   = empLeaves.find(l => leaveCoversDate(l, dateStr))
+      const _hol      = _holMapAll[dateStr];
+      const onLeave   = (isWeekend || _hol) ? null : empLeaves.find(l => leaveCoversDate(l, dateStr))
         const todayCheck = new Date(); todayCheck.setHours(0,0,0,0);
       const isFuture  = dateObj > todayCheck;
       if (a) {
@@ -795,6 +798,8 @@ const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.g
         dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
       } else if (isWeekend) {
         dailyRows.push([dispDate, dayName, 'Week Off', '—', '—', '—', '—', 'Week Off']);
+      } else if (_hol) {
+        dailyRows.push([dispDate, dayName, 'Holiday', '—', '—', '—', '—', _hol.title || _hol.name || 'Holiday']);
       } else if (isFuture) {
         dailyRows.push([dispDate, dayName, '—', '—', '—', '—', '—', '']);
       } else {
@@ -5279,7 +5284,11 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   document.getElementById('lv-taken').textContent=taken;
   document.getElementById('lv-rejected') && (document.getElementById('lv-rejected').textContent=rejected);
   // Balance = 12/year − paid leaves used (probation leaves & 'Other' don't consume the quota)
-  const { data: _me } = await sb.from('employees').select('joining_date').eq('email', currentUser.email).single();
+  const { data: _me } = await sb.from('employees').select('joining_date, weekly_off_pattern').eq('email', currentUser.email).single();
+  const _yr = new Date().getFullYear();
+  const { data: _yrHolLv } = await sb.from('holidays').select('date').gte('date', _yr + '-01-01').lte('date', _yr + '-12-31');
+  const _holSetLv = new Set((_yrHolLv || []).map(h => String(h.date).slice(0, 10)));
+  const _offPatLv = (_me && _me.weekly_off_pattern) || 'sunday_only';
   const _joining = (_me && _me.joining_date) || currentUser.joining_date || null;
   let _probEnd = null;
   if (_joining) { const j = new Date(_joining); if(!isNaN(j)){ const p=new Date(j); p.setMonth(p.getMonth()+3); _probEnd = p.toISOString().split('T')[0]; } }
@@ -5293,6 +5302,7 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
     const per = l.leave_type==='Half Day'?0.5:1;
     ds2.forEach(x=>{
       if (x < _yStart) return;
+      if (_isNonWorkingDay(x, _offPatLv, _holSetLv)) return;           // weekly off / holiday inside a leave = not a leave day
       if (_probEnd && x < _probEnd) { _probTaken += per; return; }   // probation leave — unpaid, separate
       if (_isUnpaidLeaveType(l.leave_type)) return;                  // Unpaid leave doesn't touch the quota
       _paidTaken += per;                                             // regular paid leave consumes the 12-quota
@@ -7827,9 +7837,9 @@ for (let d = 1; d <= totalDays; d++) {
     const dateStr = `${yr}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const isWeekend = isWeeklyOff(dateObj, pattern);
     const a = attMapMy[dateStr];
-    const onLeave = (leaveDataMy || []).find(l => leaveCoversDate(l, dateStr))
+    const holidayMy = holidayMapMy[dateStr];
+    const onLeave = (isWeekend || holidayMy) ? null : (leaveDataMy || []).find(l => leaveCoversDate(l, dateStr));
     const isFuture = dateObj > todayCheckMy;
-  const holidayMy = holidayMapMy[dateStr];
   
 if (a && !onLeave) {
       if (a.status === 'Present') present++;
@@ -7986,7 +7996,7 @@ const { data: empPatternPdf } = await sb.from('employees').select('*').eq('email
     const dispDate = `${String(d).padStart(2,'0')}-${months3[mo-1]}-${yr}`;
     const a        = attMap[dateStr];
 const isWeekend = isWeeklyOff(dateObj, patternPdf);
-    const onLeave = (leaveDataMyPdf||[]).find(l => leaveCoversDate(l, dateStr))
+    const onLeave = (isWeekend || holidayMapPdf[dateStr]) ? null : (leaveDataMyPdf||[]).find(l => leaveCoversDate(l, dateStr))
     const todayCheckPdf = new Date(); todayCheckPdf.setHours(0,0,0,0);
     const isFuturePdf = dateObj > todayCheckPdf;
     if (a) {
