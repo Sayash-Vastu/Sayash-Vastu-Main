@@ -1421,7 +1421,7 @@ function renderClientVisits(list, expand){
           <td style="padding:9px 14px">${fmtDate(v.visit_date)}</td>
           <td style="padding:9px 14px"><span class="badge b-navy" style="font-size:10px">${esc(v.visit_type||'-')}</span></td>
           <td style="padding:9px 14px"><span class="badge b-blue">${esc(v.visited_by||'-')}</span></td>
-          <td style="padding:9px 14px;max-width:160px">${v.location ? `<a href="${mapsHref(v.location)}" target="_blank" title="${esc(v.location)}" style="color:var(--blue);font-weight:600;text-decoration:none;display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle">📍 ${/^https?:\/\//i.test(String(v.location).trim()) ? 'Open in Maps' : esc(v.location)}</a>` : '-'}</td>
+          <td style="padding:9px 14px;max-width:160px">${v.location ? locLinksHtml(v.location, true) : '-'}</td>
           <td style="padding:9px 14px;max-width:160px">${v.reference ? esc(v.reference) : '-'}</td>
           <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
           <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
@@ -1493,7 +1493,7 @@ async function openEditSiteVisit(visitId) {
             </select>
           </div>
           <div class="field"><label>Visited By</label><input id="ev-by" value="${esc(v.visited_by || '')}" placeholder="Comma separated names"></div>
-          <div class="field"><label>Location</label><input id="ev-location" value="${esc(v.location || '')}"></div>
+          <div class="field"><label>Location <span style="font-weight:400;color:var(--muted);font-size:10.5px">(multiple: separate with " | ")</span></label><input id="ev-location" value="${esc(v.location || '')}"></div>
           <div class="field"><label>Reference</label><input id="ev-reference" value="${esc(v.reference || '')}"></div>
           <div class="field"><label>Description / Discussion</label><textarea id="ev-discussion" rows="3">${esc(v.discussion || '')}</textarea></div>
           <div class="field"><label>Suggestions</label><textarea id="ev-suggestions" rows="3">${esc(v.suggestions || '')}</textarea></div>
@@ -1713,6 +1713,33 @@ function addVisitDateField(){
   wrap.appendChild(row);
 }
 
+// Multiple site locations in one visit — stored in site_visits.location joined with " | "
+function avgAddLocation() {
+  const wrap = document.getElementById('avg-locs');
+  if (!wrap) return;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;margin-top:6px';
+  row.innerHTML = '<input class="avg-loc" style="flex:1" placeholder="Another site address or Google Maps link">'
+    + '<button type="button" class="btn btn-sm" onclick="this.parentElement.remove()" title="Remove" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">✕</button>';
+  wrap.appendChild(row);
+  row.querySelector('input').focus();
+}
+function splitLocations(loc) {
+  return String(loc || '').split(' | ').map(x => x.trim()).filter(Boolean);
+}
+// Render one or more locations as Maps links
+function locLinksHtml(loc, compact) {
+  const list = splitLocations(loc);
+  if (!list.length) return '';
+  return list.map((l, i) => {
+    const isUrl = /^https?:\/\//i.test(l);
+    const label = isUrl ? (list.length > 1 ? 'Location ' + (i + 1) : 'Open in Maps') : esc(l);
+    return compact
+      ? `<a href="${mapsHref(l)}" target="_blank" title="${esc(l)}" style="color:var(--blue);font-weight:600;text-decoration:none;display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${label}</a>`
+      : `<div style="font-size:12px"><a href="${mapsHref(l)}" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">📍 ${label}</a></div>`;
+  }).join('');
+}
+
 function openAddVisitEmpGlobal() {
   window._avgPhotoFiles = [];
   document.body.insertAdjacentHTML('beforeend', `
@@ -1794,7 +1821,10 @@ function openAddVisitEmpGlobal() {
             <input id="avg-contact" placeholder="e.g. Mr. Sharma"></div>
           <div class="field"><label>Contact Phone (for follow-up)</label>
             <input id="avg-contact-phone" placeholder="e.g. 9876543210"></div>
-          <div class="field" style="grid-column:1/-1"><label>Location</label><input id="avg-location" placeholder="Site address or Google Maps link"></div>
+          <div class="field" style="grid-column:1/-1"><label>Location</label>
+            <div id="avg-locs"><input id="avg-location" class="avg-loc" placeholder="Site address or Google Maps link"></div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="avgAddLocation()" style="margin-top:6px;font-size:11px">➕ Add another location</button>
+          </div>
           <div class="field" style="grid-column:1/-1"><label>Reference</label><input id="avg-reference" placeholder="e.g. Referred by Mr. Verma / Ref #123"></div>
           <div class="field" style="grid-column:1/-1"><label>Site Description</label><textarea id="avg-discussion" placeholder="Site description..."></textarea></div>
           <div class="field" style="grid-column:1/-1"><label>Vastu Suggestions</label><textarea id="avg-suggestions" placeholder="Suggestions given..."></textarea></div>
@@ -3084,7 +3114,8 @@ if (!restype) { showToast('⚠️ Project type is required', 'warn'); return; }
   const familyDetails = document.getElementById('avg-family').value.trim();
   const visitType = document.getElementById('avg-type').value;
   let discussion = document.getElementById('avg-discussion').value.trim();
-  const location = document.getElementById('avg-location').value.trim();
+  const _locList = [...document.querySelectorAll('#avg-locs .avg-loc')].map(i => i.value.trim()).filter(Boolean);
+  const location = _locList.join(' | ');
   let visitDates = [...(window._avgDates || [])].sort();
   if (!visitDates.length) visitDates = [null];
   const suggestions = document.getElementById('avg-suggestions').value.trim();
@@ -3189,7 +3220,7 @@ let trackerPayload = {
         trackerPayload.site_visit_date = visitDate;
         trackerPayload.recommendation = discussion || null;
         trackerPayload.record_type = visitType;
-        trackerPayload.location_links = location ? [location] : [];
+        trackerPayload.location_links = _locList;
         trackerPayload.vastu_reports = [];
       } else if (isSignatureGlobal) {
         trackerPayload.site_visit_date = visitDate;
@@ -12216,7 +12247,7 @@ async function openEmpClientDetail(clientId) {
         ${visits.map(v => `
           <div style="padding:10px 0;border-bottom:1px solid #f5f6fa">
             <div style="font-weight:600;color:var(--navy)">📅 ${fmtDate(v.visit_date)} · ${esc(v.visited_by||'—')}</div>
-${v.location?`<div style="font-size:12px"><a href="${mapsHref(v.location)}" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">📍 ${esc(v.location)}</a></div>`:''}
+${v.location?locLinksHtml(v.location, false):''}
             ${v.discussion?`<div style="font-size:12px;color:var(--muted);margin-top:3px">💬 ${esc(v.discussion.substring(0,80))}...</div>`:''}
           </div>
         `).join('')}
@@ -12605,7 +12636,7 @@ async function openSubProjectDetail(projectId, projectName, clientId, clientName
               <div style="font-weight:600;color:var(--navy)">📅 ${fmtDate(v.visit_date)}</div>
               <span class="badge b-blue">${esc(v.visited_by||'—')}</span>
             </div>
-${v.location?`<div style="font-size:12px;margin-top:3px"><a href="${mapsHref(v.location)}" target="_blank" style="color:var(--blue);font-weight:600;text-decoration:none">📍 ${esc(v.location)}</a></div>`:''}
+${v.location?`<div style="margin-top:3px">${locLinksHtml(v.location, false)}</div>`:''}
             ${v.discussion?`<div style="font-size:12px;color:var(--muted);margin-top:3px">💬 ${esc(v.discussion.substring(0,80))}...</div>`:''}
             ${v.suggestions?`<div style="font-size:12px;color:var(--muted);margin-top:3px">✨ ${esc(v.suggestions.substring(0,80))}...</div>`:''}
           </div>
