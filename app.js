@@ -1534,20 +1534,37 @@ async function saveEditSiteVisit(visitId) {
   try { const { data: _d } = await sbClient.from('site_visits').select('client_id, visit_date').eq('id', visitId).single(); _svOld = _d; } catch (e) {}
   const { error } = await sbClient.from('site_visits').update(upd).eq('id', visitId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
-  // Keep Project Tracker in sync on edit — only when exactly ONE matching record (unambiguous)
+  // Keep Project Tracker in sync on edit. Find the linked record by client + visit date;
+  // if several share that date, narrow by project / sub-project. Update only when exactly one remains.
+  let _synced = false;
   try {
     if (_svOld && _svOld.client_id && _svOld.visit_date) {
-      const { data: _m } = await sbClient.from('project_records').select('id')
+      const { data: _m0 } = await sbClient.from('project_records')
+        .select('id, project_name, sub_project_name, record_type')
         .eq('client_id', _svOld.client_id).eq('site_visit_date', _svOld.visit_date);
-      if (_m && _m.length === 1) {
-        await sbClient.from('project_records').update({
-          recommendation: upd.discussion,
-          comments: upd.suggestions || null,
-          site_visit_date: upd.visit_date
-        }).eq('id', _m[0].id);
+      let _m = _m0 || [];
+      if (_m.length > 1 && upd.project_name) { const f = _m.filter(r => (r.project_name || '') === upd.project_name); if (f.length) _m = f; }
+      if (_m.length > 1) { const f = _m.filter(r => (r.sub_project_name || null) === (upd.sub_project_name || null)); if (f.length) _m = f; }
+      if (_m.length > 1) { const f = _m.filter(r => r.record_type === 'Site Visit'); if (f.length) _m = f; }
+      if (_m.length === 1) {
+        const { data: _cl } = await sbClient.from('clients').select('name').eq('id', _svOld.client_id).single();
+        const _cn = (_cl && _cl.name) || '';
+        const _locs = splitLocations(upd.location);
+        const _tu = { site_visit_date: upd.visit_date };
+        if (_cn === 'MAX Healthcare') {
+          _tu.recommendation = upd.discussion; _tu.location_links = _locs; _tu.visited_by = upd.visited_by;
+        } else if (_cn === 'Signature Global') {
+          _tu.sayash_observation = upd.discussion; _tu.site_plan_link = upd.location; _tu.sg_team_visitor = upd.visited_by;
+        } else {
+          _tu.recommendation = upd.discussion; _tu.comments = upd.suggestions || null;
+          _tu.location_link = upd.location; _tu.visited_by = upd.visited_by;
+        }
+        const { error: _te } = await sbClient.from('project_records').update(_tu).eq('id', _m[0].id);
+        if (!_te) _synced = true; else console.error('tracker sync error:', _te.message);
       }
     }
   } catch (e) { console.error('tracker sync on edit failed:', e); }
+  if (!_synced) showToast('⚠️ Visit updated, but the matching Project Tracker record was not found — please update it there too', 'warn');
   showToast('✅ Site visit updated!', 'ok');
   document.getElementById('editVisitModal').remove();
   loadClientVisitsAll();
