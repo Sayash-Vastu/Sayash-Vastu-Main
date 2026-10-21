@@ -3558,7 +3558,7 @@ const { data: wfhToday } = await sb.from('attendance').select('*').eq('date', to
   }
 
   // On Leave Today
-const { data: leaveTodayRaw } = await sb.from('leaves').select('*').eq('status', 'Approved');
+const { data: leaveTodayRaw } = await sb.from('leaves').select('*').in('status', ['Approved', 'Pending']).not('is_archived', 'is', true);
   const leaveToday = (leaveTodayRaw || []).filter(l => {
     const inRange = l.from_date <= today && l.to_date >= today;
     const inSpecific = l.specific_dates && l.specific_dates.split(',').map(d => d.trim()).some(d => {
@@ -3581,9 +3581,11 @@ const { data: leaveTodayRaw } = await sb.from('leaves').select('*').eq('status',
         <div class="av" style="background:var(--navy);width:28px;height:28px;font-size:10px">${esc(l.employee_name).substring(0,2).toUpperCase()}</div>
         <div>
           <div style="font-size:12px;font-weight:600;color:var(--navy)">${esc(l.employee_name)}</div>
-<div style="font-size:11px;color:var(--muted)">On Leave</div>
+<div style="font-size:11px;color:var(--muted)">${l.leave_type === 'Half Day' ? 'Half day leave' : 'On Leave'}${l.status === 'Pending' ? ' · approval pending' : ''}</div>
         </div>
-        <span class="badge b-blue" style="margin-left:auto;font-size:10px">On Leave</span>
+        ${l.status === 'Pending'
+          ? '<span class="badge b-amber" style="margin-left:auto;font-size:10px">On Leave (Pending)</span>'
+          : '<span class="badge b-blue" style="margin-left:auto;font-size:10px">On Leave</span>'}
       </div>
     `).join('');
   }
@@ -3776,8 +3778,13 @@ const isOverdueEmp = f.next_followup < today;
   const photoMap = {};
   (empList||[]).forEach(e => { if(e.photo_url) photoMap[e.email] = e.photo_url; });
   // On approved leave today -> exclude from absent
-  const { data: leaveTodayTeam } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date', today).gte('to_date', today);
-  const onLeaveEmailsTeam = new Set((leaveTodayTeam||[]).map(l => l.employee_email));
+  const { data: leaveTodayTeam } = await sb.from('leaves').select('employee_email, status, specific_dates, from_date, to_date').in('status',['Approved','Pending']).not('is_archived', 'is', true).lte('from_date', today).gte('to_date', today);
+  const _leaveStatusTeam = {};
+  (leaveTodayTeam||[]).filter(l => leaveCoversDate(l, today)).forEach(l => {
+    const k = String(l.employee_email).toLowerCase();
+    if (_leaveStatusTeam[k] !== 'Approved') _leaveStatusTeam[k] = l.status;
+  });
+  const onLeaveEmailsTeam = new Set();   // on-leave people are now listed with an "On Leave" badge instead of being hidden
   const excludeTeam = new Set(['yash@sayashvastu.com','neha@sayashvastu.com']);
 
   const empTeamEl = document.getElementById('empTeamToday');
@@ -3821,7 +3828,13 @@ return '<div onclick="openEmpQuickView(\'' + a.employee_email + '\')" style="dis
         const _pu = photoMap[e.email];
         const _av = (_pu && _pu!=='null' && _pu!=='') ? '<img src="'+_pu+'" style="width:28px;height:28px;border-radius:50%;object-fit:cover;border:2px solid var(--border)">' : '<div class="av" style="background:#c9ccd6;width:28px;height:28px;font-size:10px;color:#fff">'+_in+'</div>';
         let _sub = 'Not checked in', _subColor = '#c0392b', _badge = '<span style="font-size:10px;background:#fdecea;color:#c0392b;padding:2px 8px;border-radius:10px;font-weight:600">Absent</span>';
-        if (_holToday) {
+        const _lvSt = _leaveStatusTeam[String(e.email).toLowerCase()];
+        if (_lvSt) {
+          _sub = _lvSt === 'Pending' ? 'Leave · approval pending' : 'On approved leave'; _subColor = 'var(--muted)';
+          _badge = _lvSt === 'Pending'
+            ? '<span style="font-size:10px;background:#fff4e0;color:#8a5200;padding:2px 8px;border-radius:10px;font-weight:600">🏖️ On Leave (Pending)</span>'
+            : '<span style="font-size:10px;background:#e6f1fb;color:#185fa5;padding:2px 8px;border-radius:10px;font-weight:600">🏖️ On Leave</span>';
+        } else if (_holToday) {
           _sub = esc(_holToday.title || _holToday.name || 'Holiday'); _subColor = 'var(--muted)';
           _badge = '<span style="font-size:10px;background:#fdf6e6;color:#8a6d2f;padding:2px 8px;border-radius:10px;font-weight:600">🎉 Holiday</span>';
         } else if (isWeeklyOff(_todayObjTeam, e.weekly_off_pattern || 'sunday_only')) {
@@ -3862,7 +3875,7 @@ const todayDate = new Date().toISOString().split('T')[0];
   const { data: ceoEmails } = await sb.from('employees').select('email').in('role',['ceo','hr']);
   const ceoEmailSet = new Set((ceoEmails||[]).map(e=>e.email));
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('date', todayDate).eq('is_archived',false);
-const { data: leaveTodayCount } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date',todayDate).gte('to_date',todayDate);
+const { data: leaveTodayCount } = await sb.from('leaves').select('employee_email').in('status',['Approved','Pending']).not('is_archived', 'is', true).lte('from_date',todayDate).gte('to_date',todayDate);
   const leaveEmails = new Set((leaveTodayCount||[]).map(l=>l.employee_email));
   const onLeaveCount = leaveEmails.size;
 const presentEmails = new Set((todayAtt||[]).filter(a=>(a.status==='Present'||a.status==='Half Day') && !ceoEmailSet.has(a.employee_email) && !leaveEmails.has(a.employee_email)).map(a=>a.employee_email));
@@ -4476,7 +4489,7 @@ async function loadCeoActivityFeed() {
 const { data: emps } = await sb.from('employees').select('name,email,designation,role,weekly_off_pattern').eq('is_active',true);
   const _todayStrFeed = (() => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); })();
   const { data: _holFeed } = await sb.from('holidays').select('*').eq('date', _todayStrFeed);
-  const { data: _lvFeed } = await sb.from('leaves').select('employee_email').eq('status','Approved').lte('from_date', _todayStrFeed).gte('to_date', _todayStrFeed);
+  const { data: _lvFeed } = await sb.from('leaves').select('employee_email').in('status',['Approved','Pending']).not('is_archived', 'is', true).lte('from_date', _todayStrFeed).gte('to_date', _todayStrFeed);
   const _onLeaveFeed = new Set((_lvFeed || []).map(l => l.employee_email));
   const el = document.getElementById('ceoActivityFeed');
 
@@ -5537,6 +5550,18 @@ const { error } = await sb.from('leaves').insert({
     `${currentUser.name} applied for ${type} leave from ${from} to ${to} (${days} days).`,
     'leave', 'leaveApprove'
   );
+  // Let the team know right away (even before approval) so work can be planned around it
+  try {
+    const { data: _team } = await sb.from('employees').select('email').eq('is_active', true);
+    const _when = specificDates ? specificDates : (from === to ? fmtDate(from) : fmtDate(from) + ' to ' + fmtDate(to));
+    const _skip = new Set([String(currentUser.email).toLowerCase(), String(CEO_EMAIL).toLowerCase()]);
+    for (const t of (_team || [])) {
+      const em = String(t.email || '').toLowerCase();
+      if (!em || _skip.has(em)) continue;
+      await createNotification(em, `🏖️ ${currentUser.name} — on leave`,
+        `${currentUser.name} will be on leave: ${_when}${type === 'Half Day' ? ' (half day)' : ''}. Approval pending.`, 'leave', 'dashboard');
+    }
+  } catch (e) { console.error('team leave notify failed:', e); }
   await sendEmail(CEO_EMAIL,'CEO',`Leave Request — ${currentUser.name}`,
     `${currentUser.name} has applied for ${type} leave.\nFrom: ${from}\nTo: ${to}\nDays: ${days}\nReason: ${reason}\n\nLogin to approve:\nsayash-vastu-portal.vercel.app`);
 document.getElementById('lv-from').value='';
