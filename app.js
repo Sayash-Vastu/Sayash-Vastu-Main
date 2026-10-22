@@ -6582,10 +6582,11 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td title="Paid Days = total month days − LOP (Loss of Pay). Weekends, holidays & paid leaves are all paid. Salary = monthly × Paid Days ÷ month days."><span style="font-weight:800;color:var(--green);font-size:17px">${paidDays}</span><span style="font-size:12px;color:var(--muted)"> / ${totalCalendarDays}</span>${_lopDays>0?`<div style="font-size:11px;color:var(--red);font-weight:800">LOP: ${lopTxt}</div>`:''}</td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-size:11px">
-        ${c.half > 0 ? `<span class="badge b-amber">Half: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.leave > 0 ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.adjAbsent > 0 ? `<span class="badge b-blue" title="Absent days adjusted against leave balance">Absent→Leave: ${c.adjDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
-        ${c.half === 0 && c.leave === 0 ? '—' : ''}
+        ${c.half > 0 ? `<span class="badge b-amber">Half day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${(c.leaveDates || []).length ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.adjAbsent > 0 ? `<span class="badge" style="background:#fff4e0;color:#8a5200" title="No check-in and no leave applied on these days. They were counted as paid leave from the yearly balance, so no salary cut.">Absent (no check-in) — counted as paid leave: ${c.adjDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${(c.absentDates || []).length ? `<span class="badge b-red" title="No check-in and no leave applied on these days. ${isProb ? 'On probation, so these are unpaid.' : 'Leave balance is used up, so these are unpaid.'}">Absent (no check-in) — ${isProb ? 'unpaid, probation' : 'unpaid, no leave balance'}: ${c.absentDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${!c.half && !(c.leaveDates || []).length && !c.adjAbsent && !(c.absentDates || []).length ? '—' : ''}
       </td>
       <td style="white-space:nowrap">
         <button class="btn btn-sm" title="Download ${esc(e.name)}'s attendance PDF" onclick="exportMyAttPDF({email:'${e.email}'}, '${monthVal}')" style="background:#eef4ff;color:var(--navy);border-color:var(--border)">📄</button>
