@@ -5550,18 +5550,6 @@ const { error } = await sb.from('leaves').insert({
     `${currentUser.name} applied for ${type} leave from ${from} to ${to} (${days} days).`,
     'leave', 'leaveApprove'
   );
-  // Let the team know right away (even before approval) so work can be planned around it
-  try {
-    const { data: _team } = await sb.from('employees').select('email').eq('is_active', true);
-    const _when = specificDates ? specificDates : (from === to ? fmtDate(from) : fmtDate(from) + ' to ' + fmtDate(to));
-    const _skip = new Set([String(currentUser.email).toLowerCase(), String(CEO_EMAIL).toLowerCase()]);
-    for (const t of (_team || [])) {
-      const em = String(t.email || '').toLowerCase();
-      if (!em || _skip.has(em)) continue;
-      await createNotification(em, `🏖️ ${currentUser.name} — on leave`,
-        `${currentUser.name} will be on leave: ${_when}${type === 'Half Day' ? ' (half day)' : ''}. Approval pending.`, 'leave', 'dashboard');
-    }
-  } catch (e) { console.error('team leave notify failed:', e); }
   await sendEmail(CEO_EMAIL,'CEO',`Leave Request — ${currentUser.name}`,
     `${currentUser.name} has applied for ${type} leave.\nFrom: ${from}\nTo: ${to}\nDays: ${days}\nReason: ${reason}\n\nLogin to approve:\nsayash-vastu-portal.vercel.app`);
 document.getElementById('lv-from').value='';
