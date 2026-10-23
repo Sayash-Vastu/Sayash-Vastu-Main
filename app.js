@@ -521,6 +521,14 @@ async function markAllRead() {
 }
 
 // Helper to create notification
+// Assign Task: pre-tick "Add to Project Tracker" when the text looks like project work; the user can untick it
+function atSuggestTracker() {
+  const box = document.getElementById('at-add-tracker');
+  const d = document.getElementById('at-detail');
+  if (!box || !d || box.dataset.touched === '1') return;
+  box.checked = /\b(site visit|vastu report|mom)\b/i.test(d.value);
+}
+
 async function createNotification(toEmail, title, message, type, linkTo) {
   try {
     const { error } = await sb.from('notifications').insert({
@@ -5145,7 +5153,9 @@ const atClientInput = document.getElementById('at-client');
 
 // If a client name was typed but doesn't exist yet, create it — only for site-visit/report related tasks
   const detailLowerForClient = (detail || '').toLowerCase();
-  const isSiteVisitRelatedForClient = detailLowerForClient.includes('site visit') || detailLowerForClient.includes('report') || detailLowerForClient.includes('vastu report') || detailLowerForClient.includes('mom');
+  // Tracker record / new client only when the user explicitly ticks "Also add to Project Tracker"
+  const _atTrackerBox = document.getElementById('at-add-tracker');
+  const isSiteVisitRelatedForClient = !!(_atTrackerBox && _atTrackerBox.checked);
   if (clientName && !clientId && isSiteVisitRelatedForClient) {
     const { data: newClient, error: newClientErr } = await sbClient.from('clients').insert({
       name: clientName,
@@ -5218,7 +5228,7 @@ for (const emp of empsToAssign) {
 // Create a Project Tracker record in Client CRM if a client was selected — only if task is site-visit/report related
     let linkedRecordId = null;
     const detailLower = (detail || '').toLowerCase();
-    const isSiteVisitRelated = detailLower.includes('site visit') || detailLower.includes('report') || detailLower.includes('vastu report') || detailLower.includes('mom');
+    const isSiteVisitRelated = isSiteVisitRelatedForClient;
     if (clientId && isSiteVisitRelated) {
   const isMaxHealthcareAT = clientName === 'MAX Healthcare';
       const isSignatureGlobalAT = clientName === 'Signature Global';
@@ -5292,6 +5302,7 @@ const { error } = await sb.from('tasks').insert({
   const countEl = document.getElementById('at-selected-count');
   if (countEl) countEl.textContent = '';
 ['at-project','at-detail','at-end','at-onedrive-link'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  { const _tb = document.getElementById('at-add-tracker'); if (_tb) { _tb.checked = false; delete _tb.dataset.touched; } }
   if (atFile) { atFile.value=''; window._atFiles = []; renderAssignFiles(); }
   setTimeout(()=>msg.textContent='',5000);
   loadNotifications();
