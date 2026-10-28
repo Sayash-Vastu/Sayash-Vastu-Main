@@ -5425,7 +5425,31 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   const _absYTD = await getYearAbsentDates(currentUser.email, _joining, _offPatLv, _yr, _todayLv);
   const _balLv = 12 - _paidTaken - _absYTD.length;
   document.getElementById('lv-balance').textContent = Math.max(0, _balLv);
-  const _balNote = document.getElementById('lv-balance-note');
+  let _balNote = document.getElementById('lv-balance-note');
+  if (!_balNote) {
+    const _bEl = document.getElementById('lv-balance');
+    if (_bEl && _bEl.parentElement) {
+      _balNote = document.createElement('div'); _balNote.id = 'lv-balance-note';
+      _balNote.style.cssText = 'font-size:10px;color:var(--muted);margin-top:3px;cursor:help';
+      _bEl.parentElement.appendChild(_balNote);
+    }
+  }
+  // Taken This Year = applied leaves + absent days that were counted as leave
+  const _takenEl = document.getElementById('lv-taken');
+  if (_takenEl && _absYTD.length) {
+    _takenEl.textContent = taken + _absYTD.length;
+    _takenEl.title = taken + ' leave applied + ' + _absYTD.length + ' absent day' + (_absYTD.length > 1 ? 's' : '');
+    let _tn = document.getElementById('lv-taken-note');
+    if (!_tn && _takenEl.parentElement) {
+      _tn = document.createElement('div'); _tn.id = 'lv-taken-note';
+      _tn.style.cssText = 'font-size:10px;color:var(--muted);margin-top:3px';
+      _takenEl.parentElement.appendChild(_tn);
+    }
+    if (_tn) _tn.textContent = taken + ' leave applied + ' + _absYTD.length + ' absent';
+  }
+  // Absent days for the history table: the first ones fit in the remaining quota (paid), the rest are unpaid
+  const _quotaForAbs = Math.max(0, 12 - _paidTaken);
+  window._lvAbsentRows = _absYTD.map((d, i) => ({ date: d, paid: i < _quotaForAbs }));
   if (_balNote) {
     _balNote.textContent = _absYTD.length
       ? `Includes ${_absYTD.length} absent day${_absYTD.length > 1 ? 's' : ''} (no check-in, no leave applied)` + (_balLv < 0 ? ` · ${Math.abs(_balLv)} day${Math.abs(_balLv) > 1 ? 's' : ''} over → unpaid` : '')
@@ -5455,10 +5479,23 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
     }).join('');
   }
   const tbody = document.getElementById('leaveBody');
-  if (!leaves.length) {
+  const _absRows = window._lvAbsentRows || [];
+  if (!leaves.length && !_absRows.length) {
     tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No leave records</td></tr>'; return;
   }
-tbody.innerHTML = leaves.map(l=>`<tr>
+  const _absHtml = _absRows.map(a => ({ key: a.date, html: `<tr style="background:#fffaf0">
+    <td><span class="badge" style="background:#fff4e0;color:#8a5200">Absent</span></td>
+    <td style="font-size:12px">${fmtDate(a.date)}</td>
+    <td style="font-size:12px">${fmtDate(a.date)}</td>
+    <td style="font-weight:700">1</td>
+    <td style="font-size:12px;color:var(--muted)">No check-in and no leave applied on this day. ${a.paid ? 'Counted as paid leave from your yearly balance.' : 'Leave balance was used up, so this day is unpaid (LOP).'}</td>
+    <td><span style="color:var(--muted);font-size:11px">—</span></td>
+    <td>${a.paid
+      ? '<span class="badge" style="background:#fff4e0;color:#8a5200;font-size:10px">Counted as leave</span>'
+      : '<span class="badge b-red" style="font-size:10px">Unpaid (LOP)</span>'}</td>
+    <td>—</td>
+  </tr>` }));
+const _lvHtml = leaves.map(l=>({ key: String(l.from_date || '').slice(0,10), html: `<tr>
     <td><span class="badge b-blue">${esc(l.leave_type)}</span></td>
     <td style="font-size:12px">${fmtDate(l.from_date)}</td>
     <td style="font-size:12px">${fmtDate(l.to_date)}</td>
@@ -5467,7 +5504,8 @@ tbody.innerHTML = leaves.map(l=>`<tr>
     <td>${l.attachment_url ? l.attachment_url.split(',').map((url,idx) => `<a href="${url.trim()}" target="_blank" style="font-size:11px;color:var(--blue);display:block">📎 File ${idx+1}</a>`).join('') : '<span style="color:var(--muted);font-size:11px">—</span>'}</td>
     <td>${leaveBadge(l.status)}${(_probEnd && String(l.from_date).slice(0,10) < _probEnd)?`<div style="margin-top:3px"><span class="badge b-amber" style="font-size:9px" title="Taken during probation — unpaid (deducted)">🟡 Probation</span></div>`:''}</td>
     <td>${l.status==='Pending'?`<button onclick="cancelLeave('${l.id}')" style="background:#fdf0ee;color:var(--red);border:1px solid var(--red-bg);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancel</button>`:'—'}</td>
-  </tr>`).join('');
+  </tr>` }));
+  tbody.innerHTML = _lvHtml.concat(_absHtml).sort((x, y) => y.key.localeCompare(x.key)).map(r => r.html).join('');
 }
 
 function previewLeaveFile(input) {
