@@ -6240,8 +6240,10 @@ const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEn
   let _absentQuotaLeft = Math.max(0, 12 - _paidUsedThruMonth - _priorAbsPay);
 
   // Holidays are PAID (no deduction) — like weekly offs
-  const { data: holidayRows } = await sb.from('holidays').select('date').gte('date', startDate).lte('date', endDate);
+  const { data: holidayRows } = await sb.from('holidays').select('*').gte('date', startDate).lte('date', endDate);
   const holidaySet = new Set((holidayRows || []).map(h => h.date));
+  const holidayNameByDate = {};
+  (holidayRows || []).forEach(h => { holidayNameByDate[String(h.date).slice(0, 10)] = h.title || h.name || 'Holiday'; });
 
   const attByDate = {};
   (attRows || []).forEach(r => { attByDate[r.date] = r; });
@@ -6281,7 +6283,7 @@ else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesLi
 
   return {
     employee: emp, email: employeeEmail, year, month, daysInMonth,
-    weeklyOffDays, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, lopDetails, leaveDatesList, halfDatesList, holidayDays, holidayDatesList,
+    weeklyOffDays, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, lopDetails, leaveDatesList, halfDatesList, holidayDays, holidayDatesList, holidayNameByDate,
     payableDays, perDayRate, basic, hra, special, monthlySalary,
     basicPaid, hraPaid, specialPaid, netSalary, lopAmount
   };
@@ -6371,7 +6373,7 @@ async function generateSalarySlip() {
             </div>` : ''}
             ${r.halfDatesList && r.halfDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Half Days (${r.halfDatesList.length})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Half days: ${r.halfDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
             ${r.leaveDatesList && r.leaveDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Paid Leave (${r.leaveDatesList.length} ${r.leaveDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Leave days: ${r.leaveDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
-            ${r.holidayDatesList && r.holidayDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Holidays (${r.holidayDatesList.length} ${r.holidayDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Holidays: ${r.holidayDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
+            ${r.holidayDatesList && r.holidayDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Holidays (${r.holidayDatesList.length} ${r.holidayDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">${r.holidayDatesList.map(d=>`<div>${new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} — ${esc((r.holidayNameByDate || {})[String(d).slice(0,10)] || 'Holiday')}</div>`).join('')}</div>` : ''}
           </div>
         </div>
       </div>
