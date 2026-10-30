@@ -6283,7 +6283,7 @@ else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesLi
 
   return {
     employee: emp, email: employeeEmail, year, month, daysInMonth,
-    weeklyOffDays, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, lopDetails, leaveDatesList, halfDatesList, holidayDays, holidayDatesList, holidayNameByDate,
+    weeklyOffDays, weeklyOffPattern: pattern, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, lopDetails, leaveDatesList, halfDatesList, holidayDays, holidayDatesList, holidayNameByDate,
     payableDays, perDayRate, basic, hra, special, monthlySalary,
     basicPaid, hraPaid, specialPaid, netSalary, lopAmount
   };
@@ -6373,6 +6373,7 @@ async function generateSalarySlip() {
             </div>` : ''}
             ${r.halfDatesList && r.halfDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Half Days (${r.halfDatesList.length})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Half days: ${r.halfDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
             ${r.leaveDatesList && r.leaveDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Paid Leave (${r.leaveDatesList.length} ${r.leaveDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Leave days: ${r.leaveDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
+            ${r.weeklyOffDays ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Weekly Off (${r.weeklyOffDays} ${r.weeklyOffDays===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">${r.weeklyOffPattern === 'sat_sun_both' ? 'Every Saturday & Sunday' : r.weeklyOffPattern === 'alternate_saturday' ? 'Every Sunday + 2nd & 4th Saturday' : 'Every Sunday'}</div>` : ''}
             ${r.holidayDatesList && r.holidayDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Holidays (${r.holidayDatesList.length} ${r.holidayDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">${r.holidayDatesList.map(d=>`<div>${new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} — ${esc((r.holidayNameByDate || {})[String(d).slice(0,10)] || 'Holiday')}</div>`).join('')}</div>` : ''}
           </div>
         </div>
