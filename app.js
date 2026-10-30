@@ -529,6 +529,31 @@ function atSuggestTracker() {
   box.checked = /\b(site visit|vastu report|mom)\b/i.test(d.value);
 }
 
+// ── Per-employee office timing (employees.shift_start, default 10:00). Late = check-in after shift start + 10 min.
+window._shiftByEmail = window._shiftByEmail || {};
+async function ensureShiftMap(force) {
+  if (!force && window._shiftLoaded) return;
+  try {
+    const { data } = await sb.from('employees').select('email, shift_start');
+    (data || []).forEach(e => { if (e.email) window._shiftByEmail[String(e.email).toLowerCase()] = e.shift_start || '10:00'; });
+    window._shiftLoaded = true;
+  } catch (e) { console.error('shift map', e); }
+}
+function _shiftStartMin(email) {
+  const s = String(window._shiftByEmail[String(email || '').toLowerCase()] || '10:00');
+  const [h, m] = s.split(':').map(Number);
+  return (h || 10) * 60 + (m || 0);
+}
+function _lateCutoffLabel(email) {
+  const t = _shiftStartMin(email) + 10, h = Math.floor(t / 60), m = t % 60;
+  return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + (h >= 12 ? ' PM' : ' AM');
+}
+function isLateCheckin(checkIn, email) {
+  if (!checkIn) return false;
+  const t = new Date(checkIn);
+  return (t.getHours() * 60 + t.getMinutes()) > _shiftStartMin(email) + 10;
+}
+
 async function createNotification(toEmail, title, message, type, linkTo) {
   try {
     const { error } = await sb.from('notifications').insert({
@@ -776,6 +801,7 @@ const { data: attData } = await sb.from('attendance').select('*').eq('is_archive
   const days3   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
+  await ensureShiftMap();
   const generateEmpPage = async (emp, isFirst) => {
     if (!isFirst) doc.addPage();
 
@@ -800,7 +826,7 @@ const isWeekend = dateObj.getDay() === 0;
         const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
         const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
-const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>10); })();
+const isLate = isLateCheckin(a.check_in, emp.email);
         dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
       } else if (onLeave) {
         dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
@@ -3375,22 +3401,23 @@ const isCEO = currentUser.role === 'ceo';
 }
 
 async function loadEmpDashboard() {
-  // ── Late check-in warning banner (3 allowed/month, after 10:10 AM) ──
+  // ── Late check-in warning banner (3 allowed/month, after shift start + 10 min) ──
   try {
+    await ensureShiftMap();
     const _now = new Date();
     const _mStart = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,'0')}-01`;
     const _policyStart = '2026-09-21';           // late-warning fresh start; ignore check-ins before this
     const _effStart = _mStart > _policyStart ? _mStart : _policyStart;
     const { data: _myAtt } = await sb.from('attendance').select('check_in').eq('employee_email', currentUser.email).eq('is_archived', false).gte('date', _effStart);
     let _lateCount = 0;
-    (_myAtt||[]).forEach(a => { if (a.check_in) { const t = new Date(a.check_in); if (t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 10)) _lateCount++; } });
+    (_myAtt||[]).forEach(a => { if (isLateCheckin(a.check_in, currentUser.email)) _lateCount++; });
     let _lb = document.getElementById('lateWarnBanner');
     const _dash = document.getElementById('empDashboard');
     if (!_lb && _dash) { _lb = document.createElement('div'); _lb.id = 'lateWarnBanner'; _dash.insertBefore(_lb, _dash.firstChild); }
     if (_lb) _lb.innerHTML = (_lateCount > 3)
       ? `<div style="background:#fff8e6;border:1px solid #f0d98c;color:#8a6d1a;padding:14px 18px;border-radius:10px;margin-bottom:16px;font-size:13px;line-height:1.55">
            <div style="font-weight:700;margin-bottom:3px">A gentle reminder about punctuality ⏰</div>
-           You've checked in after 10:10 AM <strong>${_lateCount} times</strong> this month (the allowance is 3). We'd really appreciate it if you could arrive on time going forward — it helps the whole team stay in sync. Thank you for your effort! 🙏
+           You've checked in after ${_lateCutoffLabel(currentUser.email)} <strong>${_lateCount} times</strong> this month (the allowance is 3). We'd really appreciate it if you could arrive on time going forward — it helps the whole team stay in sync. Thank you for your effort! 🙏
          </div>`
       : '';
   } catch(e) { console.error('late banner', e); }
@@ -4266,6 +4293,7 @@ async function markEmpLogin(workType) {
   }
 
   const { data: emp } = await sb.from('employees').select('id').eq('email', currentUser.email).single();
+  await ensureShiftMap(true);
 
   const _payload = {
     employee_id: emp?.id,
@@ -4273,7 +4301,7 @@ async function markEmpLogin(workType) {
     employee_name: currentUser.name,
     date: today,
     check_in: now.toISOString(),
-    status: (new Date().getHours() >= 13 ? 'Half Day' : 'Present'),
+    status: ((new Date().getHours() * 60 + new Date().getMinutes()) >= _shiftStartMin(currentUser.email) + 180 ? 'Half Day' : 'Present'),
     work_type: workType || 'Office',
     latitude: latitude,
     longitude: longitude,
@@ -4282,7 +4310,7 @@ async function markEmpLogin(workType) {
   };
 
   // ── Late-coming reason gate: 3 late marks allowed; 4th late onwards must submit a reason before attendance is marked ──
-  const _isLateNow = now.getHours() > 10 || (now.getHours() === 10 && now.getMinutes() > 10);
+  const _isLateNow = isLateCheckin(now, currentUser.email);
   let _priorLate = 0;
   if (_isLateNow) {
     try {
@@ -4290,7 +4318,7 @@ async function markEmpLogin(workType) {
       const _policyStart = '2026-09-21';
       const _effStart = _mStart > _policyStart ? _mStart : _policyStart;
       const { data: _att } = await sb.from('attendance').select('check_in').eq('employee_email', currentUser.email).eq('is_archived', false).gte('date', _effStart);
-      (_att || []).forEach(a => { if (a.check_in) { const t = new Date(a.check_in); if (t.getHours() > 10 || (t.getHours() === 10 && t.getMinutes() > 10)) _priorLate++; } });
+      (_att || []).forEach(a => { if (isLateCheckin(a.check_in, currentUser.email)) _priorLate++; });
     } catch(e) { console.error('late count', e); }
   }
 
@@ -4310,7 +4338,7 @@ async function _finishCheckin(payload, now, workType) {
   const typeLabel = workType==='WFH'?'Work From Home':workType==='On Site'?'On Site':'Office';
   showToast(`✅ Logged in (${typeLabel}) at `+now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}), 'ok');
   // Early login appreciation (before 10 AM)
-  if (now.getHours() < 10) { showEarlyLoginAppreciation(); }
+  if ((now.getHours() * 60 + now.getMinutes()) < _shiftStartMin(currentUser.email)) { showEarlyLoginAppreciation(); }
   loadEmpDashboard();
 }
 
@@ -4371,7 +4399,7 @@ function _lateSolutionFor(reason) {
   if (/meeting|client|site|visit|field|outside|bahar/.test(r))
     return "Got it — field/client work is part of the job. On such days, mark 'On Site' at check-in so your attendance reflects it correctly, and inform your senior in advance when possible.";
   if (/not applicable|na|n\/a|no reason|kuch nahi|-/.test(r.trim()))
-    return "If there was no specific reason this time, that's okay — just aim to check in by 10:10 AM going forward. A consistent on-time start sets a good rhythm for the whole day.";
+    return `If there was no specific reason this time, that's okay — just aim to check in by ${_lateCutoffLabel(currentUser.email)} going forward. A consistent on-time start sets a good rhythm for the whole day.`;
   return "Thanks for sharing. Planning your morning the night before — bag and clothes ready, and leaving 15 minutes earlier than you think you need — fixes most delays. If something specific keeps coming up, HR is happy to help find a workable solution.";
 }
 
@@ -5357,7 +5385,7 @@ async function markCheckIn() {
   const { error } = await sb.from('attendance').insert({
     employee_id: emp?.id, employee_email: currentUser.email,
     employee_name: currentUser.name, date: today,
-check_in: now.toISOString(), status: new Date().getHours() >= 13 ? 'Half Day' : 'Present'
+check_in: now.toISOString(), status: (now.getHours() * 60 + now.getMinutes()) >= _shiftStartMin(currentUser.email) + 180 ? 'Half Day' : 'Present'
   });
   btn.disabled=false; btn.textContent='✅ Check In';
   if (error) { showToast('❌ '+error.message,'err'); return; }
@@ -5506,6 +5534,16 @@ const _lvHtml = leaves.map(l=>({ key: String(l.from_date || '').slice(0,10), htm
     <td>${l.status==='Pending'?`<button onclick="cancelLeave('${l.id}')" style="background:#fdf0ee;color:var(--red);border:1px solid var(--red-bg);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif">Cancel</button>`:'—'}</td>
   </tr>` }));
   tbody.innerHTML = _lvHtml.concat(_absHtml).sort((x, y) => y.key.localeCompare(x.key)).map(r => r.html).join('');
+  // Show Attachment / Action columns only when some row actually uses them
+  const _showAtt = leaves.some(l => l.attachment_url);
+  const _showAct = leaves.some(l => l.status === 'Pending');
+  const _tbl = tbody.closest('table');
+  if (_tbl) _tbl.querySelectorAll('tr').forEach(tr => {
+    const cells = tr.children;
+    if (cells.length < 8) return;
+    cells[5].style.display = _showAtt ? '' : 'none';
+    cells[7].style.display = _showAct ? '' : 'none';
+  });
 }
 
 function previewLeaveFile(input) {
@@ -6512,6 +6550,7 @@ const { data: emps } = await sb.from('employees').select('name,email,weekly_off_
 
   // Leave hamesha priority leti hai — chahe attendance record ho ya na ho
   const empCalc = {};
+  await ensureShiftMap();
   emps.forEach(e => {
     const attMapR = {};
     (attData||[]).filter(a=>a.employee_email===e.email).forEach(a => { attMapR[a.date] = a; });
@@ -6543,8 +6582,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
         else if (attRec.status === 'Half Day') { halfR++; halfDatesR.push(dsIter); }
         else if (attRec.status === 'Absent') { absentR++; absentDatesR.push(dsIter); }
         if (attRec.check_in) {
-          const t = new Date(attRec.check_in);
-          if (t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>10)) { lateR++; lateDatesR.push(dsIter); }
+          if (isLateCheckin(attRec.check_in, e.email)) { lateR++; lateDatesR.push(dsIter); }
         }
       } else if (!isOffIter && !isHolidayIter && !isFutureIter) {
         absentR++; absentDatesR.push(dsIter);
@@ -8156,6 +8194,7 @@ const denom = totalDays - weekOff;   // full-month working days (grows to 100% b
 async function exportMyAttPDF(empObj, monthValArg) {
   const _emp = empObj || currentUser;
   const _email = _emp.email;
+  await ensureShiftMap();
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
   const W = 210; const H = 297;
@@ -8210,7 +8249,7 @@ const isWeekend = isWeeklyOff(dateObj, patternPdf);
       const ci  = a.check_in  ? new Date(a.check_in).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const co  = a.check_out ? new Date(a.check_out).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '—';
       const hrs = a.working_hours ? parseFloat(a.working_hours).toFixed(2) : '—';
-const isLate = a.check_in && (() => { const t = new Date(a.check_in); return t.getHours() > 10 || (t.getHours()===10 && t.getMinutes()>10); })();
+const isLate = isLateCheckin(a.check_in, _email);
       dailyRows.push([dispDate, dayName, a.status || 'Present', ci, co, hrs, isLate ? 'Yes' : 'No', a.work_type || '']);
     } else if (onLeave) {
       dailyRows.push([dispDate, dayName, 'Leave', '—', '—', '—', '—', onLeave.leave_type || '']);
