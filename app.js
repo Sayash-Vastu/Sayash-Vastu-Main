@@ -767,6 +767,124 @@ async function exportTasksPDF() {
   showToast('✅ PDF exported!', 'ok');
 }
 
+// ═══ Shared PDF style (same look as the Attendance Report) ═══
+const _PDF = {
+  ORANGE: [232,101,26], NAVY: [26,58,92], DARK: [34,34,34], MUTED: [85,85,85], BORDER: [200,213,229],
+  LIGHT: [245,248,252], GREEN: [26,110,60], RED: [163,45,45], AMBER: [133,79,11], BLUE: [24,95,165], PURPLE: [83,58,183]
+};
+let _pdfLogoCache = null;
+async function _pdfLogo() {
+  if (_pdfLogoCache !== null) return _pdfLogoCache;
+  try {
+    const r = await fetch('https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/public/Task-Files/Sayash%20logo.png');
+    if (!r.ok) throw 0;
+    const b = await r.blob();
+    _pdfLogoCache = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(b); });
+  } catch (e) { _pdfLogoCache = ''; }
+  return _pdfLogoCache;
+}
+function _pdfC(doc) {
+  return {
+    fill: c => doc.setFillColor(c[0], c[1], c[2]),
+    stroke: c => doc.setDrawColor(c[0], c[1], c[2]),
+    text: c => doc.setTextColor(c[0], c[1], c[2])
+  };
+}
+// Header (logo + company) + title + optional info box. Returns next y.
+async function _pdfHeader(doc, title, info) {
+  const W = doc.internal.pageSize.getWidth(); const k = _pdfC(doc);
+  k.fill([255,255,255]); doc.rect(0, 0, W, 28, 'F');
+  const logo = await _pdfLogo(); if (logo) { try { doc.addImage(logo, 'PNG', 10, 3, 32, 22); } catch (e) {} }
+  doc.setFontSize(13); doc.setFont('helvetica','bold'); k.text(_PDF.ORANGE);
+  doc.text('SAYASH VASTU', W/2, 11, { align: 'center' });
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); k.text(_PDF.DARK);
+  doc.text('Vastu Shastra Consultancy Services', W/2, 16, { align: 'center' });
+  doc.text('Netaji Subhash Place, New Delhi', W/2, 20.5, { align: 'center' });
+  k.stroke(_PDF.ORANGE); doc.setLineWidth(0.5); doc.line(0, 28, W, 28);
+  let y = 35;
+  doc.setFontSize(17); doc.setFont('helvetica','bold'); k.text(_PDF.NAVY);
+  doc.text(title, W/2, y, { align: 'center' });
+  y += 3.5; k.stroke(_PDF.ORANGE); doc.setLineWidth(0.4); doc.line(10, y, W-10, y);
+  y += 3;
+  if (info && (info.left || info.right)) {
+    const L = info.left || [], R = info.right || [];
+    const rows = Math.max(L.length, R.length), rowH = 4.8, boxH = rows * rowH + 5;
+    k.fill(_PDF.LIGHT); k.stroke(_PDF.BORDER); doc.setLineWidth(0.3);
+    doc.roundedRect(10, y, W-20, boxH, 2, 2, 'FD');
+    const sy = y + 4;
+    const put = (arr, x1, x2) => arr.forEach(([lbl, val], i) => {
+      const iy = sy + i * rowH;
+      doc.setFontSize(7.5); doc.setFont('helvetica','bold'); k.text(_PDF.MUTED); doc.text(lbl + ':', x1, iy);
+      doc.setFont('helvetica','normal'); k.text(_PDF.DARK); doc.text(String(val == null || val === '' ? '—' : val), x2, iy);
+    });
+    put(L, 13, 46); put(R, W/2 + 3, W/2 + 38);
+    y += boxH + 5;
+  } else y += 3;
+  return y;
+}
+// Summary strip: navy labels row + big coloured numbers
+function _pdfSummary(doc, y, labels, values, colors) {
+  const W = doc.internal.pageSize.getWidth(); const k = _pdfC(doc);
+  doc.setFontSize(9); doc.setFont('helvetica','bold'); k.text(_PDF.NAVY);
+  doc.text('SUMMARY', W/2, y, { align: 'center' }); y += 4;
+  const n = labels.length, cw = (W-20)/n;
+  k.fill(_PDF.NAVY); doc.rect(10, y, W-20, 6, 'F');
+  doc.setFontSize(6.5); doc.setFont('helvetica','bold'); k.text([255,255,255]);
+  labels.forEach((l, i) => doc.text(l, 10 + i*cw + cw/2, y + 4, { align: 'center' }));
+  y += 6;
+  k.fill([235,242,251]); k.stroke(_PDF.BORDER); doc.setLineWidth(0.3);
+  doc.rect(10, y, W-20, 10, 'FD');
+  for (let i = 1; i < n; i++) doc.line(10 + i*cw, y, 10 + i*cw, y + 10);
+  doc.setFontSize(14); doc.setFont('helvetica','bold');
+  values.forEach((v, i) => { k.text((colors && colors[i]) || _PDF.NAVY); doc.text(String(v), 10 + i*cw + cw/2, y + 7, { align: 'center' }); });
+  return y + 16;
+}
+// Table with navy header, zebra rows, wrapping-free truncation, auto page break (header repeated)
+function _pdfTable(doc, y, title, cols, widths, rows, colorFn) {
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(); const k = _pdfC(doc);
+  const tw = widths.reduce((a, b) => a + b, 0), scale = (W-20) / tw, ws = widths.map(w => w * scale), rh = 6;
+  if (title) { doc.setFontSize(9); doc.setFont('helvetica','bold'); k.text(_PDF.NAVY); doc.text(title, W/2, y, { align: 'center' }); y += 4; }
+  const head = () => {
+    k.fill(_PDF.NAVY); doc.rect(10, y, W-20, rh, 'F');
+    doc.setFontSize(6.5); doc.setFont('helvetica','bold'); k.text([255,255,255]);
+    let x = 10; cols.forEach((c, i) => { doc.text(c, x + 1, y + 4); x += ws[i]; }); y += rh;
+  };
+  head();
+  const fit = (t, w) => { t = String(t == null ? '' : t).replace(/[—–]/g, '-').replace(/₹/g, 'Rs ').replace(/[^\x00-\x7F]/g, '').replace(/\s+/g, ' ').trim(); doc.setFontSize(6.5); while (t && doc.getTextWidth(t) > w - 2) t = t.slice(0, -2); return t; };
+  rows.forEach((r, idx) => {
+    if (y > H - 22) { doc.addPage(); y = 15; head(); }
+    k.fill(idx % 2 === 0 ? [248,249,252] : [255,255,255]); k.stroke([221,229,239]); doc.setLineWidth(0.15);
+    doc.rect(10, y, W-20, rh, 'FD');
+    let x = 10;
+    r.forEach((v, i) => {
+      const st = (colorFn && colorFn(i, v, r)) || null;
+      doc.setFontSize(6.5); doc.setFont('helvetica', st ? 'bold' : 'normal'); k.text(st || [51,51,51]);
+      doc.text(fit(v, ws[i]), x + 1, y + 4); x += ws[i];
+    });
+    y += rh;
+  });
+  if (!rows.length) { doc.setFontSize(7.5); doc.setFont('helvetica','normal'); k.text(_PDF.MUTED); doc.text('No records', W/2, y + 5, { align: 'center' }); y += 8; }
+  return y + 5;
+}
+// Signature block + footer on every page
+function _pdfFinish(doc, y) {
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(); const k = _pdfC(doc);
+  if (y > H - 30) { doc.addPage(); y = 15; }
+  const sigH = 20, sw = (W-20)/2;
+  k.fill(_PDF.LIGHT); k.stroke(_PDF.BORDER); doc.setLineWidth(0.3); doc.rect(10, y, W-20, sigH, 'FD');
+  [[10 + sw/2, 'HR Manager Signature', 'Sayash Vastu — HR Department'], [10 + sw + sw/2, 'Authorized Signatory', 'Sayash Vastu — Management']].forEach(([cx, a, b]) => {
+    doc.setFontSize(8.5); doc.setFont('helvetica','bold'); k.text(_PDF.NAVY); doc.text(a, cx, y + 5, { align: 'center' });
+    k.stroke(_PDF.NAVY); doc.setLineWidth(0.4); doc.line(cx - 25, y + 14, cx + 25, y + 14);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); k.text(_PDF.MUTED); doc.text(b, cx, y + 17.5, { align: 'center' });
+  });
+  k.stroke(_PDF.BORDER); doc.setLineWidth(0.3); doc.line(10 + sw, y + 2, 10 + sw, y + sigH - 2);
+  const pages = doc.getNumberOfPages(), gen = 'Generated on ' + new Date().toLocaleDateString('en-IN') + ' · Confidential — for internal use only';
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i); doc.setFontSize(6.5); doc.setFont('helvetica','normal'); k.text(_PDF.MUTED);
+    doc.text(gen, 10, H - 6); doc.text('Page ' + i + ' of ' + pages, W - 10, H - 6, { align: 'right' });
+  }
+}
+
 async function exportAttPDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -6046,6 +6164,7 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate, offPattern) {
   const paidDates = new Set();
   const paidWeight = {};     // date -> 1 or 0.5 (for quota math)
   const lopDates = new Set();
+  const lopReason = {};      // date -> why it is Loss of Pay
 
   // Probation = first 3 months from joining date. Leaves during probation are ALWAYS unpaid
   // (deducted even if approved) and do NOT consume the annual quota.
@@ -6085,16 +6204,16 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate, offPattern) {
       // 0) Weekly off / holiday inside a leave range → not a leave day at all
       if (_isNonWorkingDay(ds, offPattern, _yrHolSet)) return;
       // 1) During probation → always unpaid, quota untouched
-      if (probationEnd && ds < probationEnd) { lopDates.add(ds); return; }
+      if (probationEnd && ds < probationEnd) { lopDates.add(ds); lopReason[ds] = 'Leave during probation (unpaid)'; return; }
       // 2) 'Other' leave type is always unpaid
-      if (_isUnpaidLeaveType(type)) { lopDates.add(ds); return; }
+      if (_isUnpaidLeaveType(type)) { lopDates.add(ds); lopReason[ds] = 'Unpaid leave'; return; }
       // 3) Draw from the annual 12-day pool
       if (yearUsed + perDay <= ANNUAL_QUOTA) { paidDates.add(ds); paidWeight[ds] = (paidWeight[ds] || 0) + perDay; yearUsed += perDay; }
-      else { lopDates.add(ds); }
+      else { lopDates.add(ds); lopReason[ds] = 'Leave after the 12-day yearly quota was used up'; }
     });
   });
 
-  return { paidDates, lopDates, paidWeight, probationEnd };
+  return { paidDates, lopDates, paidWeight, probationEnd, lopReason };
 }
 // ── Core payroll calculator ──
 async function calculatePayroll(employeeEmail, year, month) {
@@ -6113,7 +6232,7 @@ async function calculatePayroll(employeeEmail, year, month) {
 
   const { data: attRows } = await sb.from('attendance').select('*')
     .eq('employee_email', employeeEmail).eq('is_archived', false).gte('date', startDate).lte('date', endDate);
-const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEndPay } = await getLeavePaidMap(employeeEmail, year, emp.joining_date, emp.weekly_off_pattern || 'sunday_only');
+const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEndPay, lopReason: _lopReason } = await getLeavePaidMap(employeeEmail, year, emp.joining_date, emp.weekly_off_pattern || 'sunday_only');
   // Absent days are adjusted against the remaining annual quota (after approved leaves up to this month's end).
   // Probation-period absents stay LOP.
   const _paidUsedThruMonth = Object.entries(paidWeight || {}).filter(([ds]) => ds <= endDate).reduce((s, [, w]) => s + w, 0);
@@ -6128,6 +6247,7 @@ const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEn
   (attRows || []).forEach(r => { attByDate[r.date] = r; });
   let payableDays = 0, lopDays = 0, weeklyOffDays = 0, presentDays = 0, halfDays = 0, leaveDaysCount = 0, holidayDays = 0;
   const lopDatesList = [], leaveDatesList = [], halfDatesList = [], holidayDatesList = [];
+  const lopDetails = [];   // [{ date, reason }]
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, month - 1, d);
@@ -6140,9 +6260,15 @@ const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEn
     if (att?.status === 'Present') { presentDays++; payableDays++; }
 else if (att?.status === 'Half Day') { halfDays++; payableDays += 1; halfDatesList.push(dateStr); }
 else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesList.push(dateStr); }
-    else if (quotaExceedDates.has(dateStr)) { lopDays++; lopDatesList.push(dateStr); }
+    else if (quotaExceedDates.has(dateStr)) { lopDays++; lopDatesList.push(dateStr); lopDetails.push({ date: dateStr, reason: (_lopReason && _lopReason[dateStr]) || 'Unpaid leave' }); }
     else if (_absentQuotaLeft >= 1 && !(_probEndPay && dateStr < _probEndPay)) { _absentQuotaLeft -= 1; leaveDaysCount++; payableDays++; leaveDatesList.push(dateStr); }
-    else { lopDays++; lopDatesList.push(dateStr); }
+    else {
+      lopDays++; lopDatesList.push(dateStr);
+      const _why = (_probEndPay && dateStr < _probEndPay)
+        ? 'Absent (no check-in, no leave applied) during probation'
+        : 'Absent (no check-in, no leave applied) and leave balance used up';
+      lopDetails.push({ date: dateStr, reason: att?.status === 'Absent' ? _why.replace('no check-in', 'marked absent') : _why });
+    }
   }
 
   const perDayRate = monthlySalary / daysInMonth;
@@ -6155,7 +6281,7 @@ else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesLi
 
   return {
     employee: emp, email: employeeEmail, year, month, daysInMonth,
-    weeklyOffDays, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, leaveDatesList, halfDatesList, holidayDays, holidayDatesList,
+    weeklyOffDays, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, lopDetails, leaveDatesList, halfDatesList, holidayDays, holidayDatesList,
     payableDays, perDayRate, basic, hra, special, monthlySalary,
     basicPaid, hraPaid, specialPaid, netSalary, lopAmount
   };
@@ -6236,7 +6362,14 @@ async function generateSalarySlip() {
             <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:10px">Deduction Summary</div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Gross Monthly Salary</span><strong>₹${r.monthlySalary.toLocaleString('en-IN')}</strong></div>
             <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa;color:var(--red)"><span>LOP Deduction (${r.lopDays} days)</span><strong>- ₹${r.lopAmount.toLocaleString('en-IN')}</strong></div>
-            ${r.lopDatesList && r.lopDatesList.length ? `<div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 LOP days: ${r.lopDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
+            ${r.lopDays > 0 ? `<div style="padding:6px 10px 8px;margin:4px 0 8px;font-size:11.5px;background:#fdf0ee;border:1px solid #f3c9c3;border-radius:7px;color:#5b2a24">
+              <div style="font-weight:700;margin-bottom:4px">How this is calculated</div>
+              <div>Per-day salary = ₹${r.monthlySalary.toLocaleString('en-IN')} ÷ ${r.daysInMonth} days = <b>₹${Math.round(r.perDayRate).toLocaleString('en-IN')}</b></div>
+              <div>Deduction = ₹${Math.round(r.perDayRate).toLocaleString('en-IN')} × ${r.lopDays} LOP ${r.lopDays === 1 ? 'day' : 'days'} = <b>₹${r.lopAmount.toLocaleString('en-IN')}</b></div>
+              <div style="font-weight:700;margin:6px 0 2px">LOP days &amp; reason</div>
+              ${(r.lopDetails || []).map(x => `<div>• ${new Date(x.date).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} — ${x.reason}</div>`).join('')}
+            </div>` : ''}
+            ${r.halfDatesList && r.halfDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Half Days (${r.halfDatesList.length})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Half days: ${r.halfDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
             ${r.leaveDatesList && r.leaveDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Paid Leave (${r.leaveDatesList.length} ${r.leaveDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Leave days: ${r.leaveDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
             ${r.holidayDatesList && r.holidayDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Holidays (${r.holidayDatesList.length} ${r.holidayDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:11px;color:var(--muted)">📅 Holidays: ${r.holidayDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
           </div>
@@ -6387,6 +6520,16 @@ doc.text('PARTICULARS', colX[0]+4, y+5.3);
     doc.text('LOSS OF PAY (' + r.lopDays + ' days)', colX[0]+4, y+4.8);
     doc.text('- Rs. ' + r.lopAmount.toLocaleString('en-IN'), colX[2]+colW[2]-4, y+4.8, { align: 'right' });
     y += 7;
+    // How the deduction is calculated + reason for each LOP day
+    const _lines = ['Per-day salary = Rs. ' + r.monthlySalary.toLocaleString('en-IN') + ' / ' + r.daysInMonth + ' days = Rs. ' + Math.round(r.perDayRate).toLocaleString('en-IN')
+                   + '   |   Deduction = Rs. ' + Math.round(r.perDayRate).toLocaleString('en-IN') + ' x ' + r.lopDays + ' = Rs. ' + r.lopAmount.toLocaleString('en-IN')]
+      .concat((r.lopDetails || []).map(x => '- ' + new Date(x.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) + ': ' + x.reason));
+    const _bh = 3 + _lines.length * 4.2;
+    setFill([255,250,248]); setStroke(BORDER); doc.setLineWidth(0.2);
+    doc.rect(12, y, W-24, _bh, 'FD');
+    doc.setFontSize(7.2); doc.setFont('helvetica','normal'); setFont(DARK);
+    _lines.forEach((t, i) => doc.text(t, colX[0]+4, y + 4 + i * 4.2));
+    y += _bh;
   }
   y += 8;
 
@@ -7389,26 +7532,24 @@ async function deleteTicket(ticketId) {
   loadTickets();
 }
 
-function exportTicketsPDF() {
+async function exportTicketsPDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('Sayash Vastu — Tickets Report', 14, 18);
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text('Generated: '+new Date().toLocaleDateString('en-IN'), 14, 26);
-  let y = 36;
-  doc.setFontSize(9); doc.setFont('helvetica','bold');
-  doc.text('#    Title                 Category      Priority  Status     SLA', 14, y);
-  y += 4; doc.line(14, y, 196, y); y += 5;
-  doc.setFont('helvetica','normal');
-  allTickets.forEach(t => {
-    if (y > 270) { doc.addPage(); y = 20; }
-    const slaStatus = t._overdue ? 'BREACHED' : 'OK';
-    doc.text(`${t.ticket_number}. ${(t.title||'').substring(0,20).padEnd(21)} ${(t.category||'').padEnd(14)} ${(t.priority||'').padEnd(10)} ${(t.status||'').padEnd(11)} ${slaStatus}`, 14, y);
-    y += 6;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const list = allTickets || [];
+  const cnt = f => list.filter(f).length;
+  let y = await _pdfHeader(doc, 'TICKETS REPORT', {
+    left: [['Total Tickets', String(list.length)]],
+    right: [['Generated On', new Date().toLocaleDateString('en-IN')]]
   });
+  y = _pdfSummary(doc, y, ['TOTAL', 'OPEN', 'RESOLVED', 'SLA BREACHED'],
+    [list.length, cnt(t => !/resolved|closed/i.test(t.status || '')), cnt(t => /resolved|closed/i.test(t.status || '')), cnt(t => t._overdue)],
+    [_PDF.NAVY, _PDF.AMBER, _PDF.GREEN, _PDF.RED]);
+  const rows = list.map(t => [String(t.ticket_number || ''), t.title || '', t.category || '', t.priority || '', t.status || '', t._overdue ? 'BREACHED' : 'OK']);
+  y = _pdfTable(doc, y, 'TICKET DETAILS', ['#', 'Title', 'Category', 'Priority', 'Status', 'SLA'], [10, 70, 30, 20, 25, 20], rows,
+    (i, v) => i === 5 ? (v === 'BREACHED' ? _PDF.RED : _PDF.GREEN) : null);
+  _pdfFinish(doc, y);
   doc.save('SayashVastu_Tickets.pdf');
-  showToast('✅ Tickets PDF exported!','ok');
+  showToast('✅ Tickets PDF exported!', 'ok');
 }
 
 // ═══════════════════════════════════════════
@@ -7847,29 +7988,20 @@ async function addHoliday() {
   setTimeout(()=>msg.textContent='',3000);
 }
 
-function exportHolidaysPDF() {
+async function exportHolidaysPDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('Sayash Vastu — Holiday List 2026', 14, 18);
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text('Generated: '+new Date().toLocaleDateString('en-IN'), 14, 26);
-  let y = 36;
-  doc.setFontSize(9); doc.setFont('helvetica','bold');
-  doc.text('#    Holiday                    Date              Day      Type', 14, y);
-  y += 4; doc.line(14, y, 196, y); y += 5;
-  doc.setFont('helvetica','normal');
-  const rows = document.querySelectorAll('#holidaysBody tr');
-  rows.forEach((row, i) => {
-    if (y > 270) { doc.addPage(); y = 20; }
-    const cells = row.querySelectorAll('td');
-    if (cells.length >= 5) {
-      doc.text(`${cells[0].textContent}.  ${cells[1].textContent.padEnd(25)} ${cells[2].textContent.padEnd(18)} ${cells[3].textContent.padEnd(8)} ${cells[4].textContent}`, 14, y);
-      y += 6;
-    }
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const rows = [...document.querySelectorAll('#holidaysBody tr')].map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.replace(/\s+/g, ' ').trim()))
+    .filter(c => c.length >= 5).map(c => [c[0], c[1], c[2], c[3], c[4]]);
+  const yr = new Date().getFullYear();
+  let y = await _pdfHeader(doc, 'HOLIDAY LIST ' + yr, {
+    left: [['Total Holidays', String(rows.length)]],
+    right: [['Generated On', new Date().toLocaleDateString('en-IN')]]
   });
-  doc.save('SayashVastu_Holidays_2026.pdf');
-  showToast('✅ Holidays PDF exported!','ok');
+  y = _pdfTable(doc, y, 'HOLIDAYS', ['#', 'Holiday', 'Date', 'Day', 'Type'], [8, 70, 30, 20, 30], rows);
+  _pdfFinish(doc, y);
+  doc.save('SayashVastu_Holidays_' + yr + '.pdf');
+  showToast('✅ Holidays PDF exported!', 'ok');
 }
 
 // ═══════════════════════════════════════════
@@ -8462,28 +8594,23 @@ const sumClrs = [GREEN, AMBER, RED, PURPLE, RED, GREEN];
 // ═══════════════════════════════════════════
 async function exportLeavesPDF() {
   const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  doc.setFontSize(16); doc.setFont('helvetica','bold');
-  doc.text('Sayash Vastu — Leave Report', 14, 18);
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text(`Employee: ${currentUser.name} | Generated: ${new Date().toLocaleDateString('en-IN')}`, 14, 26);
-  const rows = document.querySelectorAll('#leaveBody tr');
-  let y = 36;
-  doc.setFontSize(9); doc.setFont('helvetica','bold');
-  doc.text('Type       From         To           Days  Reason                Status', 14, y);
-  y += 4; doc.line(14, y, 196, y); y += 5;
-  doc.setFont('helvetica','normal');
-  rows.forEach(row => {
-    if (y > 270) { doc.addPage(); y = 20; }
-    const cells = row.querySelectorAll('td');
-    if (cells.length >= 6) {
-      const line = `${cells[0].textContent.padEnd(11)} ${cells[1].textContent.padEnd(13)} ${cells[2].textContent.padEnd(13)} ${cells[3].textContent.padEnd(6)} ${cells[4].textContent.substring(0,20).padEnd(22)} ${cells[5].textContent}`;
-      doc.text(line, 14, y);
-      y += 6;
-    }
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const { data: me } = await sb.from('employees').select('employee_code, name, designation, department').eq('email', currentUser.email).single();
+  const bal = document.getElementById('lv-balance')?.textContent || '—';
+  const taken = document.getElementById('lv-taken')?.textContent || '—';
+  const pend = document.getElementById('lv-pending')?.textContent || '0';
+  let y = await _pdfHeader(doc, 'LEAVE REPORT', {
+    left: [['Employee ID', me?.employee_code], ['Employee Name', me?.name || currentUser.name], ['Designation', me?.designation], ['Department', me?.department]],
+    right: [['Report For', 'Year ' + new Date().getFullYear()], ['Generated On', new Date().toLocaleDateString('en-IN')], ['Leave Quota', '12 / year'], ['Leave Balance', bal]]
   });
+  y = _pdfSummary(doc, y, ['LEAVE BALANCE', 'TAKEN THIS YEAR', 'PENDING'], [bal, taken, pend], [_PDF.GREEN, _PDF.BLUE, _PDF.AMBER]);
+  const rows = [...document.querySelectorAll('#leaveBody tr')].map(tr => [...tr.querySelectorAll('td')].map(td => td.textContent.replace(/\s+/g, ' ').trim()))
+    .filter(c => c.length >= 7).map(c => [c[0], c[1], c[2], c[3], c[4], c[6]]);
+  y = _pdfTable(doc, y, 'LEAVE HISTORY', ['Type', 'From', 'To', 'Days', 'Reason', 'Status'], [16, 20, 20, 9, 80, 25], rows,
+    (i, v) => i === 5 ? (/Approved|Counted/i.test(v) ? _PDF.GREEN : /Rejected|Unpaid|LOP/i.test(v) ? _PDF.RED : /Pending/i.test(v) ? _PDF.AMBER : null) : (i === 0 && v === 'Absent' ? _PDF.AMBER : null));
+  _pdfFinish(doc, y);
   doc.save(`SayashVastu_Leaves_${currentUser.name}.pdf`);
-  showToast('✅ Leave PDF exported!','ok');
+  showToast('✅ Leave PDF exported!', 'ok');
 }
 
 // ═══════════════════════════════════════════
@@ -9426,162 +9553,26 @@ const isLate = t.end_date && today > new Date(t.end_date) && t.work_status !== '
 async function exportPerformancePDF() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
-  const W = 297; const H = 210;
-
-  const ORANGE = [232,101,26]; const NAVY = [26,58,92]; const DARK = [34,34,34];
-  const MUTED = [85,85,85]; const BORDER = [200,213,229]; const LIGHT = [245,248,252];
-  const GREEN = [26,110,60]; const RED = [163,45,45]; const AMBER = [133,79,11];
-  const BLUE = [24,95,165];
-
-  const setFill = (rgb) => doc.setFillColor(rgb[0],rgb[1],rgb[2]);
-  const setStroke = (rgb) => doc.setDrawColor(rgb[0],rgb[1],rgb[2]);
-  const setFont = (c) => doc.setTextColor(c[0],c[1],c[2]);
-
-  // HEADER
-  setFill([255,255,255]); doc.rect(0,0,W,28,'F');
-  try {
-    const logoUrl = 'https://rgoujuvdqqddqeqnryfg.supabase.co/storage/v1/object/public/Task-Files/Sayash%20logo.png';
-    const logoRes = await fetch(logoUrl);
-    if (logoRes.ok) {
-      const logoBlob = await logoRes.blob();
-      const logoBase64 = await new Promise(res => {
-        const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(logoBlob);
-      });
-      doc.addImage(logoBase64, 'PNG', 10, 3, 32, 22);
-    }
-  } catch(e) {}
-
-  doc.setFontSize(13); doc.setFont('helvetica','bold'); setFont(ORANGE);
-  doc.text('SAYASH VASTU', W/2, 11, { align: 'center' });
-  doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(DARK);
-  doc.text('Vastu Shastra Consultancy Services', W/2, 16, { align: 'center' });
-  doc.text('Netaji Subhash Place, New Delhi', W/2, 20.5, { align: 'center' });
-  setStroke(ORANGE); doc.setLineWidth(0.5);
-  doc.line(0, 28, W, 28);
-
-  // TITLE
-  let y = 36;
-  doc.setFontSize(17); doc.setFont('helvetica','bold'); setFont(NAVY);
-  doc.text('PERFORMANCE REPORT', W/2, y, { align: 'center' });
-  y += 3.5;
-  setStroke(ORANGE); doc.setLineWidth(0.4);
-  doc.line(10, y, W-10, y);
-  y += 5;
-
-  // INFO
-  doc.setFontSize(8); doc.setFont('helvetica','normal'); setFont(MUTED);
-  const monthName = new Date().toLocaleString('en', {month:'long', year:'numeric'});
-  doc.text('Month: ' + monthName, 14, y);
-  doc.text('Generated: ' + new Date().toLocaleDateString('en-IN'), W-14, y, { align: 'right' });
-  y += 8;
-
-  // SUMMARY CARDS
-  const rows = document.querySelectorAll('#perfTableBody tr');
-  const total = rows.length;
-  let excellent = 0, good = 0, average = 0, needsImprovement = 0;
-  rows.forEach(row => {
-    const status = row.querySelector('td:last-child')?.textContent || '';
-    if (status.includes('Excellent')) excellent++;
-    else if (status.includes('Good')) good++;
-    else if (status.includes('Average')) average++;
-    else if (status.includes('Needs')) needsImprovement++;
+  const trs = [...document.querySelectorAll('#perfTableBody tr')].filter(tr => tr.querySelectorAll('td').length >= 13);
+  const cell = (tr, i) => (tr.querySelectorAll('td')[i]?.textContent || '').replace(/\s+/g, ' ').trim();
+  const statusOf = tr => { const t = cell(tr, 12); return t.includes('Excellent') ? 'Excellent' : t.includes('Good') ? 'Good' : t.includes('Average') ? 'Average' : t.includes('Needs') ? 'Needs Improvement' : t; };
+  const cnt = k => trs.filter(tr => statusOf(tr) === k).length;
+  const monthName = new Date().toLocaleString('en', { month: 'long', year: 'numeric' });
+  let y = await _pdfHeader(doc, 'PERFORMANCE REPORT', {
+    left: [['Report For', monthName], ['Employees', String(trs.length)]],
+    right: [['Generated On', new Date().toLocaleDateString('en-IN')], ['Generated By', currentUser.name]]
   });
-
-  const cw = (W-20)/4;
-  setFill(NAVY); doc.rect(10, y, W-20, 6, 'F');
-  doc.setFontSize(6.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
-  ['TOTAL EMPLOYEES','EXCELLENT','GOOD','NEEDS IMPROVEMENT'].forEach((col,i) => {
-    doc.text(col, 10+i*cw+cw/2, y+4, { align: 'center' });
-  });
-  y += 6;
-  setFill([235,242,251]); setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.rect(10, y, W-20, 10, 'FD');
-  for(let i=1;i<4;i++) doc.line(10+i*cw, y, 10+i*cw, y+10);
-  doc.setFontSize(14); doc.setFont('helvetica','bold');
-  [String(total), String(excellent), String(good), String(needsImprovement)].forEach((v,i) => {
-    const clr = i===0?NAVY:i===1?GREEN:i===2?BLUE:RED;
-    setFont(clr);
-    doc.text(v, 10+i*cw+cw/2, y+7, { align: 'center' });
-  });
-  y += 16;
-
-  // TABLE HEADER
-  doc.setFontSize(9); doc.setFont('helvetica','bold'); setFont(NAVY);
-  doc.text('EMPLOYEE PERFORMANCE DETAILS', W/2, y, { align: 'center' });
-  y += 4;
-
-  const colW = [8, 40, 30, 18, 18, 18, 18, 22, 22, 35];
-  const cols = ['#','Name','Dept','Total','Done','Pending','Delayed','Done %','Att %','Status'];
-  setFill(NAVY); doc.rect(10, y, W-20, 6, 'F');
-  doc.setFontSize(6.5); doc.setFont('helvetica','bold'); setFont([255,255,255]);
-  let cx = 10;
-  cols.forEach((col,i) => { doc.text(col, cx+1, y+4); cx += colW[i]; });
-  y += 6;
-
-  const sColors = {
-    'Excellent': GREEN,
-    'Good': BLUE,
-    'Average': AMBER,
-    'Needs Improvement': RED
-  };
-
-  rows.forEach((row, idx) => {
-    if (y > 185) { doc.addPage(); y = 20; }
-    const cells = row.querySelectorAll('td');
-    if (cells.length < 10) return;
-
-    const bg = idx%2===0 ? [248,249,252] : [255,255,255];
-    setFill(bg); setStroke([221,229,239]); doc.setLineWidth(0.15);
-    doc.rect(10, y, W-20, 6, 'FD');
-
-const rawStatus = cells[9].textContent.trim();
-const statusText = rawStatus.includes('Excellent') ? 'Excellent' :
-  rawStatus.includes('Good') ? 'Good' :
-  rawStatus.includes('Average') ? 'Average' :
-  rawStatus.includes('Needs') ? 'Needs Improvement' : 'Unknown';
-    let statusColor = MUTED;
-    Object.keys(sColors).forEach(key => {
-      if (statusText.includes(key)) statusColor = sColors[key];
-    });
-
-    cx = 10;
-    const vals = [
-      String(idx+1),
-      cells[1].textContent.trim().substring(0,20),
-      cells[2].textContent.trim().substring(0,14),
-      cells[3].textContent.trim(),
-      cells[4].textContent.trim(),
-      cells[5].textContent.trim(),
-      cells[6].textContent.trim(),
-      cells[7].textContent.trim().replace(/[^\d%]/g,''),
-      cells[8].textContent.trim().replace(/[^\d%]/g,''),
-statusText.replace(/[^\x00-\x7F]/g,'').trim().substring(0,18)
-    ];
-
-    vals.forEach((val,i) => {
-      if (i===9) {
-        doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont(statusColor);
-      } else if (i===4) {
-        doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont(GREEN);
-      } else if (i===6) {
-        doc.setFontSize(6); doc.setFont('helvetica','bold'); setFont(RED);
-      } else {
-        doc.setFontSize(6); doc.setFont('helvetica','normal'); setFont(DARK);
-      }
-      doc.text(String(val), cx+1, y+4);
-      cx += colW[i];
-    });
-    y += 6;
-  });
-
-  // FOOTER
-  y += 6;
-  setFill(LIGHT); setStroke(BORDER); doc.setLineWidth(0.3);
-  doc.rect(10, y, W-20, 14, 'FD');
-  doc.setFontSize(7); doc.setFont('helvetica','normal'); setFont(MUTED);
-  doc.text('This report is auto-generated by Sayash Vastu Portal', W/2, y+5, { align: 'center' });
-  doc.text('Confidential — For Internal Use Only', W/2, y+10, { align: 'center' });
-
+  y = _pdfSummary(doc, y, ['TOTAL EMPLOYEES', 'EXCELLENT', 'GOOD', 'AVERAGE', 'NEEDS IMPROVEMENT'],
+    [trs.length, cnt('Excellent'), cnt('Good'), cnt('Average'), cnt('Needs Improvement')],
+    [_PDF.NAVY, _PDF.GREEN, _PDF.BLUE, _PDF.AMBER, _PDF.RED]);
+  const rows = trs.map((tr, i) => [String(i + 1), cell(tr, 1), cell(tr, 2), cell(tr, 3), cell(tr, 4), cell(tr, 5), cell(tr, 6),
+    cell(tr, 7).replace(/[^\d.%]/g, ''), cell(tr, 8).replace(/[^\d.%]/g, ''), cell(tr, 9), cell(tr, 10), cell(tr, 11), statusOf(tr)]);
+  const sc = { 'Excellent': _PDF.GREEN, 'Good': _PDF.BLUE, 'Average': _PDF.AMBER, 'Needs Improvement': _PDF.RED };
+  y = _pdfTable(doc, y, 'EMPLOYEE PERFORMANCE DETAILS',
+    ['#', 'Name', 'Dept', 'Total Tasks', 'Completed', 'Pending', 'Delayed', 'Completion %', 'Attendance %', 'Site Visits', 'Leads', 'Converted', 'Status'],
+    [6, 30, 20, 13, 13, 12, 12, 16, 16, 13, 10, 13, 24], rows,
+    (i, v) => i === 12 ? (sc[v] || _PDF.MUTED) : i === 4 ? _PDF.GREEN : (i === 6 && v !== '0') ? _PDF.RED : null);
+  _pdfFinish(doc, y);
   doc.save('SayashVastu_Performance_' + new Date().toISOString().split('T')[0] + '.pdf');
   showToast('✅ Performance PDF exported!', 'ok');
 }
