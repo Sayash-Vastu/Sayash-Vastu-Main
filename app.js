@@ -1641,7 +1641,7 @@ async function openEditSiteVisit(visitId) {
           <div class="field"><label>Visit Date</label><input type="date" id="ev-date" value="${v.visit_date || ''}"></div>
           <div class="field"><label>Type</label>
             <select id="ev-type">
-              ${(() => { const opts = ['Site Visit','Head Office','Telephonic','Mail / Zoom']; if (v.visit_type && !opts.includes(v.visit_type)) opts.push(v.visit_type); return opts.map(t => `<option ${v.visit_type===t?'selected':''}>${t}</option>`).join(''); })()}
+              ${(() => { const opts = ['Site Visit','Meeting','Head Office','Telephonic','Mail / Zoom']; if (v.visit_type && !opts.includes(v.visit_type)) opts.push(v.visit_type); return opts.map(t => `<option ${v.visit_type===t?'selected':''}>${t}</option>`).join(''); })()}
             </select>
           </div>
           <div class="field"><label>Visited By</label><input id="ev-by" value="${esc(v.visited_by || '')}" placeholder="Comma separated names"></div>
@@ -1984,6 +1984,7 @@ function openAddVisitEmpGlobal() {
 <div class="field"><label>Type</label>
             <select id="avg-type">
               <option>Site Visit</option>
+              <option>Meeting</option>
               <option>Head Office</option>
               <option>Telephonic</option>
               <option>Mail / Zoom</option>
