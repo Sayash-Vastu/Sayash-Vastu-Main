@@ -554,6 +554,31 @@ function isLateCheckin(checkIn, email) {
   return (t.getHours() * 60 + t.getMinutes()) > _shiftStartMin(email) + 10;
 }
 
+// ── MAX Healthcare: every visit punched → notify Alisha & Ritika; after 24 visits in a FY → billing alert ──
+const MAX_FREE_VISITS = 24;
+const MAX_VISIT_NOTIFY_EMAILS = ['alisha@sayashvastu.com', 'ritika@sayashvastu.com'];
+async function notifyMaxVisit(clientId, projectName, visitDate, visitedBy) {
+  try {
+    const m = String(projectName || '').trim().match(/^site visit\s+(\d{4})-(\d{2,4})$/i);
+    if (!clientId || !m) return;
+    const { count, error } = await sbClient.from('project_records')
+      .select('id', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('project_name', String(projectName).trim())
+      .not('site_visit_date', 'is', null);
+    if (error) { console.error('notifyMaxVisit count failed:', error); return; }
+    const n = count || 0;
+    const fyLabel = m[1] + '-' + m[2].slice(-2);
+    const extra = (visitDate ? ' Date: ' + fmtDate(visitDate) + '.' : '') + (visitedBy ? ' Visited by: ' + visitedBy + '.' : '');
+    const billable = n > MAX_FREE_VISITS;
+    const title = billable ? 'MAX Healthcare - Billing Required' : 'MAX Healthcare - Site visit recorded';
+    const msg = billable
+      ? 'Site visit #' + n + ' for FY ' + fyLabel + ' was recorded.' + extra + ' The ' + MAX_FREE_VISITS + ' included visits are complete, so this visit is billable.'
+      : 'Site visit #' + n + ' of ' + MAX_FREE_VISITS + ' for FY ' + fyLabel + ' was recorded.' + extra;
+    for (const em of MAX_VISIT_NOTIFY_EMAILS) await createNotification(em, title, msg, 'General', null);
+  } catch (e) { console.error('notifyMaxVisit failed:', e); }
+}
+
 async function createNotification(toEmail, title, message, type, linkTo) {
   try {
     const { error } = await sb.from('notifications').insert({
@@ -3434,6 +3459,7 @@ trackerPayload.record_type = visitType === 'Site Visit' ? 'Site Visit' : visitTy
         showToast('⚠️ Visit saved, but Project Tracker was not updated: ' + trackerErr.message, 'warn');
       }
       if (!trackerErr && trackerRecord) linkedRecordId = trackerRecord.id;
+      if (!trackerErr && isMaxHealthcare) await notifyMaxVisit(clientId, currentProject, visitDate, visitedBy);
 if (_isFirstDate && visitType === 'Site Visit') for (const em of assigneeMatches) {
         _taskCreated = true;
         await sb.from('tasks').insert({
