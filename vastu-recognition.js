@@ -203,7 +203,7 @@ async function loadPerformancePanel(){
     const noWork = (mine.output===0 && mine.overdue===0 && mine.finished===0);
     const focus  = comp.slice().sort((a,b)=>(b.max-b.pts)-(a.max-a.pts))[0];
     const focusMsg = noWork
-      ? 'No work is recorded for you this period yet — completing tasks, visits or audits will build your score.'
+      ? 'No work recorded for you this period yet. Your score and rank will appear once you complete a task, site visit or audit.'
       : `${focus.label} is where you're losing the most points — ${focus.tip}`;
 
     const bar = c => {
@@ -221,17 +221,18 @@ async function loadPerformancePanel(){
         <div>
           <div style="font-size:11px;color:#6b7280;font-weight:600;letter-spacing:.5px">YOUR SCORE</div>
           <div style="display:flex;align-items:baseline;gap:9px;margin-top:3px">
-            <div style="font-size:36px;font-weight:800;color:${lv.c};line-height:1">${mine.score}</div>
+            ${mine.hasWork ? `<div style="font-size:36px;font-weight:800;color:${lv.c};line-height:1">${mine.score}</div>
             <div style="font-size:14px;color:#9aa0aa;font-weight:600">/100</div>
-            <div style="font-size:13.5px;font-weight:700;color:${lv.c}">${lv.e} ${lv.t}</div>
+            <div style="font-size:13.5px;font-weight:700;color:${lv.c}">${lv.e} ${lv.t}</div>`
+            : `<div style="font-size:20px;font-weight:700;color:#6b7280;line-height:1.3">Not rated yet</div>`}
           </div>
         </div>
         <div style="text-align:right">
           <div style="font-size:11px;color:#6b7280">Your rank</div>
-          <div style="font-size:21px;font-weight:700;color:${myRank===1?'#8a6d2f':'#1b2437'}">#${myRank} <span style="font-size:12px;color:#9aa0aa;font-weight:500">of ${rows.length}</span></div>
+          <div style="font-size:21px;font-weight:700;color:${myRank===1?'#8a6d2f':'#1b2437'}">${mine.hasWork ? `#${myRank} <span style="font-size:12px;color:#9aa0aa;font-weight:500">of ${rows.length}</span>` : `<span style="font-size:14px;color:#9aa0aa;font-weight:600">—</span>`}</div>
         </div>
       </div>
-      <div style="border-top:1px solid #e3e8f2;padding-top:9px">${comp.map(bar).join('')}</div>
+      ${mine.hasWork ? `<div style="border-top:1px solid #e3e8f2;padding-top:9px">${comp.map(bar).join('')}</div>` : ''}
       <div style="font-size:11.5px;color:#6b7280;margin-top:9px;padding-top:9px;border-top:1px dashed #e3e8f2">Avg turnaround <b style="color:#1b2437">${mine.avgTurn? mine.avgTurn+'d':'—'}</b> per task · Delivered <b style="color:#1b2437">${mine.output}</b> (${mine.finished} tasks · ${mine.visits} visits · ${mine.auditsDone} audits)</div>
       <div style="background:#eef4ff;border-radius:8px;padding:9px 12px;font-size:12px;color:#2c5aa0;margin-top:11px;line-height:1.5"><b>🎯 Focus:</b> ${focusMsg}</div>
     </div>`;
@@ -268,13 +269,13 @@ async function loadPerformancePanel(){
     ${!canSeeTeam ? '' : rows.map((s,i) => {
       const isMe = (s.email||'').toLowerCase() === me;
       return `<div style="display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:8px;background:${isMe?'#f0f6ff':'transparent'};border-bottom:1px solid #f5f6fa">
-        <div style="width:24px;font-size:12px;font-weight:700;color:${i===0?'#8a6d2f':'#9aa0aa'}">${i===0?'🥇':'#'+(i+1)}</div>
+        <div style="width:24px;font-size:12px;font-weight:700;color:${i===0&&s.hasWork?'#8a6d2f':'#9aa0aa'}">${!s.hasWork?'—':(i===0?'🥇':'#'+(i+1))}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600;color:#1b2437">${esc(s.name)}${isMe?' <span style="font-size:10px;color:#185FA5">(you)</span>':''}</div>
           <div style="font-size:11px;color:#6b7280;margin-top:1px">${s.onTimePct}% on-time · ${s.finished} tasks · ${s.visits} visits · ${s.auditsDone} audits · ${s.attPct}% present${s.overdue?` · <span style="color:#c0392b">${s.overdue} overdue</span>`:''}</div>
           ${(s.badges&&s.badges.length)?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px">${s.badges.map(b=>`<span style="font-size:10px;background:#eef4ff;color:#2c5aa0;border:1px solid #d4e2f7;border-radius:20px;padding:2px 7px">${b.icon} ${b.text}</span>`).join('')}</div>`:''}
         </div>
-        <div style="font-size:15px;font-weight:700;color:${i===0?'#8a6d2f':'#6b7280'}">${s.score}</div>
+        ${s.hasWork ? `<div style="font-size:15px;font-weight:700;color:${i===0?'#8a6d2f':'#6b7280'}">${s.score}</div>` : `<div style="font-size:11px;font-weight:600;color:#9aa0aa;white-space:nowrap">Not rated yet</div>`}
       </div>`;
     }).join('')}
 
