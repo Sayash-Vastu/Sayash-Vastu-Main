@@ -169,6 +169,18 @@ async function loadPerformancePanel(){
   const myRank = mine ? rows.indexOf(mine)+1 : null;
   const top = rows.find(r => r.output > 0 && r.score > 0) || null;   // must have delivered real work
   const isTop = top && mine && top.email === mine.email;
+
+  // Not rated in the current period yet → show the previous period's score & rank for reference
+  let prevInfo = null;
+  if (mine && !mine.hasWork && PERF_OFFSET === 0) {
+    try {
+      PERF_OFFSET = -1;
+      const prev = await perfComputeStats(PERF_PERIOD);
+      const pm = prev.rows.find(r => (r.email||'').toLowerCase() === me);
+      if (pm && pm.hasWork) prevInfo = { label: prev.label, score: pm.score, rank: prev.rows.indexOf(pm) + 1, of: prev.rows.length, finished: pm.finished, visits: pm.visits, audits: pm.auditsDone };
+    } catch(e) { console.error('prev period stats', e); }
+    finally { PERF_OFFSET = 0; }
+  }
   
   const tab = (k,t) => `<button onclick="perfSetPeriod('${k}')" style="padding:6px 14px;border-radius:7px;font:inherit;font-size:12.5px;cursor:pointer;border:1px solid ${PERF_PERIOD===k?'#8a6d2f':'#e2e5ec'};background:${PERF_PERIOD===k?'#fdf6e6':'#fff'};color:${PERF_PERIOD===k?'#8a6d2f':'#6b7280'};font-weight:${PERF_PERIOD===k?'600':'400'}">${t}</button>`;
 
@@ -226,6 +238,11 @@ async function loadPerformancePanel(){
             <div style="font-size:13.5px;font-weight:700;color:${lv.c}">${lv.e} ${lv.t}</div>`
             : `<div style="font-size:20px;font-weight:700;color:#6b7280;line-height:1.3">Not rated yet</div>`}
           </div>
+          ${(!mine.hasWork && prevInfo) ? `<div style="margin-top:8px;font-size:12.5px;color:#4b5563;background:#fff;border:1px solid #e3e8f2;border-radius:8px;padding:7px 10px;display:inline-block">
+            Last period (${esc(prevInfo.label)}): <b style="color:#1b2437;font-size:14px">${prevInfo.score}/100</b> · Rank <b style="color:#1b2437">#${prevInfo.rank}</b> of ${prevInfo.of}
+            <span style="color:#9aa0aa">· ${prevInfo.finished} tasks · ${prevInfo.visits} visits · ${prevInfo.audits} audits</span>
+            <a href="javascript:void(0)" onclick="perfSetOffset(-1)" style="margin-left:6px;color:#2c5aa0;font-weight:600">View details →</a>
+          </div>` : ''}
         </div>
         <div style="text-align:right">
           <div style="font-size:11px;color:#6b7280">Your rank</div>
