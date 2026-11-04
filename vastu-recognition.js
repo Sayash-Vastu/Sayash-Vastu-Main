@@ -113,7 +113,7 @@ async function perfComputeStats(period){
     const visits = siteVisits.filter(v => String(v.visited_by||'').toLowerCase().includes(nm)).length;
     const auditsDone = audits.filter(a => String(a.inspector_name||'').toLowerCase().includes(nm)).length;
     const output = finished.length + visits + auditsDone;          // total delivered work
-    const hasWork = output > 0 || overdue > 0 || mine.length > 0;
+    const hasWork = output > 0 || overdue > 0;   // only work / overdue in THIS period counts
     const onTimeExact = finished.length ? onTime/finished.length*100 : 0;
     return {...e, finished:finished.length, visits, auditsDone, output, onTimePct, onTimeExact, overdue, attPct, avgTurn, hasWork, presentDays:present, halfDays:halfd, workingDays};
   });
@@ -182,11 +182,12 @@ async function loadPerformancePanel(){
   let hero = '';
   if (mine) {
     const outPct = mine.outputPct || 0;
+    const _k = mine.hasWork ? 1 : 0;   // no work this period -> every part shows 0
     const comp = [
-      { label:'On-time delivery', pts: mine.onTimeExact*0.35,                    max:35, tip:'finish tasks on or before their due date.' },
-      { label:'Work output',      pts: outPct*0.35,                            max:35, tip:'deliver more work — tasks, site visits and audits all count. Full marks = the team\'s highest output.' },
-      { label:'No overdue',       pts: Math.max(0,100-mine.overdue*25)*0.20,   max:20, tip:'clear overdue tasks — each one pulls points down.' },
-      { label:'Attendance',       pts: mine.attPct*0.10,                       max:10, tip:'be present on working days.' },
+      { label:'On-time delivery', pts: _k * mine.onTimeExact*0.35,                    max:35, tip:'finish tasks on or before their due date.' },
+      { label:'Work output',      pts: _k * outPct*0.35,                            max:35, tip:'deliver more work — tasks, site visits and audits all count. Full marks = the team\'s highest output.' },
+      { label:'No overdue',       pts: _k * Math.max(0,100-mine.overdue*25)*0.20,   max:20, tip:'clear overdue tasks — each one pulls points down.' },
+      { label:'Attendance',       pts: _k * mine.attPct*0.10,                       max:10, tip:'be present on working days.' },
     ];
     // round each contribution, then reconcile so the bars add up to the official score
     const shown = comp.map(c => Math.round(c.pts));
