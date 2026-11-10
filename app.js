@@ -6633,7 +6633,7 @@ doc.text('This is a confidential document. Unauthorized disclosure is strictly p
   showToast('✅ Salary slip PDF downloaded!', 'ok');
 }
 async function loadSalaryStructure() {
-  const { data } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
+  const { data } = await sb.from('employees').select('*').eq('is_active', true).not('role', 'in', '(ceo,hr)').order('employee_code', { ascending: true });
   const tbody = document.getElementById('salaryStructureBody');
   if (!data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>';
