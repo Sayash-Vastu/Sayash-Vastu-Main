@@ -185,7 +185,7 @@ setInterval(async function() {
         // Auto checkout at 9 PM (21:00)
         const checkoutTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 21, 0, 0);
         const hrs = ((checkoutTime - new Date(openAtt.check_in))/3600000).toFixed(2);
-        const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
+        const status = await _attDayStatus(currentUser.email, openAtt.date || today, openAtt.check_in, checkoutTime);
         await sb.from('attendance').update({
           check_out: checkoutTime.toISOString(),
           working_hours: hrs, status
@@ -531,11 +531,38 @@ function atSuggestTracker() {
 
 // ── Per-employee office timing (employees.shift_start, default 10:00). Late = check-in after shift start + 10 min.
 window._shiftByEmail = window._shiftByEmail || {};
+window._shiftEndByEmail = window._shiftEndByEmail || {};
+// From this date: leaving before (shift end − 30 min) or checking in 3+ hrs late = Half Day,
+// and every attendance Half Day (leave applied or not) takes 0.5 from the 12-day leave quota.
+const HALF_DAY_RULE_FROM = '2026-11-12';
+function _shiftEndMin(email) {
+  const s = String(window._shiftEndByEmail[String(email || '').toLowerCase()] || '18:00');
+  const [h, m] = s.split(':').map(Number);
+  return (h || 18) * 60 + (m || 0);
+}
+// Attendance status for a finished day. dateStr = 'YYYY-MM-DD' (attendance date)
+async function _attDayStatus(email, dateStr, checkIn, checkOut) {
+  const ci = new Date(checkIn), co = new Date(checkOut);
+  const hrs = (co - ci) / 3600000;
+  if (hrs < 5) return 'Half Day';                                   // old rule (always)
+  if (String(dateStr).slice(0, 10) < HALF_DAY_RULE_FROM) return 'Present';
+  await ensureShiftMap();
+  const coMin = co.getHours() * 60 + co.getMinutes();
+  const ciMin = ci.getHours() * 60 + ci.getMinutes();
+  if (coMin < _shiftEndMin(email) - 30) return 'Half Day';           // left before 5:30 PM (for a 10–6 shift)
+  if (ciMin >= _shiftStartMin(email) + 180) return 'Half Day';       // came after 1 PM (for a 10–6 shift)
+  return 'Present';
+}
 async function ensureShiftMap(force) {
   if (!force && window._shiftLoaded) return;
   try {
-    const { data } = await sb.from('employees').select('email, shift_start');
-    (data || []).forEach(e => { if (e.email) window._shiftByEmail[String(e.email).toLowerCase()] = e.shift_start || '10:00'; });
+    const { data } = await sb.from('employees').select('*');
+    (data || []).forEach(e => {
+      if (!e.email) return;
+      const k = String(e.email).toLowerCase();
+      window._shiftByEmail[k] = e.shift_start || '10:00';
+      window._shiftEndByEmail[k] = e.shift_end || '18:00';
+    });
     window._shiftLoaded = true;
   } catch (e) { console.error('shift map', e); }
 }
@@ -4624,7 +4651,7 @@ const { data: todayAtt } = await sb.from('attendance').select('*')
     .maybeSingle();
   if (!todayAtt) { showToast('❌ No login found!', 'err'); btn.disabled=false; btn.textContent='🚪 Log Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
-  const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
+  const status = await _attDayStatus(currentUser.email, todayAtt.date || today, todayAtt.check_in, now);
   const { error } = await sb.from('attendance').update({
     check_out: now.toISOString(),
     working_hours: hrs, status
@@ -5546,7 +5573,7 @@ async function markCheckOut() {
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email',currentUser.email).eq('date',today).eq('is_archived',false).maybeSingle();
   if (!todayAtt) { showToast('❌ No check-in found!','err'); btn.disabled=false; btn.textContent='🚪 Check Out'; return; }
   const hrs = ((now - new Date(todayAtt.check_in))/3600000).toFixed(2);
-  const status = parseFloat(hrs) >= 5 ? 'Present' : 'Half Day';
+  const status = await _attDayStatus(currentUser.email, todayAtt.date || today, todayAtt.check_in, now);
   const { error } = await sb.from('attendance').update({
     check_out: now.toISOString(), working_hours: hrs, status
   }).eq('id',todayAtt.id);
@@ -5596,7 +5623,10 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   // Absent days (no check-in, no leave) after probation also come out of the 12/year quota
   const _tdLv = new Date(); const _todayLv = _tdLv.getFullYear() + '-' + String(_tdLv.getMonth()+1).padStart(2,'0') + '-' + String(_tdLv.getDate()).padStart(2,'0');
   const _absYTD = await getYearAbsentDates(currentUser.email, _joining, _offPatLv, _yr, _todayLv);
-  const _balLv = 12 - _paidTaken - _absYTD.length;
+  const _tmLv = new Date(_tdLv); _tmLv.setDate(_tmLv.getDate() + 1);
+  const _tomorrowLv = _tmLv.getFullYear() + '-' + String(_tmLv.getMonth()+1).padStart(2,'0') + '-' + String(_tmLv.getDate()).padStart(2,'0');
+  const _hdYTD = await getYearHalfDayDates(currentUser.email, _joining, _offPatLv, _yr, _tomorrowLv);
+  const _balLv = 12 - _paidTaken - _absYTD.length - _hdYTD.length * 0.5;
   document.getElementById('lv-balance').textContent = Math.max(0, _balLv);
   let _balNote = document.getElementById('lv-balance-note');
   if (!_balNote) {
@@ -5624,10 +5654,13 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   const _quotaForAbs = Math.max(0, 12 - _paidTaken);
   window._lvAbsentRows = _absYTD.map((d, i) => ({ date: d, paid: i < _quotaForAbs }));
   if (_balNote) {
-    _balNote.textContent = _absYTD.length
-      ? `Includes ${_absYTD.length} absent day${_absYTD.length > 1 ? 's' : ''} (no check-in, no leave applied)` + (_balLv < 0 ? ` · ${Math.abs(_balLv)} day${Math.abs(_balLv) > 1 ? 's' : ''} over → unpaid` : '')
+    const _parts = [];
+    if (_absYTD.length) _parts.push(`${_absYTD.length} absent day${_absYTD.length > 1 ? 's' : ''} (no check-in, no leave applied)`);
+    if (_hdYTD.length) _parts.push(`${_hdYTD.length} half day${_hdYTD.length > 1 ? 's' : ''} in attendance (0.5 each)`);
+    _balNote.textContent = _parts.length
+      ? 'Includes ' + _parts.join(' + ') + (_balLv < 0 ? ` · ${Math.abs(_balLv)} day${Math.abs(_balLv) > 1 ? 's' : ''} over → unpaid` : '')
       : '';
-    _balNote.title = _absYTD.map(d => fmtDate(d)).join(', ');
+    _balNote.title = _absYTD.map(d => fmtDate(d)).concat(_hdYTD.map(d => fmtDate(d) + ' (half day)')).join(', ');
   }
   // Probation leaves card (unpaid) — show only if any
   const _probCard = document.getElementById('lv-prob-card');
@@ -6141,6 +6174,29 @@ function isWeeklyOff(date, pattern) {
 // ── Absent days (no check-in, no approved leave) after probation, from Jan 1 up to (not incl.) beforeDate.
 //    These consume the 12/year paid-leave quota; once the quota is used up, further absents are LOP.
 //    Counting starts at the employee's first-ever check-in (CRM go-live), joining date, or probation end — whichever is latest.
+// Attendance Half Days (on/after HALF_DAY_RULE_FROM, after probation, working day, no approved leave that day)
+// Each one takes 0.5 from the 12-day quota.
+async function getYearHalfDayDates(email, joiningDate, pattern, year, beforeDate) {
+  const starts = [`${year}-01-01`, HALF_DAY_RULE_FROM];
+  if (joiningDate) {
+    const pe = _lvDate(String(joiningDate).slice(0, 10)); pe.setMonth(pe.getMonth() + 3);
+    starts.push(pe.getFullYear() + '-' + String(pe.getMonth() + 1).padStart(2, '0') + '-' + String(pe.getDate()).padStart(2, '0'));
+  }
+  const from = starts.sort().pop();
+  if (!email || !beforeDate || from >= beforeDate) return [];
+  const [{ data: att }, { data: lvs }, { data: hol }] = await Promise.all([
+    sb.from('attendance').select('date').eq('employee_email', email).eq('is_archived', false).eq('status', 'Half Day')
+      .gte('date', from).lt('date', beforeDate),
+    sb.from('leaves').select('from_date, to_date, specific_dates').eq('employee_email', email).eq('status', 'Approved')
+      .not('is_archived', 'is', true).lte('from_date', beforeDate).gte('to_date', from),
+    sb.from('holidays').select('date').gte('date', from).lt('date', beforeDate)
+  ]);
+  const holSet = new Set((hol || []).map(h => String(h.date).slice(0, 10)));
+  return (att || []).map(a => String(a.date).slice(0, 10))
+    .filter(ds => !_isNonWorkingDay(ds, pattern || 'sunday_only', holSet))
+    .filter(ds => !(lvs || []).some(l => leaveCoversDate(l, ds)))
+    .sort();
+}
 async function getYearAbsentDates(email, joiningDate, pattern, year, beforeDate) {
   const yStart = `${year}-01-01`;
   if (!email || !beforeDate || beforeDate <= yStart) return [];
@@ -6264,7 +6320,8 @@ const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEn
   // Probation-period absents stay LOP.
   const _paidUsedThruMonth = Object.entries(paidWeight || {}).filter(([ds]) => ds <= endDate).reduce((s, [, w]) => s + w, 0);
   const _priorAbsPay = (await getYearAbsentDates(employeeEmail, emp.joining_date, pattern, year, startDate)).length;
-  let _absentQuotaLeft = Math.max(0, 12 - _paidUsedThruMonth - _priorAbsPay);
+  const _priorHalfPay = (await getYearHalfDayDates(employeeEmail, emp.joining_date, pattern, year, startDate)).length * 0.5;
+  let _absentQuotaLeft = Math.max(0, 12 - _paidUsedThruMonth - _priorAbsPay - _priorHalfPay);
 
   // Holidays are PAID (no deduction) — like weekly offs
   const { data: holidayRows } = await sb.from('holidays').select('*').gte('date', startDate).lte('date', endDate);
@@ -6277,6 +6334,7 @@ const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEn
   let payableDays = 0, lopDays = 0, weeklyOffDays = 0, presentDays = 0, halfDays = 0, leaveDaysCount = 0, holidayDays = 0;
   const lopDatesList = [], leaveDatesList = [], halfDatesList = [], holidayDatesList = [];
   const lopDetails = [];   // [{ date, reason }]
+  let halfFromQuota = 0;   // attendance half days taken from the leave quota (0.5 each)
 
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = new Date(year, month - 1, d);
@@ -6287,7 +6345,13 @@ const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEn
 
     const att = attByDate[dateStr];
     if (att?.status === 'Present') { presentDays++; payableDays++; }
-else if (att?.status === 'Half Day') { halfDays++; payableDays += 1; halfDatesList.push(dateStr); }
+else if (att?.status === 'Half Day') {
+      halfDays++; halfDatesList.push(dateStr);
+      if (dateStr < HALF_DAY_RULE_FROM || paidDates.has(dateStr)) { payableDays += 1; }          // old rule / half-day leave already applied
+      else if (_probEndPay && dateStr < _probEndPay) { payableDays += 0.5; lopDays += 0.5; lopDatesList.push(dateStr); lopDetails.push({ date: dateStr, reason: 'Half day during probation (0.5 day unpaid)' }); }
+      else if (_absentQuotaLeft >= 0.5) { _absentQuotaLeft -= 0.5; halfFromQuota++; payableDays += 1; }
+      else { payableDays += 0.5; lopDays += 0.5; lopDatesList.push(dateStr); lopDetails.push({ date: dateStr, reason: 'Half day and leave balance used up (0.5 day unpaid)' }); }
+    }
 else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesList.push(dateStr); }
     else if (quotaExceedDates.has(dateStr)) { lopDays++; lopDatesList.push(dateStr); lopDetails.push({ date: dateStr, reason: (_lopReason && _lopReason[dateStr]) || 'Unpaid leave' }); }
     else if (_absentQuotaLeft >= 1 && !(_probEndPay && dateStr < _probEndPay)) { _absentQuotaLeft -= 1; leaveDaysCount++; payableDays++; leaveDatesList.push(dateStr); }
@@ -6310,7 +6374,7 @@ else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesLi
 
   return {
     employee: emp, email: employeeEmail, year, month, daysInMonth,
-    weeklyOffDays, weeklyOffPattern: pattern, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, lopDetails, leaveDatesList, halfDatesList, holidayDays, holidayDatesList, holidayNameByDate,
+    weeklyOffDays, weeklyOffPattern: pattern, presentDays, halfDays, leaveDaysCount, lopDays, lopDatesList, lopDetails, leaveDatesList, halfDatesList, halfFromQuota, holidayDays, holidayDatesList, holidayNameByDate,
     payableDays, perDayRate, basic, hra, special, monthlySalary,
     basicPaid, hraPaid, specialPaid, netSalary, lopAmount
   };
@@ -6398,7 +6462,7 @@ async function generateSalarySlip() {
               <div style="font-weight:700;margin:6px 0 2px">LOP days &amp; reason</div>
               ${(r.lopDetails || []).map(x => `<div>• ${new Date(x.date).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} — ${x.reason}</div>`).join('')}
             </div>` : ''}
-            ${r.halfDatesList && r.halfDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Half Days (${r.halfDatesList.length})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:12px;font-weight:600;color:#4b5563">📅 Half days: ${r.halfDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
+            ${r.halfDatesList && r.halfDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Half Days (${r.halfDatesList.length})</span><strong style="color:var(--green)">${r.halfFromQuota ? (r.halfFromQuota * 0.5) + ' day from leave balance' : 'No deduction'}</strong></div><div style="padding:2px 0 8px;font-size:12px;font-weight:600;color:#4b5563">📅 Half days: ${r.halfDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
             ${r.leaveDatesList && r.leaveDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Paid Leave (${r.leaveDatesList.length} ${r.leaveDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:12px;font-weight:600;color:#4b5563">📅 Leave days: ${r.leaveDatesList.map(d=>new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})).join(', ')}</div>` : ''}
             ${r.weeklyOffDays ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Weekly Off (${r.weeklyOffDays} ${r.weeklyOffDays===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:12px;font-weight:600;color:#4b5563">${r.weeklyOffPattern === 'sat_sun_both' ? 'Every Saturday & Sunday' : r.weeklyOffPattern === 'alternate_saturday' ? 'Every Sunday + 2nd & 4th Saturday' : 'Every Sunday'}</div>` : ''}
             ${r.holidayDatesList && r.holidayDatesList.length ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f5f6fa"><span>Holidays (${r.holidayDatesList.length} ${r.holidayDatesList.length===1?'day':'days'})</span><strong style="color:var(--green)">No deduction</strong></div><div style="padding:2px 0 8px;font-size:12px;font-weight:600;color:#4b5563">${r.holidayDatesList.map(d=>`<div>${new Date(d).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} — ${esc((r.holidayNameByDate || {})[String(d).slice(0,10)] || 'Holiday')}</div>`).join('')}</div>` : ''}
@@ -6796,7 +6860,8 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
   // Probation-period absents are not adjusted (they stay LOP).
   const _priorAbsByEmail = {};
   await Promise.all((emps || []).map(async e => {
-    _priorAbsByEmail[e.email] = (await getYearAbsentDates(e.email, e.joining_date, _patByEmail[e.email], yr, start)).length;
+    _priorAbsByEmail[e.email] = (await getYearAbsentDates(e.email, e.joining_date, _patByEmail[e.email], yr, start)).length
+      + (await getYearHalfDayDates(e.email, e.joining_date, _patByEmail[e.email], yr, start)).length * 0.5;   // earlier half days = 0.5 each
   }));
   emps.forEach(e => {
     const c = empCalc[e.email]; if (!c) return;
@@ -6807,6 +6872,13 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     (c.absentDates || []).forEach(ds => {
       if (_left >= 1 && !(_pe2 && ds < _pe2)) { _left -= 1; _adjDates.push(ds); }
       else _keepAbsent.push(ds);
+    });
+    // Half days from HALF_DAY_RULE_FROM (no leave that day, after probation): 0.5 from quota, else 0.5 unpaid
+    c.halfQuota = 0; c.halfLop = 0;
+    (c.halfDates || []).forEach(ds => {
+      if (ds < HALF_DAY_RULE_FROM) return;
+      if (_pe2 && ds < _pe2) { c.halfLop += 0.5; return; }
+      if (_left >= 0.5) { _left -= 0.5; c.halfQuota += 0.5; } else c.halfLop += 0.5;
     });
     c.adjAbsent = _adjDates.length;
     c.adjDates = _adjDates;
@@ -6859,7 +6931,8 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     const empWorkingDays = c.workingDays || totalDays;
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const usedYTD = _usedByEmail[e.email] || 0;
-    const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD - (_priorAbsByEmail[e.email] || 0) - (c.nonProbAbsent || 0);
+    const _nonProbHalf = (c.halfDates || []).filter(ds => ds >= HALF_DAY_RULE_FROM && !(_probEndByEmail[e.email] && ds < _probEndByEmail[e.email])).length * 0.5;
+    const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD - (_priorAbsByEmail[e.email] || 0) - (c.nonProbAbsent || 0) - _nonProbHalf;
     const llColor = leavesLeft <= 0 ? 'var(--red)' : leavesLeft <= 3 ? '#b7791f' : 'var(--green)';
     // Days to pay = working days − unpaid days. Unpaid = absents + probation/'Other' leaves + regular leaves beyond the 12/year quota.
     // Paid leaves (within 12/year) and half-days are PAID — NOT deducted.
@@ -6867,7 +6940,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     const _usedBefore = usedYTD - _regLeave;                         // regular quota-leaves used before this month
     const _quotaLeft = Math.max(0, ANNUAL_LEAVE_QUOTA - _usedBefore);
     const _regUnpaid = Math.max(0, _regLeave - _quotaLeft);          // this month's regular leaves beyond quota
-    const _lopDays = (c.absent||0) + (c.probLeave||0) + (c.otherLeave||0) + _regUnpaid;   // Loss of Pay days
+    const _lopDays = (c.absent||0) + (c.probLeave||0) + (c.otherLeave||0) + _regUnpaid + (c.halfLop||0);   // Loss of Pay days
     // MNC-standard: Paid Days = total month days − LOP (weekends, holidays & paid leaves are all paid)
     const _paid = totalCalendarDays - _lopDays;
     const paidDays = Number.isInteger(_paid) ? _paid : _paid.toFixed(1);
@@ -6886,7 +6959,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
       <td title="Paid Days = total month days − LOP (Loss of Pay). Weekends, holidays & paid leaves are all paid. Salary = monthly × Paid Days ÷ month days."><span style="font-weight:800;color:var(--green);font-size:17px">${paidDays}</span><span style="font-size:12px;color:var(--muted)"> / ${totalCalendarDays}</span>${_lopDays>0?`<div style="font-size:11px;color:var(--red);font-weight:800">LOP: ${lopTxt}</div>`:''}</td>
       <td><span class="badge ${c.late===0?'b-green':'b-red'}">${c.late}</span></td>
       <td style="font-size:11px">
-        ${c.half > 0 ? `<span class="badge b-amber">Half day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
+        ${c.half > 0 ? `<span class="badge b-amber">Half day: ${c.halfDates.map(d=>fmtDate(d)).join(', ')}${c.halfQuota ? ` — ${c.halfQuota} day from leave balance` : ''}${c.halfLop ? ` — ${c.halfLop} day unpaid` : ''}</span>` : ''}
         ${(c.leaveDates || []).length ? `<span class="badge b-blue">Leave: ${c.leaveDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
         ${c.adjAbsent > 0 ? `<span class="badge" style="background:#fff4e0;color:#8a5200" title="No check-in and no leave applied on these days. They were counted as paid leave from the yearly balance, so no salary cut.">Absent (no check-in) — counted as paid leave: ${c.adjDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
         ${(c.absentDates || []).length ? `<span class="badge b-red" title="No check-in and no leave applied on these days. ${isProb ? 'On probation, so these are unpaid.' : 'Leave balance is used up, so these are unpaid.'}">Absent (no check-in) — ${isProb ? 'unpaid, probation' : 'unpaid, no leave balance'}: ${c.absentDates.map(d=>fmtDate(d)).join(', ')}</span>` : ''}
@@ -10677,7 +10750,7 @@ async function approveRegularization(id, empEmail, empName, date, checkIn, check
   const checkInDT = new Date(`${date}T${checkIn}`);
   const checkOutDT = checkOut ? new Date(`${date}T${checkOut}`) : null;
   const hrs = checkOutDT ? ((checkOutDT - checkInDT)/3600000).toFixed(2) : null;
-  const status = hrs ? (parseFloat(hrs) >= 5 ? 'Present' : 'Half Day') : 'Present';
+  const status = checkOutDT ? await _attDayStatus(empEmail, date, checkInDT, checkOutDT) : 'Present';
 
   await sb.from('attendance').insert({
     employee_id: emp?.id,
