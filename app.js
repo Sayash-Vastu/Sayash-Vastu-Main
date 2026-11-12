@@ -1991,6 +1991,7 @@ function openAddVisitEmpGlobal() {
             <input id="avg-client" placeholder="Type or select client..." autocomplete="off" oninput="avgClientFilter()" onfocus="avgClientFilter()" onblur="setTimeout(avgClientHide,200)">
             <datalist id="avgClientList"></datalist>
             <div id="avgClientDropdown" style="display:none;position:absolute;left:0;right:0;z-index:60;background:#fff;border:1px solid var(--border);border-radius:8px;max-height:240px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.15);margin-top:2px"></div>
+            <div id="avg-client-hint" style="display:none;margin-top:6px;font-size:12px;color:#4b5563;background:#f8fafc;border:1px solid var(--border);border-radius:6px;padding:6px 10px"></div>
           </div>
 <div class="field" style="grid-column:1/-1">
   <label>Projects Visited (select all that apply)</label>
@@ -2129,7 +2130,7 @@ function openAddVisitEmpGlobal() {
   const _tt = new Date(); const _pp = n => String(n).padStart(2,'0');
   window._avgDates.add(`${_tt.getFullYear()}-${_pp(_tt.getMonth()+1)}-${_pp(_tt.getDate())}`);
   renderAvgCal(_tt.getFullYear(), _tt.getMonth());
-sbClient.from('clients').select('id, name').order('name').then(({ data }) => {
+sbClient.from('clients').select('id, name, company_name').order('name').then(({ data }) => {
     window._avgAllClients = data || [];
     const dl = document.getElementById('avgClientList');
     if (dl) dl.innerHTML = (data||[]).map(c => `<option value="${esc(c.name)}">`).join('');
@@ -3099,9 +3100,12 @@ function avgClientFilter(){
   if(!inp || !dd) return;
   const q = (inp.value || '').trim().toLowerCase();
   const all = window._avgAllClients || [];
-  const list = (q ? all.filter(c => (c.name||'').toLowerCase().includes(q)) : all).slice(0,60);
+  const list = (q ? all.filter(c => (c.name||'').toLowerCase().includes(q) || (c.company_name||'').toLowerCase().includes(q)) : all).slice(0,60);
   window._avgClientFiltered = list;
-  let html = list.map((c,i) => `<div onmousedown="avgClientPick(${i})" style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f2f3f6">${esc(c.name)}</div>`).join('');
+  let html = list.map((c,i) => {
+    const tr = _avgTrackerName(c);
+    return `<div onmousedown="avgClientPick(${i})" style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f2f3f6">${esc(c.name)}${tr ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">Project Tracker: ${esc(tr)}</div>` : ''}</div>`;
+  }).join('');
   const exact = all.some(c => (c.name||'').toLowerCase() === q);
   if(q && !exact){
     html += `<div onmousedown="avgClientPickNew()" style="padding:9px 12px;cursor:pointer;font-size:13px;color:var(--gold);font-weight:700">➕ Create "${esc(inp.value)}"</div>`;
@@ -3121,10 +3125,26 @@ function avgClientPickNew(){
   avgClientHide();
   loadProjectsForClientByName(document.getElementById('avg-client').value);
 }
+// Name shown in the Project Tracker list (company name) when it differs from the client name
+function _avgTrackerName(c) {
+  const co = String((c && c.company_name) || '').trim();
+  return co && co.toLowerCase() !== String(c.name || '').trim().toLowerCase() ? co : '';
+}
+function avgShowClientHint(c) {
+  const el = document.getElementById('avg-client-hint');
+  if (!el) return;
+  if (!c) { el.style.display = 'none'; return; }
+  const tr = _avgTrackerName(c);
+  el.innerHTML = tr
+    ? `📁 This visit will be saved under <b>${esc(tr)}</b> in the Project Tracker (client: ${esc(c.name)})`
+    : `📁 This visit will be saved under <b>${esc(c.name)}</b> in the Project Tracker`;
+  el.style.display = 'block';
+}
 function avgClientHide(){ const dd = document.getElementById('avgClientDropdown'); if(dd) dd.style.display='none'; }
 async function loadProjectsForClientByName(clientName) {
   if (!clientName || !clientName.trim()) {
     _avgResolvedClientId = null; _avgResolvedClientName = null;
+    avgShowClientHint(null);
     document.getElementById('avgProjectList').innerHTML = '';
     document.getElementById('avgSubProjectList').innerHTML = '';
     return;
@@ -3132,6 +3152,7 @@ async function loadProjectsForClientByName(clientName) {
   const trimmedName = clientName.trim();
   const existing = (window._avgAllClients || []).find(c => c.name.toLowerCase() === trimmedName.toLowerCase());
 
+  avgShowClientHint(existing || null);
   if (existing) {
     _avgResolvedClientId = existing.id;
     _avgResolvedClientName = existing.name;
