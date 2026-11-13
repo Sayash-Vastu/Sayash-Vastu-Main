@@ -2134,7 +2134,7 @@ function openAddVisitEmpGlobal() {
   const _tt = new Date(); const _pp = n => String(n).padStart(2,'0');
   window._avgDates.add(`${_tt.getFullYear()}-${_pp(_tt.getMonth()+1)}-${_pp(_tt.getDate())}`);
   renderAvgCal(_tt.getFullYear(), _tt.getMonth());
-sbClient.from('clients').select('id, name, company_name').order('name').then(({ data }) => {
+sbClient.from('clients').select('id, name, company_name, city, phone').order('name').then(({ data }) => {
     window._avgAllClients = data || [];
     const dl = document.getElementById('avgClientList');
     if (dl) dl.innerHTML = (data||[]).map(c => `<option value="${esc(c.name)}">`).join('');
@@ -3108,7 +3108,9 @@ function avgClientFilter(){
   window._avgClientFiltered = list;
   let html = list.map((c,i) => {
     const tr = _avgTrackerName(c);
-    return `<div onmousedown="avgClientPick(${i})" style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f2f3f6">${esc(c.name)}${tr ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">Project Tracker: ${esc(tr)}</div>` : ''}</div>`;
+    const sib = _avgSiblings(c).map(x => x.name);
+    const meta = [tr ? 'Project Tracker: ' + tr : '', c.city || '', sib.length ? 'Also under ' + (tr || c.name) + ': ' + sib.join(', ') : ''].filter(Boolean).join(' · ');
+    return `<div onmousedown="avgClientPick(${i})" style="padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #f2f3f6">${esc(c.name)}${meta ? `<div style="font-size:11px;color:var(--muted);margin-top:2px">${esc(meta)}</div>` : ''}</div>`;
   }).join('');
   const exact = all.some(c => (c.name||'').toLowerCase() === q);
   if(q && !exact){
@@ -3134,14 +3136,23 @@ function _avgTrackerName(c) {
   const co = String((c && c.company_name) || '').trim();
   return co && co.toLowerCase() !== String(c.name || '').trim().toLowerCase() ? co : '';
 }
+// Other clients that share the same Project Tracker name (company), e.g. two different people under "MD-24"
+function _avgSiblings(c) {
+  const key = String((c && (c.company_name || c.name)) || '').trim().toLowerCase();
+  if (!key) return [];
+  return (window._avgAllClients || []).filter(x => x.id !== c.id && (
+    String(x.company_name || '').trim().toLowerCase() === key ||
+    String(x.name || '').trim().toLowerCase() === key));
+}
 function avgShowClientHint(c) {
   const el = document.getElementById('avg-client-hint');
   if (!el) return;
   if (!c) { el.style.display = 'none'; return; }
   const tr = _avgTrackerName(c);
-  el.innerHTML = tr
-    ? `📁 This visit will be saved under <b>${esc(tr)}</b> in the Project Tracker (client: ${esc(c.name)})`
-    : `📁 This visit will be saved under <b>${esc(c.name)}</b> in the Project Tracker`;
+  const extra = [c.city ? 'City: ' + esc(c.city) : '', c.phone ? 'Phone: ' + esc(c.phone) : ''].filter(Boolean).join(' · ');
+  const sib = _avgSiblings(c);
+  el.innerHTML = `📁 Client: <b>${esc(c.name)}</b>` + (tr ? ` · Project Tracker: <b>${esc(tr)}</b>` : '') + (extra ? `<div style="margin-top:3px">${extra}</div>` : '')
+    + (sib.length ? `<div style="margin-top:4px;color:#b45309;font-weight:600">⚠️ ${sib.length} other client${sib.length > 1 ? 's' : ''} also under "${esc(tr || c.name)}": ${sib.map(x => esc(x.name)).join(', ')}. Make sure you picked the right one.</div>` : '');
   el.style.display = 'block';
 }
 function avgClientHide(){ const dd = document.getElementById('avgClientDropdown'); if(dd) dd.style.display='none'; }
