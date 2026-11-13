@@ -575,9 +575,13 @@ function _lateCutoffLabel(email) {
   const t = _shiftStartMin(email) + 10, h = Math.floor(t / 60), m = t % 60;
   return ((h % 12) || 12) + ':' + String(m).padStart(2, '0') + (h >= 12 ? ' PM' : ' AM');
 }
+// Days when late check-in is not counted for anyone (e.g. the day after a company event). 'YYYY-MM-DD'
+const LATE_EXEMPT_DATES = ['2026-11-06'];   // 6 Nov 2026: day after the Diwali party
 function isLateCheckin(checkIn, email) {
   if (!checkIn) return false;
   const t = new Date(checkIn);
+  const ds = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+  if (LATE_EXEMPT_DATES.includes(ds)) return false;
   return (t.getHours() * 60 + t.getMinutes()) > _shiftStartMin(email) + 10;
 }
 
