@@ -3449,6 +3449,8 @@ const { data: allEmpForAssign } = await sb.from('employees').select('email,name'
       let _dupQ = sbClient.from('site_visits').select('id').eq('client_id', clientId).eq('project_name', currentProject).eq('visit_type', visitType);
       _dupQ = visitDate ? _dupQ.eq('visit_date', visitDate) : _dupQ.is('visit_date', null);
       _dupQ = currentSubProject ? _dupQ.eq('sub_project_name', currentSubProject) : _dupQ.is('sub_project_name', null);
+      // Same day, same project, but a different site (e.g. Kanpur and Varanasi) is a separate visit
+      _dupQ = location ? _dupQ.eq('location', location) : _dupQ.is('location', null);
       const { data: _dupRows } = await _dupQ;
       if (_dupRows && _dupRows.length) { skippedDupes.push(currentProject + (currentSubProject ? ' / ' + currentSubProject : '') + ' — ' + (visitDate || 'no date')); continue; }
       const { error } = await sbClient.from('site_visits').insert({
@@ -3557,7 +3559,7 @@ if (selectedAssignees.length && !assigneeMatches.length) {
     showToast('ℹ️ Report task is created only for "Site Visit" — none created for ' + visitType, 'warn');
   }
   if (skippedDupes.length) {
-    showToast('ℹ️ ' + skippedDupes.length + ' already existed — skipped (no duplicate created)', 'warn');
+    showToast('ℹ️ ' + skippedDupes.length + ' already existed — skipped (same client, project, date and location). For another site on the same day, enter its location or a sub-project.', 'warn');
   }
   if (allErrors.length) {
     showToast('⚠️ Some entries failed:  ' + allErrors.join(', '), 'warn');
