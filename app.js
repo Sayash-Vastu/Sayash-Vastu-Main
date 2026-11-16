@@ -3529,7 +3529,7 @@ if (_isFirstDate && visitType === 'Site Visit') for (const em of assigneeMatches
         _taskCreated = true;
         await sb.from('tasks').insert({
           project: clientName,
-          task_detail: `Site visit report pending — ${clientName} / ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}. ${discussion || ''}`.trim(),
+          task_detail: `Site visit report pending — ${clientName} / ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}${location ? ' / ' + location : ''}${visitDate ? ' (visit ' + fmtDate(visitDate) + ')' : ''}. ${discussion || ''}`.trim(),
           voice_notes: voiceNoteUrls,
           assigned_to_email: em.email.toLowerCase(),
           assigned_to_name: em.name,
@@ -3544,9 +3544,9 @@ if (_isFirstDate && visitType === 'Site Visit') for (const em of assigneeMatches
           file_url: attachmentUrl,
           file_name: avgFile ? avgFile.name : (attachmentUrl ? 'OneDrive Link' : null),
         });
-        await createNotification(em.email.toLowerCase(), `📋 New task — Site visit report pending`, `${clientName} / ${currentProject} — report banani hai.`, 'task', 'tasks');
+        await createNotification(em.email.toLowerCase(), `📋 New task — Site visit report pending`, `${clientName} / ${currentProject}${location ? ' / ' + location : ''}${visitDate ? ' (visit ' + fmtDate(visitDate) + ')' : ''} — please prepare the report.`, 'task', 'tasks');
         await sendEmail(em.email, em.name, '📋 New Task — Site Visit Report Pending',
-          `You have been assigned a task.\n\nClient: ${clientName}\nProject: ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}\nDetails: ${discussion || '-'}\n\nPlease login to view and complete.`,
+          `You have been assigned a task.\n\nClient: ${clientName}\nProject: ${currentProject}${currentSubProject ? ' / ' + currentSubProject : ''}\nLocation: ${location || '-'}\nVisit date: ${visitDate ? fmtDate(visitDate) : '-'}\nDetails: ${discussion || '-'}\n\nPlease login to view and complete.`,
           'Task Assigned', 'https://sayash-vastu-portal.vercel.app', 'View My Tasks →');
       }
     }
