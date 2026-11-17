@@ -1587,6 +1587,20 @@ async function loadClientVisitsAll() {
     return;
   }
     window._svAll = data;
+  // Contact person from the Project Tracker: same client + visit date first, else the client's latest contact
+  try {
+    const { data: _pr } = await sbClient.from('project_records').select('client_id, site_visit_date, contact_person, created_at')
+      .not('contact_person', 'is', null).order('created_at', { ascending: false }).limit(5000);
+    const byDay = {}, byClient = {};
+    (_pr || []).forEach(r => {
+      const cp = String(r.contact_person || '').trim(); if (!cp) return;
+      if (r.site_visit_date) { const k = r.client_id + '|' + String(r.site_visit_date).slice(0, 10); if (!byDay[k]) byDay[k] = cp; }
+      if (!byClient[r.client_id]) byClient[r.client_id] = cp;
+    });
+    data.forEach(v => {
+      v._contact = byDay[v.client_id + '|' + String(v.visit_date || '').slice(0, 10)] || (v.contact_person || '').trim() || byClient[v.client_id] || '';
+    });
+  } catch (e) { console.error('contact lookup failed', e); }
   const cfSel = document.getElementById('svClientFilter');
   if (cfSel) {
     const names = [...new Set(data.map(v => v.clients?.name || '(No client)'))].sort();
@@ -1608,7 +1622,7 @@ function renderClientVisits(list, expand){
   });
   const parseD = d => { if(!d) return 0; const p = (d.includes('-') && d.split('-')[0].length<=2) ? d.split('-').reverse().join('-') : d; return new Date(p).getTime() || 0; };
   const clientKeys = Object.keys(groups).sort((a,b) => Math.max(...groups[b].map(v=>parseD(v.visit_date))) - Math.max(...groups[a].map(v=>parseD(v.visit_date))));
-  const th = ['Client','Project','Date','Type','Visited By','Location','Reference','Description','Suggestions','Action'].map(h=>`<th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">${h}</th>`).join('');
+  const th = ['Client','Project','Date','Type','Visited By','Location','Reference','Description','Contact Person','Action'].map(h=>`<th style="position:sticky;top:0;z-index:2;background:#f8f9fc;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase">${h}</th>`).join('');
   let body = '';
   clientKeys.forEach((ck, gi) => {
     const visits = groups[ck].slice().sort((a,b)=>parseD(b.visit_date)-parseD(a.visit_date));
@@ -1632,7 +1646,7 @@ function renderClientVisits(list, expand){
           <td style="padding:9px 14px;max-width:160px">${v.location ? locLinksHtml(v.location, true) : '-'}</td>
           <td style="padding:9px 14px;max-width:160px">${v.reference ? esc(v.reference) : '-'}</td>
           <td style="padding:9px 14px;max-width:200px">${esc((v.discussion||'-').substring(0,50))}${(v.discussion||'').length>50?'...':''}</td>
-          <td style="padding:9px 14px;max-width:200px">${esc((v.suggestions||'-').substring(0,50))}${(v.suggestions||'').length>50?'...':''}</td>
+          <td style="padding:9px 14px;max-width:180px">${v._contact ? esc(v._contact) : '-'}</td>
           <td style="padding:9px 14px;white-space:nowrap"><button class="btn btn-sm btn-outline" onclick="event.stopPropagation();openEditSiteVisit('${v.id}')" style="margin-right:6px">✏️</button><button class="btn btn-sm" onclick="event.stopPropagation();deleteSiteVisitGlobal('${v.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button></td>
         </tr>`;
     });
@@ -1674,7 +1688,7 @@ function applySvFilters(){
   if (cf) list = list.filter(v => (v.clients?.name || '(No client)') === cf);
   if (vf) list = list.filter(v => (v.visited_by || '').split(',').map(n => n.trim()).includes(vf));
   if (df) list = list.filter(v => toISO(v.visit_date) === df);
-  if (q) list = list.filter(v => `${v.clients?.name||''} ${v.project_name||''} ${v.sub_project_name||''} ${v.visited_by||''} ${v.location||''} ${v.discussion||''} ${v.suggestions||''} ${v.reference||''}`.toLowerCase().includes(q));
+  if (q) list = list.filter(v => `${v.clients?.name||''} ${v.project_name||''} ${v.sub_project_name||''} ${v.visited_by||''} ${v.location||''} ${v.discussion||''} ${v.suggestions||''} ${v.reference||''} ${v._contact||''}`.toLowerCase().includes(q));
   renderClientVisits(list, !!(q || cf || df || vf));
 }
 function clearSvFilters(){
@@ -1739,18 +1753,30 @@ async function saveEditSiteVisit(visitId) {
   };
   // Capture old client_id + date to locate the linked tracker record before it changes
   let _svOld = null;
-  try { const { data: _d } = await sbClient.from('site_visits').select('client_id, visit_date').eq('id', visitId).single(); _svOld = _d; } catch (e) {}
+  try { const { data: _d } = await sbClient.from('site_visits').select('client_id, visit_date, project_name, created_at').eq('id', visitId).single(); _svOld = _d; } catch (e) {}
   const { error } = await sbClient.from('site_visits').update(upd).eq('id', visitId);
   if (error) { showToast('❌ ' + error.message, 'err'); return; }
   // Keep Project Tracker in sync on edit. Find the linked record by client + visit date;
   // if several share that date, narrow by project / sub-project. Update only when exactly one remains.
   let _synced = false;
   try {
-    if (_svOld && _svOld.client_id && _svOld.visit_date) {
-      const { data: _m0 } = await sbClient.from('project_records')
-        .select('id, project_name, sub_project_name, record_type')
-        .eq('client_id', _svOld.client_id).eq('site_visit_date', _svOld.visit_date);
-      let _m = _m0 || [];
+    if (_svOld && _svOld.client_id) {
+      let _m = [];
+      if (_svOld.visit_date) {
+        const { data: _m0 } = await sbClient.from('project_records')
+          .select('id, project_name, sub_project_name, record_type')
+          .eq('client_id', _svOld.client_id).eq('site_visit_date', _svOld.visit_date);
+        _m = _m0 || [];
+      }
+      // Fallback: the tracker row saved together with this visit (same client + project, created within 3 minutes)
+      if (!_m.length && _svOld.created_at) {
+        const _t = new Date(_svOld.created_at).getTime();
+        const { data: _m1 } = await sbClient.from('project_records')
+          .select('id, project_name, sub_project_name, record_type, created_at')
+          .eq('client_id', _svOld.client_id)
+          .gte('created_at', new Date(_t - 180000).toISOString()).lte('created_at', new Date(_t + 180000).toISOString());
+        _m = (_m1 || []).filter(r => !_svOld.project_name || (r.project_name || '') === _svOld.project_name);
+      }
       if (_m.length > 1 && upd.project_name) { const f = _m.filter(r => (r.project_name || '') === upd.project_name); if (f.length) _m = f; }
       if (_m.length > 1) { const f = _m.filter(r => (r.sub_project_name || null) === (upd.sub_project_name || null)); if (f.length) _m = f; }
       if (_m.length > 1) { const f = _m.filter(r => r.record_type === 'Site Visit'); if (f.length) _m = f; }
