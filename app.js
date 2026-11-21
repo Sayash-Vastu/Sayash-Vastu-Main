@@ -3,6 +3,8 @@
 const SUPABASE_URL = 'https://rgoujuvdqqddqeqnryfg.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Qi90wjrEak0zpymXEecNbQ_C30agpsx';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// All employees columns except password_hash (password is never sent to the browser)
+const EMP_COLS = 'id,employee_code,name,email,phone,department,designation,role,joining_date,is_active,avatar_color,created_at,updated_at,date_of_birth,photo_url,gender,address,monthly_salary,offer_letter_url,weekly_off_pattern,basic_salary,hra,special_allowance,shift_start,shift_end';
 
 const EJS_PUBLIC_KEY  = 'UJnNfp5bX02L9vf6e';
 const EJS_SERVICE_ID  = 'service_tntf75k';
@@ -556,7 +558,7 @@ async function _attDayStatus(email, dateStr, checkIn, checkOut) {
 async function ensureShiftMap(force) {
   if (!force && window._shiftLoaded) return;
   try {
-    const { data } = await sb.from('employees').select('*');
+    const { data } = await sb.from('employees').select(EMP_COLS);
     (data || []).forEach(e => {
       if (!e.email) return;
       const k = String(e.email).toLowerCase();
@@ -954,7 +956,7 @@ async function exportAttPDF() {
   const totalDays = lastDay;
 
   // Fetch all employees
-const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('name', { ascending: true });
+const { data: emps } = await sb.from('employees').select(EMP_COLS).eq('is_active', true).neq('role', 'ceo').order('name', { ascending: true });
   const empsF = (emps||[]).filter(e => e.name.trim().toLowerCase() !== 'neha gupta');
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
@@ -3379,6 +3381,11 @@ async function saveVisitGlobal() {
   if (!clientName) { showToast('⚠️ Client required', 'warn'); return; }
 
   if (!clientId) {
+    // Client may already exist (e.g. created a moment ago) — reuse it instead of creating a duplicate
+    const { data: existing } = await sbClient.from('clients').select('id, name').ilike('name', clientName).limit(1);
+    if (existing && existing.length) { clientId = existing[0].id; clientName = existing[0].name; }
+  }
+  if (!clientId) {
     const { data: newClient, error: newClientErr } = await sbClient.from('clients').insert({
       name: clientName,
       status: 'Active',
@@ -4137,7 +4144,7 @@ async function loadCeoDashboard() {
       ceoQuoteEl.innerHTML = `"${esc(qCeo.text)}"<div style="font-size:12px;color:var(--gold);font-style:normal;font-weight:600;margin-top:8px;font-family:'DM Sans',sans-serif;letter-spacing:0.3px">— ${esc(qCeo.author)}</div>`;
     }
   }
-const { count: totalEmp } = await sb.from('employees').select('*',{count:'exact'}).eq('is_active',true).not('role','in','(ceo,hr)');
+const { count: totalEmp } = await sb.from('employees').select(EMP_COLS,{count:'exact'}).eq('is_active',true).not('role','in','(ceo,hr)');
   const { count: totalTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false);
   const { count: pendingLeaves } = await sb.from('leaves').select('*',{count:'exact'}).eq('status','Pending');
   const { count: doneTasks } = await sb.from('tasks').select('*',{count:'exact'}).eq('is_archived',false).eq('work_status','Completed');
@@ -6080,7 +6087,7 @@ async function renderAllTasks() {
 //  EMPLOYEES CEO
 // ═══════════════════════════════════════════
 async function loadEmployees() {
-const { data } = await sb.from('employees').select('*').order('employee_code',{ascending:true});
+const { data } = await sb.from('employees').select(EMP_COLS).order('employee_code',{ascending:true});
   const tbody=document.getElementById('employeesBody');
   if (!data||!data.length) { tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>'; return; }
   tbody.innerHTML=data.map(e=>`<tr>
@@ -6144,12 +6151,13 @@ async function addEmployee() {
   const photoFile = document.getElementById('ae-photo').files[0];
   
   const { data: hashedPass } = await sb.rpc('hash_password', { p_password: pass });
+  if (!hashedPass) { showToast('❌ Could not secure the password. Please try again.', 'err'); return; }
   const { data: newEmp, error } = await sb.from('employees').insert({
     name, email: email.toLowerCase(), phone, employee_code: code,
-    department: dept, designation: desig, role, password_hash: hashedPass || pass,
+    department: dept, designation: desig, role, password_hash: hashedPass,
     date_of_birth: dob || null, joining_date: joining || null,
     weekly_off_pattern: weekOff
-  }).select().single();
+  }).select(EMP_COLS).single();
   
   if (!error && newEmp && photoFile) {
     const photoPath = `${newEmp.id}/profile.${photoFile.name.split('.').pop()}`;
@@ -6165,7 +6173,7 @@ async function addEmployee() {
   loadEmployees(); loadEmployeeAutocomplete();
 }
 async function loadOfferLetters() {
-  const { data } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
+  const { data } = await sb.from('employees').select(EMP_COLS).eq('is_active', true).neq('role', 'ceo').order('employee_code', { ascending: true });
   const tbody = document.getElementById('offerLettersBody');
   if (!data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>';
@@ -6364,7 +6372,7 @@ async function getLeavePaidMap(employeeEmail, year, joiningDate, offPattern) {
 }
 // ── Core payroll calculator ──
 async function calculatePayroll(employeeEmail, year, month) {
-  const { data: emp } = await sb.from('employees').select('*').eq('email', employeeEmail).single();
+  const { data: emp } = await sb.from('employees').select(EMP_COLS).eq('email', employeeEmail).single();
   if (!emp) return null;
 
   const pattern = emp.weekly_off_pattern || 'sunday_only';
@@ -6447,7 +6455,7 @@ else if (paidDates.has(dateStr)) { leaveDaysCount++; payableDays++; leaveDatesLi
 // ── Salary Slips page UI ──
 async function loadSalarySlips() {
   const el = document.getElementById('view-salarySlips');
-  const { data: emps } = await sb.from('employees').select('*').eq('is_active', true).neq('role', 'ceo').order('name');
+  const { data: emps } = await sb.from('employees').select(EMP_COLS).eq('is_active', true).neq('role', 'ceo').order('name');
   const now = new Date();
   el.innerHTML = `
     <div class="page-header"><h2>💰 Salary Slips</h2><p>Generate and download monthly salary slips</p></div>
@@ -6761,7 +6769,7 @@ doc.text('This is a confidential document. Unauthorized disclosure is strictly p
   showToast('✅ Salary slip PDF downloaded!', 'ok');
 }
 async function loadSalaryStructure() {
-  const { data } = await sb.from('employees').select('*').eq('is_active', true).not('role', 'in', '(ceo,hr)').order('employee_code', { ascending: true });
+  const { data } = await sb.from('employees').select(EMP_COLS).eq('is_active', true).not('role', 'in', '(ceo,hr)').order('employee_code', { ascending: true });
   const tbody = document.getElementById('salaryStructureBody');
   if (!data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>';
@@ -7320,7 +7328,8 @@ async function savePassword() {
   if (!newPass) { msgEl.textContent = '⚠️ Enter a password'; msgEl.style.color = 'var(--red)'; return; }
   if (newPass.length < 6) { msgEl.textContent = '⚠️ Min 6 characters'; msgEl.style.color = 'var(--red)'; return; }
   const { data: hashedPass } = await sb.rpc('hash_password', { p_password: newPass });
-  const { error } = await sb.from('employees').update({ password_hash: hashedPass || newPass }).eq('id', currentPassEmpId);
+  if (!hashedPass) { msgEl.textContent = '❌ Could not secure the password. Please try again.'; msgEl.style.color = 'var(--red)'; return; }
+  const { error } = await sb.from('employees').update({ password_hash: hashedPass }).eq('id', currentPassEmpId);
   if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
   showToast('✅ Password updated!', 'ok');
   closeModal('passModal');
@@ -8509,7 +8518,7 @@ async function exportMyAttPDF(empObj, monthValArg) {
 
   const start = `${yr}-${String(mo).padStart(2,'0')}-01`;
   const end   = `${yr}-${String(mo).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
-const { data: empPatternPdf } = await sb.from('employees').select('*').eq('email', _email).single();
+const { data: empPatternPdf } = await sb.from('employees').select(EMP_COLS).eq('email', _email).single();
   const patternPdf = empPatternPdf?.weekly_off_pattern || 'sunday_only';
   const _empInfo = empPatternPdf || _emp;
   const { data: attData } = await sb.from('attendance')
@@ -8784,7 +8793,7 @@ async function exportLeavesPDF() {
 //  MY PROFILE
 // ═══════════════════════════════════════════
 async function loadMyProfile() {
-  const { data: emp } = await sb.from('employees').select('*').eq('email', currentUser.email).single();
+  const { data: emp } = await sb.from('employees').select(EMP_COLS).eq('email', currentUser.email).single();
   if (!emp) return;
 
   // Photo
@@ -8920,7 +8929,8 @@ async function changeOwnPassword() {
   if (newPass !== confirmPass) { msgEl.textContent = '❌ Passwords do not match'; msgEl.style.color = 'var(--red)'; return; }
 
   const { data: hashedPass } = await sb.rpc('hash_password', { p_password: newPass });
-  const { error } = await sb.from('employees').update({ password_hash: hashedPass || newPass }).eq('email', currentUser.email);
+  if (!hashedPass) { msgEl.textContent = '❌ Could not secure the password. Please try again.'; msgEl.style.color = 'var(--red)'; return; }
+  const { error } = await sb.from('employees').update({ password_hash: hashedPass }).eq('email', currentUser.email);
   if (error) { msgEl.textContent = '❌ '+error.message; msgEl.style.color = 'var(--red)'; return; }
 
   msgEl.textContent = '✅ Password updated!'; msgEl.style.color = 'var(--green)';
@@ -9448,7 +9458,7 @@ const isCEO = currentUser.role === 'ceo';
   if (isCEO) {
     document.getElementById('allPerfSection').style.display = 'block';
     document.getElementById('myPerfCard').style.display = 'none';
-let { data: emps } = await sb.from('employees').select('*').eq('is_active', true);
+let { data: emps } = await sb.from('employees').select(EMP_COLS).eq('is_active', true);
     emps = (emps || []).filter(e => !['ceo','hr'].includes(String(e.role||'').toLowerCase()));   // hide CEO & HR from team report
     const { data: allTasks } = await sb.from('tasks').select('*').eq('is_archived',false);
 const { data: allAtt } = await sb.from('attendance').select('*').eq('is_archived',false).gte('date', monthStart).lte('date', monthEnd);
@@ -11391,7 +11401,7 @@ document.getElementById('compModalContent').innerHTML = `
   document.getElementById('complianceModal').classList.add('open');
 }
 async function openEmpQuickView(empEmail) {
-  const { data: emp } = await sb.from('employees').select('*').eq('email', empEmail).single();
+  const { data: emp } = await sb.from('employees').select(EMP_COLS).eq('email', empEmail).single();
   const { data: todayAtt } = await sb.from('attendance').select('*').eq('employee_email', empEmail).eq('date', new Date().toISOString().split('T')[0]).eq('is_archived', false).maybeSingle();
   const { data: tasks } = await sb.from('tasks').select('*').eq('assigned_to_email', empEmail).eq('is_archived', false).neq('work_status', 'Completed');
   if (!emp) return;
