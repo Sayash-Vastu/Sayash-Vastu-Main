@@ -3,8 +3,34 @@
 const SUPABASE_URL = 'https://rgoujuvdqqddqeqnryfg.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Qi90wjrEak0zpymXEecNbQ_C30agpsx';
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-// All employees columns except password_hash (password is never sent to the browser)
-const EMP_COLS = 'id,employee_code,name,email,phone,department,designation,role,joining_date,is_active,avatar_color,created_at,updated_at,date_of_birth,photo_url,gender,address,monthly_salary,offer_letter_url,weekly_off_pattern,basic_salary,hra,special_allowance,shift_start,shift_end';
+// All employees columns except password_hash and salary (salary comes only from get_salaries())
+const EMP_COLS = 'id,employee_code,name,email,phone,department,designation,role,joining_date,is_active,avatar_color,created_at,updated_at,date_of_birth,photo_url,gender,address,offer_letter_url,weekly_off_pattern,shift_start,shift_end';
+
+// ── Login session token + salary access (salary is never read from the employees table directly) ──
+function sessionToken() { return (currentUser && currentUser.session_token) || ''; }
+function handleSessionError(error) {
+  if (error && /Session expired/i.test(error.message || '')) {
+    showToast('Your session has expired. Please log in again.', 'err');
+    setTimeout(doLogout, 1500);
+    return true;
+  }
+  return false;
+}
+// Returns { employee_id: { basic_salary, hra, special_allowance, monthly_salary } }.
+// CEO/HR get everyone; other employees get only their own row. Cached for 60 seconds.
+async function fetchSalaryMap(force) {
+  const c = window._salaryCache;
+  if (!force && c && (Date.now() - c.t) < 60000) return c.map;
+  const { data, error } = await sb.rpc('get_salaries', { p_token: sessionToken() });
+  if (error) {
+    if (!handleSessionError(error)) showToast('❌ Could not load salaries: ' + error.message, 'err');
+    return null;
+  }
+  const map = {};
+  (data || []).forEach(r => { map[r.employee_id] = r; });
+  window._salaryCache = { t: Date.now(), map };
+  return map;
+}
 
 const EJS_PUBLIC_KEY  = 'UJnNfp5bX02L9vf6e';
 const EJS_SERVICE_ID  = 'service_tntf75k';
@@ -165,7 +191,12 @@ window.onload = function() {
   updateDateHeader();
 
   const saved = localStorage.getItem('sv_user');
-  if (saved) { currentUser = JSON.parse(saved); showApp(); }
+  if (saved) {
+    const u = JSON.parse(saved);
+    // Sessions saved before login tokens existed must log in once again
+    if (u && u.session_token) { currentUser = u; showApp(); }
+    else localStorage.removeItem('sv_user');
+  }
 
   document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
@@ -1231,6 +1262,9 @@ function showLoginError(msg) {
 }
 
 function doLogout() {
+  const _tok = sessionToken();
+  if (_tok) sb.rpc('end_session', { p_token: _tok }).then(() => {}, () => {});
+  window._salaryCache = null;
   localStorage.removeItem('sv_user'); currentUser = null;
   document.getElementById('loginPage').style.display = 'flex';
   document.getElementById('appPage').style.display = 'none';
@@ -6376,9 +6410,10 @@ async function calculatePayroll(employeeEmail, year, month) {
   if (!emp) return null;
 
   const pattern = emp.weekly_off_pattern || 'sunday_only';
-  const basic = emp.basic_salary || 0;
-  const hra = emp.hra || 0;
-  const special = emp.special_allowance || 0;
+  const _sal = ((await fetchSalaryMap()) || {})[emp.id] || {};
+  const basic = Number(_sal.basic_salary) || 0;
+  const hra = Number(_sal.hra) || 0;
+  const special = Number(_sal.special_allowance) || 0;
   const monthlySalary = basic + hra + special;
   const daysInMonth = new Date(year, month, 0).getDate();
   const pad = n => String(n).padStart(2, '0');
@@ -6769,7 +6804,9 @@ doc.text('This is a confidential document. Unauthorized disclosure is strictly p
   showToast('✅ Salary slip PDF downloaded!', 'ok');
 }
 async function loadSalaryStructure() {
-  const { data } = await sb.from('employees').select(EMP_COLS).eq('is_active', true).not('role', 'in', '(ceo,hr)').order('employee_code', { ascending: true });
+  const { data: _emps } = await sb.from('employees').select(EMP_COLS).eq('is_active', true).not('role', 'in', '(ceo,hr)').order('employee_code', { ascending: true });
+  const _salMap = (await fetchSalaryMap(true)) || {};
+  const data = (_emps || []).map(e => ({ ...e, ...(_salMap[e.id] || {}) }));
   const tbody = document.getElementById('salaryStructureBody');
   if (!data || !data.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:30px">No employees</td></tr>';
@@ -6788,7 +6825,7 @@ async function loadSalaryStructure() {
     <td><input type="number" id="spec-${e.id}" value="${e.special_allowance || 0}" oninput="updateGrossDisplay('${e.id}')" style="width:100px;padding:6px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:12px"></td>
     <td>
       <div style="display:flex;align-items:center;gap:10px">
-        <span id="gross-${e.id}" style="font-weight:700;color:var(--green)">₹${((e.basic_salary||0)+(e.hra||0)+(e.special_allowance||0)).toLocaleString('en-IN')}</span>
+        <span id="gross-${e.id}" style="font-weight:700;color:var(--green)">₹${((Number(e.basic_salary)||0)+(Number(e.hra)||0)+(Number(e.special_allowance)||0)).toLocaleString('en-IN')}</span>
         <button class="btn btn-gold btn-sm" onclick="updateSalary('${e.id}','${esc(e.name)}')">💾 Save</button>
       </div>
     </td>
@@ -6807,10 +6844,11 @@ async function updateSalary(empId, empName) {
   const hra = parseFloat(document.getElementById('hra-'+empId).value) || 0;
   const spec = parseFloat(document.getElementById('spec-'+empId).value) || 0;
   const gross = basic + hra + spec;
-  const { error } = await sb.from('employees').update({
-    basic_salary: basic, hra: hra, special_allowance: spec, monthly_salary: gross
-  }).eq('id', empId);
-  if (error) { showToast('❌ ' + error.message, 'err'); return; }
+  const { error } = await sb.rpc('save_salary', {
+    p_token: sessionToken(), p_employee_id: empId, p_basic: basic, p_hra: hra, p_special: spec
+  });
+  if (error) { handleSessionError(error); showToast('❌ ' + error.message, 'err'); return; }
+  window._salaryCache = null;
   showToast(`✅ Salary updated for ${empName}: ₹${gross.toLocaleString('en-IN')}`, 'ok');
 }
 // ═══════════════════════════════════════════
