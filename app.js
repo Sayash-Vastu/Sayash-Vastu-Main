@@ -568,6 +568,9 @@ window._shiftEndByEmail = window._shiftEndByEmail || {};
 // From this date: leaving before (shift end − 30 min) or checking in 3+ hrs late = Half Day,
 // and every attendance Half Day (leave applied or not) takes 0.5 from the 12-day leave quota.
 const HALF_DAY_RULE_FROM = '2026-11-12';
+// Half days from this date onward are still marked, but do NOT take anything from the leave balance and are paid in full.
+// Half days between HALF_DAY_RULE_FROM and the day before this date keep their 0.5 deduction.
+const HALF_DAY_NO_DEDUCT_FROM = '2026-11-23';
 function _shiftEndMin(email) {
   const s = String(window._shiftEndByEmail[String(email || '').toLowerCase()] || '18:00');
   const [h, m] = s.split(':').map(Number);
@@ -6283,6 +6286,7 @@ function isWeeklyOff(date, pattern) {
 // Attendance Half Days (on/after HALF_DAY_RULE_FROM, after probation, working day, no approved leave that day)
 // Each one takes 0.5 from the 12-day quota.
 async function getYearHalfDayDates(email, joiningDate, pattern, year, beforeDate) {
+  if (beforeDate && beforeDate > HALF_DAY_NO_DEDUCT_FROM) beforeDate = HALF_DAY_NO_DEDUCT_FROM;   // later half days don't count
   const starts = [`${year}-01-01`, HALF_DAY_RULE_FROM];
   if (joiningDate) {
     const pe = _lvDate(String(joiningDate).slice(0, 10)); pe.setMonth(pe.getMonth() + 3);
@@ -6454,7 +6458,7 @@ const { paidDates, lopDates: quotaExceedDates, paidWeight, probationEnd: _probEn
     if (att?.status === 'Present') { presentDays++; payableDays++; }
 else if (att?.status === 'Half Day') {
       halfDays++; halfDatesList.push(dateStr);
-      if (dateStr < HALF_DAY_RULE_FROM || paidDates.has(dateStr)) { payableDays += 1; }          // old rule / half-day leave already applied
+      if (dateStr < HALF_DAY_RULE_FROM || dateStr >= HALF_DAY_NO_DEDUCT_FROM || paidDates.has(dateStr)) { payableDays += 1; }          // old rule / half-day leave already applied
       else if (_probEndPay && dateStr < _probEndPay) { payableDays += 0.5; lopDays += 0.5; lopDatesList.push(dateStr); lopDetails.push({ date: dateStr, reason: 'Half day during probation (0.5 day unpaid)' }); }
       else if (_absentQuotaLeft >= 0.5) { _absentQuotaLeft -= 0.5; halfFromQuota++; payableDays += 1; }
       else { payableDays += 0.5; lopDays += 0.5; lopDatesList.push(dateStr); lopDetails.push({ date: dateStr, reason: 'Half day and leave balance used up (0.5 day unpaid)' }); }
@@ -6986,7 +6990,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     // Half days from HALF_DAY_RULE_FROM (no leave that day, after probation): 0.5 from quota, else 0.5 unpaid
     c.halfQuota = 0; c.halfLop = 0;
     (c.halfDates || []).forEach(ds => {
-      if (ds < HALF_DAY_RULE_FROM) return;
+      if (ds < HALF_DAY_RULE_FROM || ds >= HALF_DAY_NO_DEDUCT_FROM) return;
       if (_pe2 && ds < _pe2) { c.halfLop += 0.5; return; }
       if (_left >= 0.5) { _left -= 0.5; c.halfQuota += 0.5; } else c.halfLop += 0.5;
     });
@@ -7041,7 +7045,7 @@ let absentR = 0, leaveR = 0, presentR = 0, halfR = 0, lateR = 0, workingDaysR = 
     const empWorkingDays = c.workingDays || totalDays;
     const pct=empWorkingDays>0?Math.round((c.present/empWorkingDays)*100):0;
     const usedYTD = _usedByEmail[e.email] || 0;
-    const _nonProbHalf = (c.halfDates || []).filter(ds => ds >= HALF_DAY_RULE_FROM && !(_probEndByEmail[e.email] && ds < _probEndByEmail[e.email])).length * 0.5;
+    const _nonProbHalf = (c.halfDates || []).filter(ds => ds >= HALF_DAY_RULE_FROM && ds < HALF_DAY_NO_DEDUCT_FROM && !(_probEndByEmail[e.email] && ds < _probEndByEmail[e.email])).length * 0.5;
     const leavesLeft = ANNUAL_LEAVE_QUOTA - usedYTD - (_priorAbsByEmail[e.email] || 0) - (c.nonProbAbsent || 0) - _nonProbHalf;
     const llColor = leavesLeft <= 0 ? 'var(--red)' : leavesLeft <= 3 ? '#b7791f' : 'var(--green)';
     // Days to pay = working days − unpaid days. Unpaid = absents + probation/'Other' leaves + regular leaves beyond the 12/year quota.
