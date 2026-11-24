@@ -580,14 +580,9 @@ function _shiftEndMin(email) {
 async function _attDayStatus(email, dateStr, checkIn, checkOut) {
   const ci = new Date(checkIn), co = new Date(checkOut);
   const hrs = (co - ci) / 3600000;
-  if (hrs < 5) return 'Half Day';                                   // old rule (always)
-  if (String(dateStr).slice(0, 10) < HALF_DAY_RULE_FROM) return 'Present';
-  await ensureShiftMap();
-  const coMin = co.getHours() * 60 + co.getMinutes();
-  const ciMin = ci.getHours() * 60 + ci.getMinutes();
-  if (coMin < _shiftEndMin(email) - 30) return 'Half Day';           // left before 5:30 PM (for a 10–6 shift)
-  if (ciMin >= _shiftStartMin(email) + 180) return 'Half Day';       // came after 1 PM (for a 10–6 shift)
-  return 'Present';
+  // Half Day only when the employee worked less than 5 hours. 5+ hours = Present,
+  // whatever the check-in / check-out time (the late-arrival and early-leaving rules were removed).
+  return hrs < 5 ? 'Half Day' : 'Present';
 }
 async function ensureShiftMap(force) {
   if (!force && window._shiftLoaded) return;
@@ -4581,7 +4576,7 @@ async function markEmpLogin(workType) {
     employee_name: currentUser.name,
     date: today,
     check_in: now.toISOString(),
-    status: ((new Date().getHours() * 60 + new Date().getMinutes()) >= _shiftStartMin(currentUser.email) + 180 ? 'Half Day' : 'Present'),
+    status: 'Present',   // final status is set at check-out from hours worked
     work_type: workType || 'Office',
     latitude: latitude,
     longitude: longitude,
@@ -5665,7 +5660,7 @@ async function markCheckIn() {
   const { error } = await sb.from('attendance').insert({
     employee_id: emp?.id, employee_email: currentUser.email,
     employee_name: currentUser.name, date: today,
-check_in: now.toISOString(), status: (now.getHours() * 60 + now.getMinutes()) >= _shiftStartMin(currentUser.email) + 180 ? 'Half Day' : 'Present'
+check_in: now.toISOString(), status: 'Present'
   });
   btn.disabled=false; btn.textContent='✅ Check In';
   if (error) { showToast('❌ '+error.message,'err'); return; }
