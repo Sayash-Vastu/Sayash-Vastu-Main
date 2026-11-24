@@ -5755,7 +5755,9 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   }
   // Absent days for the history table: the first ones fit in the remaining quota (paid), the rest are unpaid
   const _quotaForAbs = Math.max(0, 12 - _paidTaken);
-  window._lvAbsentRows = _absYTD.map((d, i) => ({ date: d, paid: i < _quotaForAbs }));
+  const _probAbsYTD = await getYearProbationAbsentDates(currentUser.email, _joining, _offPatLv, _yr, _todayLv);
+  window._lvAbsentRows = _absYTD.map((d, i) => ({ date: d, paid: i < _quotaForAbs }))
+    .concat(_probAbsYTD.map(d => ({ date: d, paid: false, probation: true })));
   if (_balNote) {
     const _parts = [];
     if (_absYTD.length) _parts.push(`${_absYTD.length} absent day${_absYTD.length > 1 ? 's' : ''} (no check-in, no leave applied)`);
@@ -5768,8 +5770,9 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
   // Probation leaves card (unpaid) — show only if any
   const _probCard = document.getElementById('lv-prob-card');
   const _probNum = document.getElementById('lv-probation');
-  if (_probNum) _probNum.textContent = _probTaken;
-  if (_probCard) _probCard.style.display = _probTaken > 0 ? '' : 'none';
+  const _probTotal = _probTaken + ((window._lvAbsentRows || []).filter(a => a.probation).length);
+  if (_probNum) { _probNum.textContent = _probTotal; _probNum.title = _probTaken + ' leave applied + ' + (_probTotal - _probTaken) + ' absent during probation'; }
+  if (_probCard) _probCard.style.display = _probTotal > 0 ? '' : 'none';
   
   // Leave breakdown by type
   const bdEl = document.getElementById('leaveBreakdown');
@@ -5797,11 +5800,11 @@ const taken = leaves.filter(l=>l.status==='Approved').reduce((s,l)=>s+(l.leave_t
     <td style="font-size:12px">${fmtDate(a.date)}</td>
     <td style="font-size:12px">${fmtDate(a.date)}</td>
     <td style="font-weight:700">1</td>
-    <td style="font-size:12px;color:var(--muted)">No check-in and no leave applied on this day. ${a.paid ? 'Counted as paid leave from your yearly balance.' : 'Leave balance was used up, so this day is unpaid (LOP).'}</td>
+    <td style="font-size:12px;color:var(--muted)">No check-in and no leave applied on this day. ${a.probation ? 'You were on probation, so this day is unpaid (LOP).' : a.paid ? 'Counted as paid leave from your yearly balance.' : 'Leave balance was used up, so this day is unpaid (LOP).'}</td>
     <td><span style="color:var(--muted);font-size:11px">—</span></td>
     <td>${a.paid
       ? '<span class="badge" style="background:#fff4e0;color:#8a5200;font-size:10px">Counted as leave</span>'
-      : '<span class="badge b-red" style="font-size:10px">Unpaid (LOP)</span>'}</td>
+      : `<span class="badge b-red" style="font-size:10px">${a.probation ? 'Unpaid (probation)' : 'Unpaid (LOP)'}</span>`}</td>
     <td>—</td>
   </tr>` }));
 const _lvHtml = leaves.map(l=>({ key: String(l.from_date || '').slice(0,10), html: `<tr>
@@ -6302,6 +6305,41 @@ async function getYearHalfDayDates(email, joiningDate, pattern, year, beforeDate
     .filter(ds => !(lvs || []).some(l => leaveCoversDate(l, ds)))
     .sort();
 }
+// Absent days during probation (no check-in, no leave applied) — always unpaid, shown in Leave History
+async function getYearProbationAbsentDates(email, joiningDate, pattern, year, beforeDate) {
+  if (!joiningDate) return [];
+  const j = String(joiningDate).slice(0, 10);
+  const pe = _lvDate(j); pe.setMonth(pe.getMonth() + 3);
+  const probEnd = pe.getFullYear() + '-' + String(pe.getMonth() + 1).padStart(2, '0') + '-' + String(pe.getDate()).padStart(2, '0');
+  const upto = beforeDate < probEnd ? beforeDate : probEnd;
+  const yStart = `${year}-01-01`;
+  if (!email || upto <= yStart) return [];
+  const { data: _first } = await sb.from('attendance').select('date')
+    .eq('employee_email', email).eq('is_archived', false).order('date', { ascending: true }).limit(1);
+  if (!_first || !_first.length) return [];
+  const from = [yStart, String(_first[0].date).slice(0, 10), j].sort().pop();
+  if (from >= upto) return [];
+  const [{ data: att }, { data: lvs }, { data: hol }] = await Promise.all([
+    sb.from('attendance').select('date, status').eq('employee_email', email).eq('is_archived', false)
+      .gte('date', from).lt('date', upto),
+    sb.from('leaves').select('from_date, to_date, specific_dates').eq('employee_email', email).eq('status', 'Approved')
+      .not('is_archived', 'is', true).lte('from_date', upto).gte('to_date', from),
+    sb.from('holidays').select('date').gte('date', from).lt('date', upto)
+  ]);
+  const came = new Set((att || []).filter(a => a.status !== 'Absent').map(a => String(a.date).slice(0, 10)));
+  const holSet = new Set((hol || []).map(h => String(h.date).slice(0, 10)));
+  const out = [];
+  for (let d = _lvDate(from); ; d.setDate(d.getDate() + 1)) {
+    const ds = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    if (ds >= upto) break;
+    if (_isNonWorkingDay(ds, pattern || 'sunday_only', holSet)) continue;
+    if (came.has(ds)) continue;
+    if ((lvs || []).some(l => leaveCoversDate(l, ds))) continue;
+    out.push(ds);
+  }
+  return out;
+}
+
 async function getYearAbsentDates(email, joiningDate, pattern, year, beforeDate) {
   const yStart = `${year}-01-01`;
   if (!email || !beforeDate || beforeDate <= yStart) return [];
