@@ -11150,6 +11150,25 @@ if (newRecords.length > 0) {
   }
 }
 
+
+// ── Contract period helpers for Compliance (invoice contracts, renewals) ──
+function _contractState(end) {
+  if (!end) return { key: 'none', label: '' };
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const e = new Date(String(end).slice(0, 10) + 'T00:00:00');
+  const days = Math.round((e - today) / 86400000);
+  if (days < 0) return { key: 'expired', label: 'Expired', cls: 'b-red', days };
+  if (days <= 90) return { key: 'ending', label: days <= 31 ? 'Ends this month' : 'Ends in ' + Math.ceil(days / 30) + ' months', cls: 'b-amber', days };
+  return { key: 'active', label: 'Active', cls: 'b-green', days };
+}
+function _contractCell(start, end) {
+  if (!start && !end) return '<span style="color:var(--muted)">—</span>';
+  const f = d => d ? new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' }) : '?';
+  const st = _contractState(end);
+  return `<div style="font-weight:600;color:var(--navy)">${f(start)} – ${f(end)}</div>` +
+         (st.label ? `<span class="badge ${st.cls}" style="font-size:9px;margin-top:2px">${st.label}</span>` : '');
+}
+
 async function loadCompliance() {
 const now = new Date();
   const defaultMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
@@ -11207,6 +11226,16 @@ assigned_to_name: m.assigned_to_name, category: m.category,
     };
   }).filter(Boolean);
 
+  // Contract dates live on the master task; show them on every month's row
+  const _masterById = {};
+  (masterTasks || []).forEach(m => { _masterById[m.id] = m; });
+  allTasks = allTasks.map(t => {
+    const m = _masterById[t.master_id] || _masterById[t.id] || {};
+    return { ...t, contract_start: m.contract_start || null, contract_end: m.contract_end || null, _masterId: m.id || t.master_id || t.id };
+  });
+  const contractVal = document.getElementById('comp-contract-filter')?.value || 'all';
+  if (contractVal !== 'all') allTasks = allTasks.filter(t => _contractState(t.contract_end).key === contractVal);
+
   if (personVal !== 'all') allTasks = allTasks.filter(t => t.assigned_to_name === personVal);
   if (freqVal !== 'all') {
     const freqFullMap = { 'M': 'Monthly', 'Q': 'Quarterly', 'Y': 'Yearly' };
@@ -11226,7 +11255,7 @@ const done = allTasks.filter(t => t.status === 'Done').length;
   
  const tbody = document.getElementById('complianceBody');
   if (!allTasks.length) {
-    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;color:var(--muted)">No tasks found for this month</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:30px;color:var(--muted)">No tasks found for this month</td></tr>';
     return;
   }
   const catColors = {
@@ -11250,6 +11279,7 @@ const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.
     return `<tr style="${rowBg}">
       <td style="font-size:11px;color:var(--muted)">${i+1}</td>
       <td style="font-weight:600;font-size:12px;max-width:200px">${esc(t.particulars)}</td>
+      <td style="font-size:11px;white-space:nowrap">${_contractCell(t.contract_start, t.contract_end)}</td>
       <td><span class="badge b-blue" style="font-size:10px">${freqLabels[t.frequency]||t.frequency||'—'}</span></td>
 <td style="font-size:12px;font-weight:700;color:${isOverdue?'var(--red)':isDueSoon?'var(--amber)':'var(--navy)'}">
 ${t.last_date ? fmtDate(t.last_date) : '—'}
@@ -11274,7 +11304,7 @@ ${!isDone && currentUser.email === 'alisha@sayashvastu.com'
 ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
     : '—'}
       ${(currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? `
-        <button class="btn btn-outline btn-sm" onclick="openComplianceEdit('${t.id}','${esc(t.particulars)}','${t.last_date||''}','${esc(t.assigned_to_name||'')}','${esc(t.category||'')}','${t.frequency||''}','${t._isVirtual?'true':'false'}','${t.master_id||''}','${t.month_year}')">✏️</button>
+        <button class="btn btn-outline btn-sm" onclick="window._compContract={s:'${(t.contract_start||'').slice(0,7)}',e:'${(t.contract_end||'').slice(0,7)}'};openComplianceEdit('${t.id}','${esc(t.particulars)}','${t.last_date||''}','${esc(t.assigned_to_name||'')}','${esc(t.category||'')}','${t.frequency||''}','${t._isVirtual?'true':'false'}','${t.master_id||''}','${t.month_year}')">✏️</button>
         <button class="btn btn-sm" onclick="deleteComplianceTask('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
       ` : ''}
 </div>
@@ -11426,6 +11456,14 @@ function openComplianceEdit(id, particulars, lastDate, assignedTo, category, fre
           <option ${frequency==='Yearly'?'selected':''}>Yearly</option>
         </select>
       </div>
+      <div class="field">
+        <label>Contract Start (month)</label>
+        <input type="month" id="ce-cstart" value="${(window._compContract && window._compContract.s) || ''}">
+      </div>
+      <div class="field">
+        <label>Contract End (month)</label>
+        <input type="month" id="ce-cend" value="${(window._compContract && window._compContract.e) || ''}">
+      </div>
       <div class="field" style="grid-column:1/-1">
         <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:12px;font-weight:600;cursor:pointer">
           <input type="checkbox" id="ce-all" checked style="width:auto">
@@ -11451,6 +11489,19 @@ async function saveComplianceEdit() {
 
   if (!particulars) { msgEl.textContent = '⚠️ Task name required'; msgEl.style.color = 'var(--red)'; return; }
   if (!assignedTo) { msgEl.textContent = '⚠️ Assigned To required'; msgEl.style.color = 'var(--red)'; return; }
+
+  // Contract period (month accuracy): start = 1st of start month, end = last day of end month. Always saved on the master.
+  const _cs = document.getElementById('ce-cstart')?.value || '';
+  const _ce = document.getElementById('ce-cend')?.value || '';
+  if (_cs && _ce && _ce < _cs) { msgEl.textContent = '⚠️ Contract end must be after contract start'; msgEl.style.color = 'var(--red)'; return; }
+  const _lastDay = ym => { const [y, m] = ym.split('-').map(Number); return ym + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0'); };
+  {
+    const { error: cErr } = await sb.from('compliance_tasks').update({
+      contract_start: _cs ? _cs + '-01' : null,
+      contract_end: _ce ? _lastDay(_ce) : null
+    }).eq('id', currentComplianceMasterId || currentComplianceId);
+    if (cErr) { msgEl.textContent = '❌ ' + cErr.message; msgEl.style.color = 'var(--red)'; return; }
+  }
 
   if (applyAll) {
     // Change the master (all months) + this month's saved copy, if there is one
