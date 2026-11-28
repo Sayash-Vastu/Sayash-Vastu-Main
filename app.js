@@ -1632,7 +1632,7 @@ async function loadClientVisitsAll() {
       if (!byClient[r.client_id]) byClient[r.client_id] = cp;
     });
     data.forEach(v => {
-      v._contact = byDay[v.client_id + '|' + String(v.visit_date || '').slice(0, 10)] || (v.contact_person || '').trim() || byClient[v.client_id] || '';
+      v._contact = (v.contact_person || '').trim() || byDay[v.client_id + '|' + String(v.visit_date || '').slice(0, 10)] || byClient[v.client_id] || '';
     });
   } catch (e) { console.error('contact lookup failed', e); }
   const cfSel = document.getElementById('svClientFilter');
@@ -1761,6 +1761,7 @@ async function openEditSiteVisit(visitId) {
             <button type="button" class="btn btn-outline btn-sm" onclick="addLocationRow('ev-locs','ev-loc')" style="margin-top:6px;font-size:11px">➕ Add another location</button>
           </div>
           <div class="field"><label>Reference</label><input id="ev-reference" value="${esc(v.reference || '')}"></div>
+          <div class="field"><label>Contact Person</label><input id="ev-contact" value="${esc(v.contact_person || '')}" placeholder="Who you met / spoke to"></div>
           <div class="field"><label>Description / Discussion</label><textarea id="ev-discussion" rows="3">${esc(v.discussion || '')}</textarea></div>
           <div class="field"><label>Suggestions</label><textarea id="ev-suggestions" rows="3">${esc(v.suggestions || '')}</textarea></div>
         </div>
@@ -1783,7 +1784,8 @@ async function saveEditSiteVisit(visitId) {
     location: [...document.querySelectorAll('#ev-locs .ev-loc')].flatMap(i => splitLocations(i.value)).join(' | ') || null,
     discussion: document.getElementById('ev-discussion').value.trim() || null,
     suggestions: document.getElementById('ev-suggestions').value.trim() || null,
-    reference: document.getElementById('ev-reference').value.trim() || null
+    reference: document.getElementById('ev-reference').value.trim() || null,
+    contact_person: (document.getElementById('ev-contact')?.value || '').trim() || null
   };
   // Capture old client_id + date to locate the linked tracker record before it changes
   let _svOld = null;
@@ -1818,7 +1820,7 @@ async function saveEditSiteVisit(visitId) {
         const { data: _cl } = await sbClient.from('clients').select('name').eq('id', _svOld.client_id).single();
         const _cn = (_cl && _cl.name) || '';
         const _locs = splitLocations(upd.location);
-        const _tu = { site_visit_date: upd.visit_date };
+        const _tu = { site_visit_date: upd.visit_date, contact_person: upd.contact_person };
         if (_cn === 'MAX Healthcare') {
           _tu.recommendation = upd.discussion; _tu.location_links = _locs; _tu.visited_by = upd.visited_by;
         } else if (_cn === 'Signature Global') {
