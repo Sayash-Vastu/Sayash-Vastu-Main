@@ -7906,7 +7906,7 @@ async function addProject() {
     const f = projFile.files[0];
     msgEl.textContent='⏳ Uploading file...'; msgEl.style.color='var(--muted)';
     const path = `projects/${Date.now()}_${f.name.replace(/[^a-z0-9.]/gi,'_')}`;
-    const { error: uploadErr } = await sb.storage.from('task-files').upload(path, f, {upsert: false});
+    const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, f, {upsert: false});
     if (!uploadErr) {
 const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
       projFileUrl = urlData.publicUrl;
@@ -8089,9 +8089,9 @@ async function sendHelpRequest() {
     if (file.size > 10 * 1024 * 1024) { msgEl.textContent='❌ File too large (max 10MB)'; msgEl.style.color='var(--red)'; return; }
     msgEl.textContent='⏳ Uploading file...'; msgEl.style.color='var(--muted)';
     const path = `help-requests/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
-    const { error: uploadErr } = await sb.storage.from('task-files').upload(path, file, {upsert: false});
+    const { error: uploadErr } = await sb.storage.from('Task-Files').upload(path, file, {upsert: false});
     if (!uploadErr) {
-      const { data: urlData } = sb.storage.from('task-files').getPublicUrl(path);
+      const { data: urlData } = sb.storage.from('Task-Files').getPublicUrl(path);
       fileUrl = urlData.publicUrl;
       fileName = file.name;
     }
@@ -8392,13 +8392,13 @@ async function uploadPolicy() {
   const path = `policies/${Date.now()}_${file.name.replace(/[^a-z0-9.]/gi,'_')}`;
   // Try task-files first, fallback to employee-photos bucket
   let uploadErr, urlData;
-  const uploadResult = await sb.storage.from('task-files').upload(path, file, {upsert: true});
+  const uploadResult = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
   if (uploadResult.error) {
     const uploadResult2 = await sb.storage.from('employee-photos').upload(path, file, {upsert: true});
     if (uploadResult2.error) { msgEl.textContent='❌ Upload failed: '+uploadResult2.error.message; msgEl.style.color='var(--red)'; return; }
     urlData = sb.storage.from('employee-photos').getPublicUrl(path).data;
   } else {
-    urlData = sb.storage.from('task-files').getPublicUrl(path).data;
+    urlData = sb.storage.from('Task-Files').getPublicUrl(path).data;
   }
 const { error } = await sb.from('hr_policies').insert({
     title, description: desc,
@@ -9038,9 +9038,9 @@ async function uploadProfilePhoto(input) {
   const { error: uploadErr } = await sb.storage.from('employee-photos').upload(path, file, {upsert: true});
   if (uploadErr) {
     // Try task-files bucket as fallback
-    const { error: uploadErr2 } = await sb.storage.from('task-files').upload(path, file, {upsert: true});
+    const { error: uploadErr2 } = await sb.storage.from('Task-Files').upload(path, file, {upsert: true});
     if (uploadErr2) { showToast('❌ Upload failed: '+uploadErr2.message, 'err'); return; }
-    var urlData = sb.storage.from('task-files').getPublicUrl(path).data;
+    var urlData = sb.storage.from('Task-Files').getPublicUrl(path).data;
   } else {
     var urlData = sb.storage.from('employee-photos').getPublicUrl(path).data;
   }
@@ -11529,9 +11529,9 @@ async function saveComplianceEdit() {
       if (_cf.size > 10 * 1024 * 1024) { msgEl.textContent = '⚠️ File is too large (max 10 MB)'; msgEl.style.color = 'var(--red)'; return; }
       msgEl.textContent = '⏳ Uploading contract...'; msgEl.style.color = 'var(--muted)';
       const _path = `compliance-contracts/${Date.now()}_${_cf.name.replace(/[^a-z0-9.]/gi, '_')}`;
-      const { error: upErr } = await sb.storage.from('task-files').upload(_path, _cf, { upsert: false });
+      const { error: upErr } = await sb.storage.from('compliance-docs').upload(_path, _cf, { upsert: false });
       if (upErr) { msgEl.textContent = '❌ Upload failed: ' + upErr.message; msgEl.style.color = 'var(--red)'; return; }
-      _cUpd.contract_file_url = sb.storage.from('task-files').getPublicUrl(_path).data.publicUrl;
+      _cUpd.contract_file_url = sb.storage.from('compliance-docs').getPublicUrl(_path).data.publicUrl;
       _cUpd.contract_file_name = _cf.name;
     }
     const { error: cErr } = await sb.from('compliance_tasks').update(_cUpd).eq('id', currentComplianceMasterId || currentComplianceId);
