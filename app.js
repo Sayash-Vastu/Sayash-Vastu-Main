@@ -11447,6 +11447,7 @@ function openComplianceEdit(id, particulars, lastDate, assignedTo, category, fre
   currentComplianceMonthYear = monthYear;
   const _ttl = document.querySelector('#complianceModal .modal-title');
   if (_ttl) _ttl.textContent = '✏️ Edit Task';
+  window._compRemoveFile = false;
 
   document.getElementById('compModalContent').innerHTML = `
     <div class="form-grid cols-2">
@@ -11488,7 +11489,8 @@ function openComplianceEdit(id, particulars, lastDate, assignedTo, category, fre
       </div>
       <div class="field" style="grid-column:1/-1">
         <label>Contract Document (PDF / image)</label>
-        ${(window._compContract && window._compContract.f) ? `<div style="font-size:11px;margin-bottom:4px">Current: <a href="${window._compContract.f}" target="_blank" style="color:#185FA5">📄 ${window._compContract.n || 'View contract'}</a> (upload a new file to replace it)</div>` : ''}
+        ${(window._compContract && window._compContract.f) ? `<div id="ce-cfile-current" style="font-size:11px;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">Current: <a href="${window._compContract.f}" target="_blank" style="color:#185FA5">📄 ${window._compContract.n || 'View contract'}</a>
+          <button type="button" class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#fdf0ee;color:var(--red);border:1px solid var(--red)" onclick="window._compRemoveFile=true;document.getElementById('ce-cfile-current').innerHTML='<span style=&quot;color:var(--red)&quot;>File will be removed when you save. Upload a new file below if needed.</span>'">🗑️ Remove file</button></div>` : ''}
         <input type="file" id="ce-cfile" accept=".pdf,.jpg,.jpeg,.png">
       </div>
       <div class="field" style="grid-column:1/-1">
@@ -11525,6 +11527,15 @@ async function saveComplianceEdit() {
   {
     const _cUpd = { contract_start: _cs ? _cs + '-01' : null, contract_end: _ce ? _lastDay(_ce) : null };
     const _cf = document.getElementById('ce-cfile')?.files?.[0];
+    // Remove the current file (wrong upload) — also removed from storage when possible
+    if (window._compRemoveFile || _cf) {
+      const _old = (window._compContract && window._compContract.f) || '';
+      const _mark = '/compliance-docs/';
+      if (_old.includes(_mark)) {
+        try { await sb.storage.from('compliance-docs').remove([decodeURIComponent(_old.split(_mark)[1])]); } catch (e) {}
+      }
+      if (window._compRemoveFile && !_cf) { _cUpd.contract_file_url = null; _cUpd.contract_file_name = null; }
+    }
     if (_cf) {
       if (_cf.size > 10 * 1024 * 1024) { msgEl.textContent = '⚠️ File is too large (max 10 MB)'; msgEl.style.color = 'var(--red)'; return; }
       msgEl.textContent = '⏳ Uploading contract...'; msgEl.style.color = 'var(--muted)';
