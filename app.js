@@ -11491,7 +11491,12 @@ function openComplianceEdit(id, particulars, lastDate, assignedTo, category, fre
         <label>Contract Document (PDF / image)</label>
         ${(window._compContract && window._compContract.f) ? `<div id="ce-cfile-current" style="font-size:11px;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">Current: <a href="${window._compContract.f}" target="_blank" style="color:#185FA5">📄 ${window._compContract.n || 'View contract'}</a>
           <button type="button" class="btn btn-sm" style="font-size:10px;padding:2px 8px;background:#fdf0ee;color:var(--red);border:1px solid var(--red)" onclick="window._compRemoveFile=true;document.getElementById('ce-cfile-current').innerHTML='<span style=&quot;color:var(--red)&quot;>File will be removed when you save. Upload a new file below if needed.</span>'">🗑️ Remove file</button></div>` : ''}
-        <input type="file" id="ce-cfile" accept=".pdf,.jpg,.jpeg,.png">
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="file" id="ce-cfile" accept=".pdf,.jpg,.jpeg,.png" style="flex:1"
+            onchange="document.getElementById('ce-cfile-clear').style.display = this.files.length ? '' : 'none'">
+          <button type="button" id="ce-cfile-clear" title="Remove selected file" style="display:none;background:#fdf0ee;color:var(--red);border:1px solid var(--red);border-radius:6px;width:30px;height:30px;font-size:14px;font-weight:700;cursor:pointer;flex-shrink:0"
+            onclick="const i=document.getElementById('ce-cfile'); i.value=''; this.style.display='none';">✕</button>
+        </div>
       </div>
       <div class="field" style="grid-column:1/-1">
         <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:12px;font-weight:600;cursor:pointer">
