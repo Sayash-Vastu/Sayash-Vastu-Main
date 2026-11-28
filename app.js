@@ -11183,7 +11183,7 @@ const [tYear, tMonth] = monthVal.split('-').map(Number);
 let calcDate = null;
     if (m.last_date) {
       const masterDate = new Date(m.last_date);
-      const freq = (m.frequency || '').toLowerCase();
+      const freq = ({ m: 'monthly', q: 'quarterly', y: 'yearly' })[(m.frequency || '').toLowerCase()] || (m.frequency || '').toLowerCase();
       const today = new Date();
       if (freq === 'monthly') {
         calcDate = new Date(tYear, tMonth - 1, masterDate.getDate());
@@ -11215,6 +11215,9 @@ assigned_to_name: m.assigned_to_name, category: m.category,
   }
   if (catVal !== 'all') allTasks = allTasks.filter(t => t.category === catVal);
   if (statusVal !== 'all') allTasks = allTasks.filter(t => t.status === statusVal);
+  const searchVal = (document.getElementById('comp-search')?.value || '').trim().toLowerCase();
+  if (searchVal) allTasks = allTasks.filter(t =>
+    [t.particulars, t.category, t.assigned_to_name, t.remarks].some(v => String(v || '').toLowerCase().includes(searchVal)));
 const done = allTasks.filter(t => t.status === 'Done').length;
   const pending = allTasks.filter(t => t.status !== 'Done').length;
   document.getElementById('comp-done').textContent = done;
@@ -12499,7 +12502,8 @@ async function addComplianceTask() {
 const { error } = await sb.from('compliance_tasks').insert({
     particulars, frequency, last_date: lastDate||null,
     assigned_to_name: assignedTo, category,
-    month_year: monthYear, status: 'Pending'
+    month_year: monthYear, status: 'Pending',
+    is_master: true
   });
   if (error) { msgEl.textContent='❌ '+error.message; msgEl.style.color='var(--red)'; return; }
   msgEl.textContent='✅ Task added!'; msgEl.style.color='var(--green)';
