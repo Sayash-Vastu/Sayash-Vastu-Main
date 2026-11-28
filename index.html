@@ -1573,6 +1573,14 @@
             <option value="Done">✅ Done</option>
           </select>
 
+          <select id="comp-contract-filter" onchange="loadCompliance()" style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none">
+            <option value="all">All Contracts</option>
+            <option value="ending">⚠️ Ending in 3 months</option>
+            <option value="expired">🔴 Expired</option>
+            <option value="active">🟢 Active</option>
+            <option value="none">No contract dates</option>
+          </select>
+
           <input type="text" id="comp-search" placeholder="🔍 Search tasks..." oninput="clearTimeout(window._compSearchT); window._compSearchT = setTimeout(loadCompliance, 250)"
             style="padding:6px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;min-width:200px;flex:1">
 
@@ -1586,7 +1594,7 @@
           <div class="panel-head"><div class="panel-title">📋 Compliance Tasks</div></div>
           <div class="tbl-wrap">
             <table>
-              <thead><tr><th>#</th><th>Particulars</th><th>Freq</th><th>Last Date</th><th>Assigned To</th><th>Category</th><th>Status</th><th>Done By</th><th>Remarks</th><th>Action</th></tr></thead>
+              <thead><tr><th>#</th><th>Particulars</th><th>Contract</th><th>Freq</th><th>Last Date</th><th>Assigned To</th><th>Category</th><th>Status</th><th>Done By</th><th>Remarks</th><th>Action</th></tr></thead>
               <tbody id="complianceBody"></tbody>
             </table>
           </div>
@@ -2207,7 +2215,7 @@
     </div>
   </div>
 </div>
-<script src="app.js?v=76"></script>
+<script src="app.js?v=77"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="vastu-ppt-crm.js"></script>
   <script src="vastu-templates.js"></script> 
