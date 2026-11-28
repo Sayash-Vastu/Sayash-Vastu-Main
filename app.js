@@ -11314,6 +11314,10 @@ let currentComplianceMonthYear = null;
 let currentComplianceLastDate = null;
 
 function openComplianceDone(taskId, taskName, isVirtual, masterId, monthYear, lastDate) {
+  const _ttl = document.querySelector('#complianceModal .modal-title');
+  if (_ttl) _ttl.textContent = '✅ Mark Task Done';
+  const _btn = document.querySelector('#complianceModal .btn-gold');
+  if (_btn) { _btn.setAttribute('onclick', 'saveComplianceDone()'); _btn.textContent = '✅ Mark as Done'; }
   currentComplianceId = taskId;
   currentComplianceMasterId = masterId;
   currentComplianceIsVirtual = isVirtual === 'true' || isVirtual === true;
@@ -11389,12 +11393,15 @@ function openComplianceEdit(id, particulars, lastDate, assignedTo, category, fre
   currentComplianceMasterId = masterId;
   currentComplianceIsVirtual = isVirtual === 'true';
   currentComplianceMonthYear = monthYear;
+  const _ttl = document.querySelector('#complianceModal .modal-title');
+  if (_ttl) _ttl.textContent = '✏️ Edit Task';
 
   document.getElementById('compModalContent').innerHTML = `
-    <div style="padding:12px;background:#f8f9fc;border-radius:8px;margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--navy)">${esc(particulars)}</div>
-    </div>
     <div class="form-grid cols-2">
+      <div class="field" style="grid-column:1/-1">
+        <label>Task Name</label>
+        <input id="ce-particulars" value="${esc(particulars)}" placeholder="Task name">
+      </div>
       <div class="field" style="grid-column:1/-1">
         <label>Due Date</label>
         <input type="date" id="ce-date" value="${lastDate}">
@@ -11419,6 +11426,12 @@ function openComplianceEdit(id, particulars, lastDate, assignedTo, category, fre
           <option ${frequency==='Yearly'?'selected':''}>Yearly</option>
         </select>
       </div>
+      <div class="field" style="grid-column:1/-1">
+        <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:12px;font-weight:600;cursor:pointer">
+          <input type="checkbox" id="ce-all" checked style="width:auto">
+          Apply to all months (uncheck to change only ${esc(monthYear || 'this month')})
+        </label>
+      </div>
     </div>
     <div id="ce-msg" style="font-size:12px;font-weight:600;margin-top:8px"></div>
   `;
@@ -11432,15 +11445,29 @@ async function saveComplianceEdit() {
   const assignedTo = document.getElementById('ce-assigned').value.trim();
   const category = document.getElementById('ce-category').value;
   const frequency = document.getElementById('ce-frequency').value;
+  const particulars = (document.getElementById('ce-particulars')?.value || '').trim();
+  const applyAll = document.getElementById('ce-all')?.checked;
   const msgEl = document.getElementById('ce-msg');
 
+  if (!particulars) { msgEl.textContent = '⚠️ Task name required'; msgEl.style.color = 'var(--red)'; return; }
   if (!assignedTo) { msgEl.textContent = '⚠️ Assigned To required'; msgEl.style.color = 'var(--red)'; return; }
 
-  if (currentComplianceIsVirtual) {
+  if (applyAll) {
+    // Change the master (all months) + this month's saved copy, if there is one
+    const masterId = currentComplianceMasterId || currentComplianceId;
+    const fields = { particulars, assigned_to_name: assignedTo, category, frequency };
+    const { error } = await sb.from('compliance_tasks').update({ ...fields, last_date: newDate || null }).eq('id', masterId);
+    if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
+    if (!currentComplianceIsVirtual && currentComplianceId !== masterId) {
+      await sb.from('compliance_tasks').update({ ...fields, last_date: newDate || null }).eq('id', currentComplianceId);
+    }
+    // Keep the name the same on every month's saved copy (history)
+    await sb.from('compliance_tasks').update({ particulars }).eq('master_id', masterId);
+  } else if (currentComplianceIsVirtual) {
     const { data: master } = await sb.from('compliance_tasks').select('*').eq('id', currentComplianceMasterId).single();
     if (!master) { showToast('❌ Master not found', 'err'); return; }
     const { error } = await sb.from('compliance_tasks').insert({
-      particulars: master.particulars,
+      particulars,
       frequency, last_date: newDate || null,
       assigned_to_name: assignedTo, category,
       month_year: currentComplianceMonthYear,
@@ -11451,6 +11478,7 @@ async function saveComplianceEdit() {
     if (error) { msgEl.textContent = '❌ ' + error.message; msgEl.style.color = 'var(--red)'; return; }
   } else {
     const { error } = await sb.from('compliance_tasks').update({
+      particulars,
       last_date: newDate || null,
       assigned_to_name: assignedTo,
       category, frequency
@@ -11462,6 +11490,8 @@ async function saveComplianceEdit() {
   closeModal('complianceModal');
   document.querySelector('#complianceModal .btn-gold')?.setAttribute('onclick', 'saveComplianceDone()');
   document.querySelector('#complianceModal .btn-gold') && (document.querySelector('#complianceModal .btn-gold').textContent = '✅ Mark as Done');
+  const _ttl = document.querySelector('#complianceModal .modal-title');
+  if (_ttl) _ttl.textContent = '✅ Mark Task Done';
   loadCompliance();
 }
 
