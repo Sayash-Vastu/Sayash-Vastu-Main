@@ -11158,7 +11158,7 @@ function _contractState(end) {
   const e = new Date(String(end).slice(0, 10) + 'T00:00:00');
   const days = Math.round((e - today) / 86400000);
   if (days < 0) return { key: 'expired', label: 'Expired', cls: 'b-red', days };
-  if (days <= 90) return { key: 'ending', label: days <= 31 ? 'Ends this month' : 'Ends in ' + Math.ceil(days / 30) + ' months', cls: 'b-amber', days };
+  if (days <= 90) return { key: 'ending', label: days === 0 ? 'Ends today' : days <= 60 ? 'Ends in ' + days + ' days' : 'Ends in ' + Math.round(days / 30) + ' months', cls: 'b-amber', days };
   return { key: 'active', label: 'Active', cls: 'b-green', days };
 }
 function _contractCell(start, end) {
@@ -11167,6 +11167,23 @@ function _contractCell(start, end) {
   const st = _contractState(end);
   return `<div style="font-weight:600;color:var(--navy)">${f(start)} – ${f(end)}</div>` +
          (st.label ? `<span class="badge ${st.cls}" style="font-size:9px;margin-top:2px">${st.label}</span>` : '');
+}
+
+// Banner above the Compliance list: contracts expired or ending in the next 3 months (always shown, filters don't hide it)
+function _renderContractAlert(masters) {
+  const el = document.getElementById('comp-contract-alert');
+  if (!el) return;
+  const f = d => new Date(String(d).slice(0, 10) + 'T00:00:00').toLocaleDateString('en-IN', { month: 'short', year: 'numeric' });
+  const list = (masters || []).filter(m => m.contract_end)
+    .map(m => ({ m, st: _contractState(m.contract_end) }))
+    .filter(x => x.st.key === 'expired' || x.st.key === 'ending')
+    .sort((a, b) => a.st.days - b.st.days);
+  if (!list.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  const expired = list.some(x => x.st.key === 'expired');
+  el.style.display = '';
+  el.style.cssText = `margin-bottom:14px;padding:12px 16px;border-radius:10px;font-size:12px;border:1px solid ${expired ? '#f5c6cb' : '#f6d58e'};background:${expired ? '#fdf0ee' : '#fef7e6'}`;
+  el.innerHTML = `<div style="font-weight:700;color:${expired ? 'var(--red)' : 'var(--amber)'};margin-bottom:6px">${expired ? '🔴' : '⚠️'} Contract renewal needed (${list.length})</div>` +
+    list.map(x => `<div style="margin:2px 0">• <b>${esc(x.m.particulars)}</b> — ends ${f(x.m.contract_end)} · <span class="badge ${x.st.cls}" style="font-size:9px">${x.st.label}</span></div>`).join('');
 }
 
 async function loadCompliance() {
@@ -11231,8 +11248,11 @@ assigned_to_name: m.assigned_to_name, category: m.category,
   (masterTasks || []).forEach(m => { _masterById[m.id] = m; });
   allTasks = allTasks.map(t => {
     const m = _masterById[t.master_id] || _masterById[t.id] || {};
-    return { ...t, contract_start: m.contract_start || null, contract_end: m.contract_end || null, _masterId: m.id || t.master_id || t.id };
+    return { ...t, contract_start: m.contract_start || null, contract_end: m.contract_end || null,
+             contract_file_url: m.contract_file_url || null, contract_file_name: m.contract_file_name || null,
+             _masterId: m.id || t.master_id || t.id };
   });
+  _renderContractAlert(masterTasks || []);
   const contractVal = document.getElementById('comp-contract-filter')?.value || 'all';
   if (contractVal !== 'all') allTasks = allTasks.filter(t => _contractState(t.contract_end).key === contractVal);
 
@@ -11279,7 +11299,7 @@ const canUpdate = currentUser.email === 'alisha@sayashvastu.com' || currentUser.
     return `<tr style="${rowBg}">
       <td style="font-size:11px;color:var(--muted)">${i+1}</td>
       <td style="font-weight:600;font-size:12px;max-width:200px">${esc(t.particulars)}</td>
-      <td style="font-size:11px;white-space:nowrap">${_contractCell(t.contract_start, t.contract_end)}</td>
+      <td style="font-size:11px;white-space:nowrap">${_contractCell(t.contract_start, t.contract_end)}${t.contract_file_url ? `<div style="margin-top:3px"><a href="${esc(t.contract_file_url)}" target="_blank" style="font-size:10px;color:#185FA5;text-decoration:none">📄 View contract</a></div>` : ''}</td>
       <td><span class="badge b-blue" style="font-size:10px">${freqLabels[t.frequency]||t.frequency||'—'}</span></td>
 <td style="font-size:12px;font-weight:700;color:${isOverdue?'var(--red)':isDueSoon?'var(--amber)':'var(--navy)'}">
 ${t.last_date ? fmtDate(t.last_date) : '—'}
@@ -11304,7 +11324,7 @@ ${!isDone && currentUser.email === 'alisha@sayashvastu.com'
 ? `<button class="btn btn-sm" onclick="resetCompliance('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">↩️ Reset</button>`
     : '—'}
       ${(currentUser.role === 'ceo' || currentUser.email === 'alisha@sayashvastu.com') ? `
-        <button class="btn btn-outline btn-sm" onclick="window._compContract={s:'${(t.contract_start||'').slice(0,7)}',e:'${(t.contract_end||'').slice(0,7)}'};openComplianceEdit('${t.id}','${esc(t.particulars)}','${t.last_date||''}','${esc(t.assigned_to_name||'')}','${esc(t.category||'')}','${t.frequency||''}','${t._isVirtual?'true':'false'}','${t.master_id||''}','${t.month_year}')">✏️</button>
+        <button class="btn btn-outline btn-sm" onclick="window._compContract={s:'${(t.contract_start||'').slice(0,7)}',e:'${(t.contract_end||'').slice(0,7)}',f:'${esc(t.contract_file_url||'')}',n:'${esc(t.contract_file_name||'')}'};openComplianceEdit('${t.id}','${esc(t.particulars)}','${t.last_date||''}','${esc(t.assigned_to_name||'')}','${esc(t.category||'')}','${t.frequency||''}','${t._isVirtual?'true':'false'}','${t.master_id||''}','${t.month_year}')">✏️</button>
         <button class="btn btn-sm" onclick="deleteComplianceTask('${t.id}')" style="background:#fdf0ee;color:var(--red);border-color:var(--red-bg)">🗑️</button>
       ` : ''}
 </div>
@@ -11465,6 +11485,11 @@ function openComplianceEdit(id, particulars, lastDate, assignedTo, category, fre
         <input type="month" id="ce-cend" value="${(window._compContract && window._compContract.e) || ''}">
       </div>
       <div class="field" style="grid-column:1/-1">
+        <label>Contract Document (PDF / image)</label>
+        ${(window._compContract && window._compContract.f) ? `<div style="font-size:11px;margin-bottom:4px">Current: <a href="${window._compContract.f}" target="_blank" style="color:#185FA5">📄 ${window._compContract.n || 'View contract'}</a> (upload a new file to replace it)</div>` : ''}
+        <input type="file" id="ce-cfile" accept=".pdf,.jpg,.jpeg,.png">
+      </div>
+      <div class="field" style="grid-column:1/-1">
         <label style="display:flex;align-items:center;gap:8px;text-transform:none;font-size:12px;font-weight:600;cursor:pointer">
           <input type="checkbox" id="ce-all" checked style="width:auto">
           Apply to all months (uncheck to change only ${esc(monthYear || 'this month')})
@@ -11496,10 +11521,18 @@ async function saveComplianceEdit() {
   if (_cs && _ce && _ce < _cs) { msgEl.textContent = '⚠️ Contract end must be after contract start'; msgEl.style.color = 'var(--red)'; return; }
   const _lastDay = ym => { const [y, m] = ym.split('-').map(Number); return ym + '-' + String(new Date(y, m, 0).getDate()).padStart(2, '0'); };
   {
-    const { error: cErr } = await sb.from('compliance_tasks').update({
-      contract_start: _cs ? _cs + '-01' : null,
-      contract_end: _ce ? _lastDay(_ce) : null
-    }).eq('id', currentComplianceMasterId || currentComplianceId);
+    const _cUpd = { contract_start: _cs ? _cs + '-01' : null, contract_end: _ce ? _lastDay(_ce) : null };
+    const _cf = document.getElementById('ce-cfile')?.files?.[0];
+    if (_cf) {
+      if (_cf.size > 10 * 1024 * 1024) { msgEl.textContent = '⚠️ File is too large (max 10 MB)'; msgEl.style.color = 'var(--red)'; return; }
+      msgEl.textContent = '⏳ Uploading contract...'; msgEl.style.color = 'var(--muted)';
+      const _path = `compliance-contracts/${Date.now()}_${_cf.name.replace(/[^a-z0-9.]/gi, '_')}`;
+      const { error: upErr } = await sb.storage.from('task-files').upload(_path, _cf, { upsert: false });
+      if (upErr) { msgEl.textContent = '❌ Upload failed: ' + upErr.message; msgEl.style.color = 'var(--red)'; return; }
+      _cUpd.contract_file_url = sb.storage.from('task-files').getPublicUrl(_path).data.publicUrl;
+      _cUpd.contract_file_name = _cf.name;
+    }
+    const { error: cErr } = await sb.from('compliance_tasks').update(_cUpd).eq('id', currentComplianceMasterId || currentComplianceId);
     if (cErr) { msgEl.textContent = '❌ ' + cErr.message; msgEl.style.color = 'var(--red)'; return; }
   }
 
