@@ -1632,7 +1632,7 @@ async function loadClientVisitsAll() {
       if (!byClient[r.client_id]) byClient[r.client_id] = cp;
     });
     data.forEach(v => {
-      v._contact = (v.contact_person || '').trim() || byDay[v.client_id + '|' + String(v.visit_date || '').slice(0, 10)] || byClient[v.client_id] || '';
+      v._contact = (v.contact_person || '').trim() || byDay[v.client_id + '|' + String(v.visit_date || '').slice(0, 10)] || '';
     });
   } catch (e) { console.error('contact lookup failed', e); }
   const cfSel = document.getElementById('svClientFilter');
