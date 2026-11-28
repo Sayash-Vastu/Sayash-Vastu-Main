@@ -11160,7 +11160,7 @@ function _contractState(end) {
   const e = new Date(String(end).slice(0, 10) + 'T00:00:00');
   const days = Math.round((e - today) / 86400000);
   if (days < 0) return { key: 'expired', label: 'Expired', cls: 'b-red', days };
-  if (days <= 90) return { key: 'ending', label: days === 0 ? 'Ends today' : days <= 60 ? 'Ends in ' + days + ' days' : 'Ends in ' + Math.round(days / 30) + ' months', cls: 'b-amber', days };
+  if (days <= 60) return { key: 'ending', label: days === 0 ? 'Ends today' : 'Ends in ' + days + ' days', cls: 'b-amber', days };   // alert starts 2 months before the end
   return { key: 'active', label: 'Active', cls: 'b-green', days };
 }
 function _contractCell(start, end) {
@@ -11171,7 +11171,7 @@ function _contractCell(start, end) {
          (st.label ? `<span class="badge ${st.cls}" style="font-size:9px;margin-top:2px">${st.label}</span>` : '');
 }
 
-// Banner above the Compliance list: contracts expired or ending in the next 3 months (always shown, filters don't hide it)
+// Banner above the Compliance list: contracts expired or ending in the next 2 months (always shown, filters don't hide it)
 function _renderContractAlert(masters) {
   const el = document.getElementById('comp-contract-alert');
   if (!el) return;
